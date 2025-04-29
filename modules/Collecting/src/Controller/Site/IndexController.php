@@ -72,13 +72,34 @@ class IndexController extends AbstractActionController
         $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
         $form = $cForm->getForm();
         $form->setData($this->params()->fromPost());
-
+    
+        // Get the item set ID from the query parameters
+        $itemSetId = $this->params()->fromQuery('item_set_id');
+    
         if ($form->isValid()) {
-            $arrowheadData = $this->getFormData($cForm); // Extract data (see helper method below)
-
-            //  *** PASS DATA TO YOUR MODULE (ADJUST AS NEEDED)  ***
-            $this->redirectToTriplestore($arrowheadData, 'arrowhead');
-
+            $arrowheadData = $this->getFormData($cForm);
+    
+            // If an item set ID is provided, include it in the redirection
+            $query = [
+                'upload_type' => 'arrowhead',
+                'form_data' => $arrowheadData
+            ];
+            
+            if ($itemSetId) {
+                $query['item_set_id'] = $itemSetId;
+            }
+            
+            $url = $this->url('site/collecting', [
+                'site-slug' => $this->currentSite()->slug(),
+                'form-id' => $formId,
+                'action' => 'uploadArrowheadForm'
+            ], [
+                'query' => $query
+            ]);
+            
+            error_log('Redirecting to: ' . $url);
+            
+            $this->redirect()->toUrl($url);
         } else {
             $this->messenger()->addErrors($form->getMessages());
             return $this->redirect()->toRoute('site/collecting', ['form-id' => $formId, 'action' => 'uploadArrowheadForm']);

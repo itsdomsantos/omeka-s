@@ -1,12 +1,30 @@
 <?php
 $this->collectingPrepareForm(); // Call the CollectingPrepareForm view helper
+
+// Check if an item set ID was passed from the previous excavation upload
+$itemSetId = $this->params()->fromQuery('item_set_id');
+$result = $this->params()->fromQuery('result', '');
 ?>
 
-<?php
-echo $this->form()->openTag($form);
-?>
+<?php if ($itemSetId): ?>
+    <div class="excavation-context alert <?php echo $result ? 'alert-success' : 'alert-info'; ?>">
+        <p>You are adding an arrowhead to the excavation with Item Set ID: <?php echo $this->escapeHtml($itemSetId); ?></p>
+        
+        <?php if ($result): ?>
+            <div class="result-message">
+                <?php echo $this->escapeHtml($result); ?>
+            </div>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
+
+<?php echo $this->form()->openTag($form); ?>
 
 <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($formType); ?>">
+
+<?php if ($itemSetId): ?>
+    <input type="hidden" name="item_set_id" value="<?php echo $this->escapeHtml($itemSetId); ?>">
+<?php endif; ?>
 
 <div class="form-elements">
     <?php foreach ($form->getElements() as $element): ?>
