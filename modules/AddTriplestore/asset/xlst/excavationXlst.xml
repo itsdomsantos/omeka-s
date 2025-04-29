@@ -106,9 +106,6 @@
             <xsl:value-of select="EncounterEvent/Depth"/>
           </dbo:depth>
         </xsl:if>
-        <xsl:if test="EncounterEvent/FoundItem">
-          <crmsci:O19_encountered_object rdf:resource="https://purl.org/ah/ms/ahMS/resource/Arrowhead_{EncounterEvent/FoundItem}"/>
-        </xsl:if>
         <xsl:if test="StratigraphicUnit">
           <excav:foundInSVU rdf:resource="https://purl.org/ah/ms/excavationMS/resource/SVU_{StratigraphicUnit[1]/@id}"/>
         </xsl:if>

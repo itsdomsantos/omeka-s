@@ -22,10 +22,10 @@
   </PersonInCharge>
 
   <Contexts>
-    <Context id="CTX-001">
+    <Context id="CTX-004">
       <Description>Main habitation area</Description>
       
-      <StratigraphicUnit id="SVU-001">
+      <StratigraphicUnit id="SVU-004">
         <Description>Cultural layer with arrowheads</Description>
         <Timeline>
           <LowerBound year="2900" bc="true"/>
@@ -36,25 +36,6 @@
       <EncounterEvent>
         <Date>2023-06-15</Date>
         <Depth>1.75</Depth>
-        <FoundItem>AH0087</FoundItem>
-      </EncounterEvent>
-    </Context>
-    
-    <Context id="CTX-002">
-      <Description>Storage area</Description>
-      
-      <StratigraphicUnit id="SVU-002">
-        <Description>Stratified layer with preservation of organic materials</Description>
-        <Timeline>
-          <LowerBound year="2800" bc="true"/>
-          <UpperBound year="2600" bc="true"/>
-        </Timeline>
-      </StratigraphicUnit>
-
-      <EncounterEvent>
-        <Date>2023-07-10</Date>
-        <Depth>2.1</Depth>
-        <FoundItem>AH0088</FoundItem>
       </EncounterEvent>
     </Context>
   </Contexts>

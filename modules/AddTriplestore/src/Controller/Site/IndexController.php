@@ -252,14 +252,23 @@ private function transformCollectingFormDataToTTL(array $formData, ?string $uplo
 
 private function uploadTtlData(string $ttlData, ?int $itemSetId): string {
     // Check if this is excavation data
-    $isExcavation = strpos($ttlData, 'crmarchaeo:A9_Archaeological_Excavation') !== false;
+    $isExcavation = false;
+    try {
+        $this->validateUploadType($ttlData, 'excavation');
+        $isExcavation = true;
+    } catch (\Exception $e) {
+        // If validation fails, it means the data is not excavation data
+        error_log('Validation for excavation failed: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+    }
     $excavationIdentifier = null;
-    
+    error_log('debug here', 3, OMEKA_PATH . '/logs/excavation-debug.log');
     // If it's excavation data and no itemSetId is provided, create an item set
+    error_log('is excavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/excavation-debug.log');
     if ($isExcavation && !$itemSetId) {
         // Extract excavation identifier/acronym
+        error_log('Attempting to extract excavation identifier', 3, OMEKA_PATH . '/logs/excavation-debug.log');
         $excavationIdentifier = $this->extractExcavationIdentifier($ttlData);
-        error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug-final.log');
         
         if ($excavationIdentifier) {
             try {
@@ -375,6 +384,8 @@ private function extractExcavationIdentifier(string $ttlData): ?string
     // If no identifier found, generate a timestamp-based one
     $generatedId = 'EXC' . time();
     error_log('No identifier found. Generated ID: ' . $generatedId);
+    // log the id
+    error_log('Generated ID: ' . $generatedId, 3, OMEKA_PATH . '/logs/excavation-debug-final.log');
     return $generatedId;
 }
 
@@ -393,7 +404,10 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
         return; // No upload type specified, skip validation
     }
 
-    $isExcavation = strpos($ttlData, 'crmarchaeo:A9_Archaeological_Excavation') !== false;
+    // Check for both prefixed and full URI forms
+    $isExcavation = (strpos($ttlData, 'crmarchaeo:A9_Archaeological_Excavation') !== false) || 
+                    (strpos($ttlData, '<http://www.cidoc-crm.org/extensions/crmarchaeo/A9_Archaeological_Excavation>') !== false);
+    
     if ($uploadType === 'excavation' && !$isExcavation) {
         throw new \Exception('Invalid data type for excavation upload.');
     } elseif ($uploadType === 'arrowhead' && $isExcavation) {
@@ -551,7 +565,6 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
             '/<excav:bc rdf:datatype="[^"]+">([^<]+)<\/excav:bc>/' => 'excav:bc $1;',
             '/<dcterms:date rdf:datatype="[^"]+">([^<]+)<\/dcterms:date>/' => 'dcterms:date "$1"^^xsd:date;',
             '/<dbo:depth rdf:datatype="[^"]+">([^<]+)<\/dbo:depth>/' => 'dbo:depth "$1"^^xsd:decimal;',
-            '/<crmsci:O19_encountered_object rdf:resource="([^"]+)"\/>/' => 'crmsci:O19_encountered_object <$1>;',
             '/<dbo:district rdf:resource="([^"]+)"\/>/' => 'dbo:district <$1>;',
             '/<dbo:parish rdf:resource="([^"]+)"\/>/' => 'dbo:parish <$1>;',
             '/\s*rdf:about="([^"]+)"/' => '',
