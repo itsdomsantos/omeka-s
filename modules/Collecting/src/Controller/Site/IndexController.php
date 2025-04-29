@@ -40,18 +40,39 @@ class IndexController extends AbstractActionController
         return $view;
     }
 
-    public function uploadExcavationFormAction()
-    {
-        $formId = $this->params('form-id');
-        $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
-        $form = $cForm->getForm();
+// In modules/Collecting/src/Controller/Site/IndexController.php
+public function uploadExcavationFormAction()
+{
+    $formId = 3;
+    $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
+    $form = $cForm->getForm();
 
-        $view = new ViewModel([
-            'form' => $form,
-            'formType' => 'excavation', // Pass form type to the view
-        ]);
-        return $view;
-    }
+    // Query the triplestore for existing entities (simplified)
+    $existingContexts = [
+        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/Context_CTX-001', 'label' => 'CTX-001'],
+        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/Context_CTX-002', 'label' => 'CTX-002']
+    ];
+    
+    $existingSVUs = [
+        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/SVU_SVU-001', 'label' => 'SVU-001'],
+        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/SVU_SVU-002', 'label' => 'SVU-002']
+    ];
+    
+    $existingEncounterEvents = [
+        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/Event_CTX-001', 'label' => '2023-06-15'],
+        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/Event_CTX-002', 'label' => '2023-07-15']
+    ];
+
+    $view = new ViewModel([
+        'form' => $form,
+        'formType' => 'excavation',
+        'existingContexts' => $existingContexts,
+        'existingSVUs' => $existingSVUs,
+        'existingEncounterEvents' => $existingEncounterEvents,
+    ]);
+    
+    return $view;
+}
 
     public function submitArrowheadAction()
     {
@@ -72,56 +93,194 @@ class IndexController extends AbstractActionController
         }
     }
 
-    public function submitExcavationAction()
+    /**
+ * Fetch entities of a specific type from the triple store
+ * 
+ * @param string $entityType The type of entity to fetch (Context, SVU, EncounterEvent)
+ * @return array List of entities with their IDs and names
+ */
+private function fetchEntitiesFromTripleStore($entityType)
 {
-    error_log('submitExcavationAction foi chamada.');
+    // Base SPARQL endpoint
+    $endpoint = "http://localhost:7200/repositories/arch-project-shacl";
+    
+    // Query pattern depends on entity type
+    switch ($entityType) {
+        case 'Context':
+            $query = "
+                PREFIX crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/>
+                PREFIX dct: <http://purl.org/dc/terms/>
+                
+                SELECT ?context ?id
+                WHERE {
+                    ?context a crmarchaeo:A1_Excavation_Processing_Unit ;
+                             dct:identifier ?id .
+                }
+                ORDER BY ?id
+            ";
+            break;
+            
+        case 'SVU':
+            $query = "
+                PREFIX crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/>
+                PREFIX dct: <http://purl.org/dc/terms/>
+                
+                SELECT ?svu ?id
+                WHERE {
+                    ?svu a crmarchaeo:A2_Stratigraphic_Volume_Unit ;
+                         dct:identifier ?id .
+                }
+                ORDER BY ?id
+            ";
+            break;
+            
+        case 'EncounterEvent':
+            $query = "
+                PREFIX crmsci: <https://cidoc-crm.org/extensions/crmsci/>
+                PREFIX dct: <http://purl.org/dc/terms/>
+                
+                SELECT ?event ?date
+                WHERE {
+                    ?event a crmsci:S19_Encounter_Event ;
+                           dct:date ?date .
+                }
+                ORDER BY ?date
+            ";
+            break;
+            
+        default:
+            return [];
+    }
+    
+    // Use HTTP client to query the triple store
+    $client = new \Laminas\Http\Client();
+    $client->setUri($endpoint);
+    $client->setMethod('POST');
+    $client->setParameterPost([
+        'query' => $query,
+        'format' => 'application/sparql-results+json'
+    ]);
+    
+    $response = $client->send();
+    
+    if ($response->isSuccess()) {
+        $results = json_decode($response->getBody(), true);
+        $entities = [];
+        
+        // Process results based on entity type
+        if (isset($results['results']['bindings'])) {
+            foreach ($results['results']['bindings'] as $binding) {
+                if ($entityType === 'EncounterEvent') {
+                    $entities[] = [
+                        'uri' => $binding['event']['value'],
+                        'label' => $binding['date']['value']
+                    ];
+                } else {
+                    $entities[] = [
+                        'uri' => $binding[strtolower($entityType)]['value'],
+                        'label' => $binding['id']['value']
+                    ];
+                }
+            }
+        }
+        
+        return $entities;
+    }
+    
+    return [];
+}
 
+public function submitExcavationAction()
+{
     $formId = $this->params('form-id');
     $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
     $form = $cForm->getForm();
     $form->setData($this->params()->fromPost());
 
     if ($form->isValid()) {
-        $excavationData = $this->getFormData($cForm); // Extract data
-
-        // *** Get the excavation identifier (adjust based on your form) ***
-        $excavationIdentifier = $excavationData['algum_campo_de_identificacao'] ?? null;
-
-        if ($excavationIdentifier) {
-            // *** Create a new Item Set ***
-            $itemSetData = [
-                'o:title' => [['@value' => 'Escavação ' . $excavationIdentifier, 'property_id' => 1]], // Property ID 1 é geralmente 'dcterms:title'
-            ];
-            error_log('Dados para criar Item Set: ' . json_encode($itemSetData), 3, OMEKA_PATH . '/logs/upload-type.log');
-
-            $response = $this->api()->create('item_sets', $itemSetData);
-
-            error_log('Resposta da API de criação do Item Set: ' . json_encode($response), 3, OMEKA_PATH . '/logs/upload-type.log');
-
-
-            if ($response) {
-                $itemSet = $response->getContent();
-                $itemSetId = $itemSet->id();
-
-                error_log('Item Set criado com ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/upload-type.log');
-
-                // *** Pass the Item Set ID to the AddTriplestore module ***
-                $this->redirectToTriplestore($excavationData, 'excavation', $itemSetId);
-                return; // Important: stop the current execution
-            } else {
-                $this->messenger()->addErrors(['Erro ao criar o Item Set.']);
-
-                return $this->redirect()->toRoute('site/collecting', ['form-id' => $formId, 'action' => 'uploadExcavationForm']);
-            }
-        } else {
-            $this->messenger()->addErrors(['Identificador da escavação não encontrado.']);
-            return $this->redirect()->toRoute('site/collecting', ['form-id' => $formId, 'action' => 'uploadExcavationForm']);
-        }
-
+        $excavationData = $this->getFormData($cForm);
+        
+        // Capture the additional entity data
+        $excavationData['context'] = [
+            'id' => $this->params()->fromPost('new_context_id', ''),
+            'description' => $this->params()->fromPost('new_context_description', '')
+        ];
+        
+        $excavationData['svu'] = [
+            'id' => $this->params()->fromPost('new_svu_id', ''),
+            'description' => $this->params()->fromPost('new_svu_description', ''),
+            'lower_year' => $this->params()->fromPost('new_svu_lower_year', ''),
+            'lower_bc' => $this->params()->fromPost('new_svu_lower_bc', false) ? true : false,
+            'upper_year' => $this->params()->fromPost('new_svu_upper_year', ''),
+            'upper_bc' => $this->params()->fromPost('new_svu_upper_bc', false) ? true : false
+        ];
+        
+        $excavationData['encounter'] = [
+            'date' => $this->params()->fromPost('new_encounter_date', ''),
+            'depth' => $this->params()->fromPost('new_encounter_depth', '')
+        ];
+        
+        $this->redirectToTriplestore($excavationData, 'excavation');
     } else {
         $this->messenger()->addErrors($form->getMessages());
         return $this->redirect()->toRoute('site/collecting', ['form-id' => $formId, 'action' => 'uploadExcavationForm']);
     }
+}
+
+private function createTtlFromExcavationData($data)
+{
+    $ttl = "@prefix excav: <https://purl.org/ah/ms/excavationMS#>.\n";
+    $ttl .= "@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.\n";
+    $ttl .= "@prefix time: <http://www.w3.org/2006/time#>.\n";
+    $ttl .= "@prefix dbo: <http://dbpedia.org/ontology/>.\n";
+    $ttl .= "@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>.\n";
+    $ttl .= "@prefix sh: <http://www.w3.org/ns/shacl#>.\n";
+    $ttl .= "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/>.\n";
+    $ttl .= "@prefix crmsci: <https://cidoc-crm.org/extensions/crmsci/>.\n";
+    $ttl .= "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/>.\n";
+    $ttl .= "@prefix edm: <http://www.europeana.eu/schemas/edm#>.\n";
+    $ttl .= "@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>.\n";
+    $ttl .= "@prefix ah: <http://www.purl.com/ah/ms/ahMS#>.\n";
+    $ttl .= "@prefix ah-vocab: <http://www.purl.com/ah/kos#>.\n";
+    $ttl .= "@prefix dct: <http://purl.org/dc/terms/>.\n";
+    $ttl .= "@prefix foaf: <http://xmlns.com/foaf/0.1/>.\n";
+    $ttl .= "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.\n";
+    $ttl .= "@prefix schema: <http://schema.org/>.\n";
+    $ttl .= "@prefix voaf: <http://purl.org/vocommons/voaf#>.\n";
+    $ttl .= "@prefix skos: <http://www.w3.org/2004/02/skos/core#>.\n";
+    
+    return $ttl;
+}
+
+/**
+ * Process entity selection - either return existing URI or create new entity data
+ */
+private function processEntitySelection($existingUri, array $newData, $entityType)
+{
+    if (!empty($existingUri)) {
+        return ['uri' => $existingUri, 'isExisting' => true];
+    }
+    
+    // Check if we have the minimum required data to create a new entity
+    switch ($entityType) {
+        case 'Context':
+            if (empty($newData['id'])) {
+                return null;
+            }
+            break;
+        case 'SVU':
+            if (empty($newData['id'])) {
+                return null;
+            }
+            break;
+        case 'EncounterEvent':
+            if (empty($newData['date'])) {
+                return null;
+            }
+            break;
+    }
+    
+    return ['data' => $newData, 'isExisting' => false, 'type' => $entityType];
 }
 
 /**

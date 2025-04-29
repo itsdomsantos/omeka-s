@@ -34,7 +34,10 @@ class IndexController extends AbstractActionController
         return new ViewModel(['site' => $site]);
     }
 
-    public function uploadAction()
+/**
+ * Process an uploaded TTL file or form data and send it to the triple store
+ */
+public function uploadAction()
 {
     error_log("uploadAction() called");
 
@@ -184,6 +187,168 @@ class IndexController extends AbstractActionController
     }
 }
 
+private function transformExcavationDataToTTL($excavationData)
+{
+    $ttl = "@prefix excav: <https://purl.org/ah/ms/excavationMS#>.\n";
+    $ttl .= "@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.\n";
+    $ttl .= "@prefix time: <http://www.w3.org/2006/time#>.\n";
+    $ttl .= "@prefix dbo: <http://dbpedia.org/ontology/>.\n";
+    $ttl .= "@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>.\n";
+    $ttl .= "@prefix sh: <http://www.w3.org/ns/shacl#>.\n";
+    $ttl .= "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/>.\n";
+    $ttl .= "@prefix crmsci: <https://cidoc-crm.org/extensions/crmsci/>.\n";
+    $ttl .= "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/>.\n";
+    $ttl .= "@prefix edm: <http://www.europeana.eu/schemas/edm#>.\n";
+    $ttl .= "@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>.\n";
+    $ttl .= "@prefix ah: <http://www.purl.com/ah/ms/ahMS#>.\n";
+    $ttl .= "@prefix ah-vocab: <http://www.purl.com/ah/kos#>.\n";
+    $ttl .= "@prefix dct: <http://purl.org/dc/terms/>.\n";
+    $ttl .= "@prefix foaf: <http://xmlns.com/foaf/0.1/>.\n";
+    $ttl .= "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.\n";
+    $ttl .= "@prefix schema: <http://schema.org/>.\n";
+    $ttl .= "@prefix voaf: <http://purl.org/vocommons/voaf#>.\n";
+    $ttl .= "@prefix skos: <http://www.w3.org/2004/02/skos/core#>.\n";
+    
+    // Generate base excavation data
+    $excavationId = $excavationData['identifier'] ?? 'EXC-' . time();
+    $excavationUri = "<https://purl.org/ah/ms/excavationMS/resource/Excavation_$excavationId>";
+    
+    $ttl .= "$excavationUri a crmarchaeo:A9_Archaeological_Excavation;\n";
+    $ttl .= "    dct:identifier \"$excavationId\"^^xsd:string;\n";
+    // Add other excavation properties...
+    
+    // Handle context
+    if (!empty($excavationData['entities']['context'])) {
+        $context = $excavationData['entities']['context'];
+        if ($context['isExisting']) {
+            // Use existing context
+            $ttl .= "    excav:hasContext <{$context['uri']}>;\n";
+        } else {
+            // Create new context
+            $contextId = $context['data']['id'];
+            $contextUri = "<https://purl.org/ah/ms/excavationMS/resource/Context_$contextId>";
+            
+            $ttl .= "    excav:hasContext $contextUri;\n";
+            
+            // Add the context definition
+            $ttl .= "$contextUri a crmarchaeo:A1_Excavation_Processing_Unit;\n";
+            $ttl .= "    dct:identifier \"$contextId\"^^xsd:string;\n";
+            
+            if (!empty($context['data']['description'])) {
+                $ttl .= "    dct:description \"{$context['data']['description']}\"^^xsd:string;\n";
+            }
+            
+            // Link to SVU if available
+            if (!empty($excavationData['entities']['svu'])) {
+                $svu = $excavationData['entities']['svu'];
+                if ($svu['isExisting']) {
+                    $ttl .= "    excav:hasSVU <{$svu['uri']}>;\n";
+                } elseif (!empty($svu['data']['id'])) {
+                    $svuId = $svu['data']['id'];
+                    $ttl .= "    excav:hasSVU <https://purl.org/ah/ms/excavationMS/resource/SVU_$svuId>;\n";
+                }
+            }
+            
+            $ttl .= "    .\n";
+        }
+    }
+    
+    // Handle SVU if it's new
+    if (!empty($excavationData['entities']['svu']) && !$excavationData['entities']['svu']['isExisting']) {
+        $svu = $excavationData['entities']['svu']['data'];
+        $svuId = $svu['id'];
+        $svuUri = "<https://purl.org/ah/ms/excavationMS/resource/SVU_$svuId>";
+        
+        $ttl .= "$svuUri a crmarchaeo:A2_Stratigraphic_Volume_Unit;\n";
+        $ttl .= "    dct:identifier \"$svuId\"^^xsd:string;\n";
+        
+        if (!empty($svu['description'])) {
+            $ttl .= "    dct:description \"{$svu['description']}\"^^xsd:string;\n";
+        }
+        
+        // Add timeline if years are provided
+        if (!empty($svu['lower_year']) || !empty($svu['upper_year'])) {
+            $timelineUri = "<https://purl.org/ah/ms/excavationMS/resource/Timeline_$svuId>";
+            $ttl .= "    excav:hasTimeLine $timelineUri;\n";
+            $ttl .= "    .\n";
+            
+            $ttl .= "$timelineUri a time:TemporalEntity;\n";
+            
+            if (!empty($svu['lower_year'])) {
+                $lowerUri = "<https://purl.org/ah/ms/excavationMS/resource/Instant_LowerBound_{$svu['lower_year']}>";
+                $ttl .= "    time:hasBeginning $lowerUri;\n";
+                
+                $ttl .= "$lowerUri a time:Instant;\n";
+                $ttl .= "    time:inXSDYear \"{$svu['lower_year']}\"^^xsd:gYear;\n";
+                $ttl .= "    excav:bc " . ($svu['lower_bc'] ? "true" : "false") . ";\n";
+                $ttl .= "    .\n";
+            }
+            
+            if (!empty($svu['upper_year'])) {
+                $upperUri = "<https://purl.org/ah/ms/excavationMS/resource/Instant_UpperBound_{$svu['upper_year']}>";
+                $ttl .= "    time:hasEnd $upperUri;\n";
+                
+                $ttl .= "$upperUri a time:Instant;\n";
+                $ttl .= "    time:inXSDYear \"{$svu['upper_year']}\"^^xsd:gYear;\n";
+                $ttl .= "    excav:bc " . ($svu['upper_bc'] ? "true" : "false") . ";\n";
+                $ttl .= "    .\n";
+            }
+            
+            $ttl .= "    .\n";
+        } else {
+            $ttl .= "    .\n";
+        }
+    }
+    
+    // Handle Encounter Event
+    if (!empty($excavationData['entities']['encounter'])) {
+        $encounter = $excavationData['entities']['encounter'];
+        if ($encounter['isExisting']) {
+            // Use existing encounter event
+            $ttl .= "<{$encounter['uri']}> excav:foundInAExcavation $excavationUri .\n";
+        } elseif (!empty($encounter['data']['date'])) {
+            // Create new encounter event
+            $eventId = 'Event_' . preg_replace('/[^0-9]/', '', $encounter['data']['date']) . '_' . rand(1000, 9999);
+            $eventUri = "<https://purl.org/ah/ms/excavationMS/resource/$eventId>";
+            
+            $ttl .= "$eventUri a crmsci:S19_Encounter_Event;\n";
+            $ttl .= "    dct:date \"{$encounter['data']['date']}\"^^xsd:date;\n";
+            
+            if (!empty($encounter['data']['depth'])) {
+                $ttl .= "    dbo:depth \"{$encounter['data']['depth']}\"^^xsd:decimal;\n";
+            }
+            
+            $ttl .= "    excav:foundInAExcavation $excavationUri;\n";
+            
+            // Link to context if available
+            if (!empty($excavationData['entities']['context'])) {
+                $context = $excavationData['entities']['context'];
+                if ($context['isExisting']) {
+                    $ttl .= "    excav:foundInAContext <{$context['uri']}>;\n";
+                } elseif (!empty($context['data']['id'])) {
+                    $contextId = $context['data']['id'];
+                    $ttl .= "    excav:foundInAContext <https://purl.org/ah/ms/excavationMS/resource/Context_$contextId>;\n";
+                }
+            }
+            
+            // Link to SVU if available
+            if (!empty($excavationData['entities']['svu'])) {
+                $svu = $excavationData['entities']['svu'];
+                if ($svu['isExisting']) {
+                    $ttl .= "    excav:foundInSVU <{$svu['uri']}>;\n";
+                } elseif (!empty($svu['data']['id'])) {
+                    $svuId = $svu['data']['id'];
+                    $ttl .= "    excav:foundInSVU <https://purl.org/ah/ms/excavationMS/resource/SVU_$svuId>;\n";
+                }
+            }
+            
+            $ttl .= "    .\n";
+        }
+    }
+    
+    return $ttl;
+}
+
 
 
 private function processFormSubmission($request, ?string $uploadType, ?int $itemSetId): string
@@ -250,9 +415,18 @@ private function transformCollectingFormDataToTTL(array $formData, ?string $uplo
 }
 
 
+/**
+ * Process the TTL data and upload it to the triple store and Omeka S
+ * 
+ * @param string $ttlData The TTL data to process
+ * @param int|null $itemSetId Optional item set ID to associate with
+ * @return string Result message
+ */
 private function uploadTtlData(string $ttlData, ?int $itemSetId): string {
     // Check if this is excavation data
     $isExcavation = false;
+    $excavationIdentifier = null;
+    
     try {
         $this->validateUploadType($ttlData, 'excavation');
         $isExcavation = true;
@@ -260,16 +434,59 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId): string {
         // If validation fails, it means the data is not excavation data
         error_log('Validation for excavation failed: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
     }
-    $excavationIdentifier = null;
-    error_log('debug here', 3, OMEKA_PATH . '/logs/excavation-debug.log');
+    
+    // If we're processing excavation data from a form with additional entity data
+    if ($isExcavation && isset($_POST['upload_type']) && $_POST['upload_type'] === 'excavation') {
+        // Extract context data
+        $contextId = $_POST['new_context_id'] ?? null;
+        $contextDescription = $_POST['new_context_description'] ?? null;
+        
+        // Extract SVU data
+        $svuId = $_POST['new_svu_id'] ?? null;
+        $svuDescription = $_POST['new_svu_description'] ?? null;
+        $svuLowerYear = $_POST['new_svu_lower_year'] ?? null;
+        $svuLowerBc = isset($_POST['new_svu_lower_bc']) ? true : false;
+        $svuUpperYear = $_POST['new_svu_upper_year'] ?? null;
+        $svuUpperBc = isset($_POST['new_svu_upper_bc']) ? true : false;
+        
+        // Extract encounter event data
+        $encounterDate = $_POST['new_encounter_date'] ?? null;
+        $encounterDepth = $_POST['new_encounter_depth'] ?? null;
+        
+        // Extract the excavation identifier from the TTL data
+        if (preg_match('/dct:identifier\s+"([^"]+)"\^\^xsd:string/i', $ttlData, $matches)) {
+            $excavationIdentifier = $matches[1];
+        } else {
+            // Generate a new identifier if not found
+            $excavationIdentifier = 'EXC-' . time();
+        }
+        
+        error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-identifier.log');
+        
+        // Add entity relationships to the TTL data
+        $ttlData = $this->appendEntityDataToTtl($ttlData, $excavationIdentifier, [
+            'context' => [
+                'id' => $contextId,
+                'description' => $contextDescription
+            ],
+            'svu' => [
+                'id' => $svuId,
+                'description' => $svuDescription,
+                'lower_year' => $svuLowerYear,
+                'lower_bc' => $svuLowerBc,
+                'upper_year' => $svuUpperYear,
+                'upper_bc' => $svuUpperBc
+            ],
+            'encounter' => [
+                'date' => $encounterDate,
+                'depth' => $encounterDepth
+            ]
+        ]);
+    }
+    
     // If it's excavation data and no itemSetId is provided, create an item set
     error_log('is excavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/excavation-debug.log');
     if ($isExcavation && !$itemSetId) {
-        // Extract excavation identifier/acronym
-        error_log('Attempting to extract excavation identifier', 3, OMEKA_PATH . '/logs/excavation-debug.log');
-        $excavationIdentifier = $this->extractExcavationIdentifier($ttlData);
-        error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug-final.log');
-        
         if ($excavationIdentifier) {
             try {
                 // Create a new item set directly using the API manager
@@ -362,6 +579,144 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId): string {
     } else {
         return 'Failed to upload data to GraphDB: ' . $graphDbResult;
     }
+}
+
+/**
+ * Append entity data to the TTL content
+ * 
+ * @param string $ttlData Original TTL data
+ * @param string $excavationIdentifier The excavation identifier
+ * @param array $entityData The entity data to append
+ * @return string Updated TTL data
+ */
+private function appendEntityDataToTtl(string $ttlData, string $excavationIdentifier, array $entityData) {
+    // Ensure we have the needed prefixes
+    if (strpos($ttlData, '@prefix time:') === false) {
+        $ttlData = "@prefix time: <http://www.w3.org/2006/time#>.\n" . $ttlData;
+    }
+    if (strpos($ttlData, '@prefix dbo:') === false) {
+        $ttlData = "@prefix dbo: <http://dbpedia.org/ontology/>.\n" . $ttlData;
+    }
+    
+    // Remove the final dot from the TTL if it exists, so we can append more triples
+    $ttlData = rtrim($ttlData, " .\n") . " ;\n";
+    
+    $excavationUri = "<https://purl.org/ah/ms/excavationMS/resource/Excavation_$excavationIdentifier>";
+    
+    // Add context data if it exists
+    if (!empty($entityData['context']['id'])) {
+        $contextId = $entityData['context']['id'];
+        $contextUri = "<https://purl.org/ah/ms/excavationMS/resource/Context_$contextId>";
+        
+        $ttlData .= "    excav:hasContext $contextUri .\n\n";
+        
+        $ttlData .= "$contextUri a crmarchaeo:A1_Excavation_Processing_Unit ;\n";
+        $ttlData .= "    dct:identifier \"$contextId\"^^xsd:string ;\n";
+        
+        if (!empty($entityData['context']['description'])) {
+            $desc = addslashes($entityData['context']['description']);
+            $ttlData .= "    dct:description \"$desc\"^^xsd:string ;\n";
+        }
+        
+        // Link context to SVU if it exists
+        if (!empty($entityData['svu']['id'])) {
+            $svuId = $entityData['svu']['id'];
+            $svuUri = "<https://purl.org/ah/ms/excavationMS/resource/SVU_$svuId>";
+            $ttlData .= "    excav:hasSVU $svuUri .\n\n";
+        } else {
+            $ttlData .= "    .\n\n";
+        }
+    }
+    
+    // Add SVU data if it exists
+    if (!empty($entityData['svu']['id'])) {
+        $svuId = $entityData['svu']['id'];
+        $svuUri = "<https://purl.org/ah/ms/excavationMS/resource/SVU_$svuId>";
+        
+        $ttlData .= "$svuUri a crmarchaeo:A2_Stratigraphic_Volume_Unit ;\n";
+        $ttlData .= "    dct:identifier \"$svuId\"^^xsd:string ;\n";
+        
+        if (!empty($entityData['svu']['description'])) {
+            $desc = addslashes($entityData['svu']['description']);
+            $ttlData .= "    dct:description \"$desc\"^^xsd:string ;\n";
+        }
+        
+        // Add timeline for SVU if years are provided
+        if (!empty($entityData['svu']['lower_year']) || !empty($entityData['svu']['upper_year'])) {
+            $timelineUri = "<https://purl.org/ah/ms/excavationMS/resource/Timeline_$svuId>";
+            $ttlData .= "    excav:hasTimeLine $timelineUri .\n\n";
+            
+            $ttlData .= "$timelineUri a time:TemporalEntity ;\n";
+            
+            if (!empty($entityData['svu']['lower_year'])) {
+                $lowerYear = $entityData['svu']['lower_year'];
+                $lowerUri = "<https://purl.org/ah/ms/excavationMS/resource/Instant_LowerBound_$lowerYear>";
+                $ttlData .= "    time:hasBeginning $lowerUri ;\n";
+            }
+            
+            if (!empty($entityData['svu']['upper_year'])) {
+                $upperYear = $entityData['svu']['upper_year'];
+                $upperUri = "<https://purl.org/ah/ms/excavationMS/resource/Instant_UpperBound_$upperYear>";
+                $ttlData .= "    time:hasEnd $upperUri .\n\n";
+            } else {
+                $ttlData .= "    .\n\n";
+            }
+            
+            // Add lower and upper instant definitions
+            if (!empty($entityData['svu']['lower_year'])) {
+                $lowerYear = $entityData['svu']['lower_year'];
+                $lowerUri = "<https://purl.org/ah/ms/excavationMS/resource/Instant_LowerBound_$lowerYear>";
+                $ttlData .= "$lowerUri a time:Instant ;\n";
+                $ttlData .= "    time:inXSDYear \"$lowerYear\"^^xsd:gYear ;\n";
+                $ttlData .= "    excav:bc " . ($entityData['svu']['lower_bc'] ? "true" : "false") . " .\n\n";
+            }
+            
+            if (!empty($entityData['svu']['upper_year'])) {
+                $upperYear = $entityData['svu']['upper_year'];
+                $upperUri = "<https://purl.org/ah/ms/excavationMS/resource/Instant_UpperBound_$upperYear>";
+                $ttlData .= "$upperUri a time:Instant ;\n";
+                $ttlData .= "    time:inXSDYear \"$upperYear\"^^xsd:gYear ;\n";
+                $ttlData .= "    excav:bc " . ($entityData['svu']['upper_bc'] ? "true" : "false") . " .\n\n";
+            }
+        } else {
+            $ttlData .= "    .\n\n";
+        }
+    }
+    
+    // Add encounter event data if it exists
+    if (!empty($entityData['encounter']['date'])) {
+        $encounterDate = $entityData['encounter']['date'];
+        $eventId = 'Event_' . preg_replace('/[^0-9]/', '', $encounterDate) . '_' . rand(1000, 9999);
+        $eventUri = "<https://purl.org/ah/ms/excavationMS/resource/$eventId>";
+        
+        $ttlData .= "$eventUri a crmsci:S19_Encounter_Event ;\n";
+        $ttlData .= "    dct:date \"$encounterDate\"^^xsd:date ;\n";
+        
+        if (!empty($entityData['encounter']['depth'])) {
+            $depth = $entityData['encounter']['depth'];
+            $ttlData .= "    dbo:depth \"$depth\"^^xsd:decimal ;\n";
+        }
+        
+        $ttlData .= "    excav:foundInAExcavation $excavationUri ;\n";
+        
+        // Link to context if it exists
+        if (!empty($entityData['context']['id'])) {
+            $contextId = $entityData['context']['id'];
+            $contextUri = "<https://purl.org/ah/ms/excavationMS/resource/Context_$contextId>";
+            $ttlData .= "    excav:foundInAContext $contextUri ;\n";
+        }
+        
+        // Link to SVU if it exists
+        if (!empty($entityData['svu']['id'])) {
+            $svuId = $entityData['svu']['id'];
+            $svuUri = "<https://purl.org/ah/ms/excavationMS/resource/SVU_$svuId>";
+            $ttlData .= "    excav:foundInSVU $svuUri .\n";
+        } else {
+            $ttlData .= "    .\n";
+        }
+    }
+    
+    return $ttlData;
 }
 
 /**

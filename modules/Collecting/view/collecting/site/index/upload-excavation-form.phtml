@@ -1,10 +1,47 @@
 <?php
+// modules/Collecting/view/collecting/site/index/upload-excavation-form.phtml
 $this->collectingPrepareForm(); // Call the CollectingPrepareForm view helper
+$this->headScript()->appendFile($this->assetUrl('js/excavation-form.js', 'AddTriplestore'));
 ?>
 
-<?php
-echo $this->form()->openTag($form);
-?>
+<style>
+/* Basic styling for tabs and entity selection */
+ul.tabs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-bottom: 1px solid #ccc;
+    overflow: hidden;
+    color: black;
+}
+ul.tabs li {
+    float: left;
+    padding: 10px 15px;
+    cursor: pointer;
+    background: #f1f1f1;
+    border: 1px solid #ccc;
+    margin-right: 5px;
+    border-radius: 5px 5px 0 0;
+}
+ul.tabs li.current {
+    background: #fff;
+    border-bottom-color: #fff;
+}
+.tab-content {
+    display: none;
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-top: none;
+}
+.tab-content.current {
+    display: block;
+}
+.form-group {
+    margin-bottom: 15px;
+}
+</style>
+
+<?php echo $this->form()->openTag($form); ?>
 
 <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($formType); ?>">
 
@@ -20,4 +57,91 @@ echo $this->form()->openTag($form);
     <?php endforeach; ?>
 </div>
 
+<!-- Entity selection/creation tabs -->
+<div class="entity-tabs">
+    <ul class="tabs">
+        <li class="tab-link current" data-tab="tab-context">Context</li>
+        <li class="tab-link" data-tab="tab-svu">Stratigraphic Volume Unit</li>
+        <li class="tab-link" data-tab="tab-encounter">Encounter Event</li>
+    </ul>
+    
+    <!-- Context Tab -->
+    <div id="tab-context" class="tab-content current">
+        <div class="entity-selection">
+            <h3>Context Information</h3>
+            <div class="form-group">
+                <label>Context ID</label>
+                <input type="text" name="new_context_id" placeholder="e.g., CTX-001">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="new_context_description" placeholder="Context description"></textarea>
+            </div>
+        </div>
+    </div>
+    
+    <!-- SVU Tab -->
+    <div id="tab-svu" class="tab-content">
+        <div class="entity-selection">
+            <h3>Stratigraphic Volume Unit Information</h3>
+            <div class="form-group">
+                <label>SVU ID</label>
+                <input type="text" name="new_svu_id" placeholder="e.g., SVU-001">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="new_svu_description" placeholder="SVU description"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Lower Bound Year</label>
+                <input type="text" name="new_svu_lower_year" placeholder="e.g., 2500">
+                <input type="checkbox" name="new_svu_lower_bc" value="true"> BC
+            </div>
+            <div class="form-group">
+                <label>Upper Bound Year</label>
+                <input type="text" name="new_svu_upper_year" placeholder="e.g., 2000">
+                <input type="checkbox" name="new_svu_upper_bc" value="true"> BC
+            </div>
+        </div>
+    </div>
+    
+    <!-- Encounter Event Tab -->
+    <div id="tab-encounter" class="tab-content">
+        <div class="entity-selection">
+            <h3>Encounter Event Information</h3>
+            <div class="form-group">
+                <label>Date</label>
+                <input type="date" name="new_encounter_date">
+            </div>
+            <div class="form-group">
+                <label>Depth</label>
+                <input type="number" step="0.01" name="new_encounter_depth" placeholder="e.g., 1.75">
+            </div>
+        </div>
+    </div>
+</div>
+
+<button type="submit">Submit Excavation Data</button>
+
 <?php echo $this->form()->closeTag(); ?>
+
+<script>
+// Simple tab switching functionality
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('ul.tabs li').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            var tabId = this.getAttribute('data-tab');
+            
+            document.querySelectorAll('ul.tabs li').forEach(function(t) {
+                t.classList.remove('current');
+            });
+            document.querySelectorAll('.tab-content').forEach(function(t) {
+                t.classList.remove('current');
+            });
+            
+            this.classList.add('current');
+            document.getElementById(tabId).classList.add('current');
+        });
+    });
+});
+</script>

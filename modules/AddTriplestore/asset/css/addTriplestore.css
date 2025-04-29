@@ -58,3 +58,75 @@ form {
 
 
 
+
+
+/* Tab styling */
+ul.tabs {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-bottom: 1px solid #ccc;
+}
+
+ul.tabs li {
+  display: inline-block;
+  padding: 10px 15px;
+  margin-bottom: -1px;
+  cursor: pointer;
+  background: #f1f1f1;
+  border: 1px solid #ccc;
+  border-bottom: none;
+}
+
+ul.tabs li.current {
+  background: #fff;
+  border-bottom: 1px solid #fff;
+}
+
+.tab-content {
+  display: none;
+  padding: 15px;
+  border: 1px solid #ccc;
+  border-top: none;
+}
+
+.tab-content.current {
+  display: block;
+}
+
+/* Entity selection styling */
+.entity-selection {
+  margin-bottom: 20px;
+}
+
+.entity-select {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 15px;
+}
+
+.new-entity-form {
+  background: #f9f9f9;
+  padding: 15px;
+  border: 1px solid #eee;
+  border-radius: 5px;
+}
+
+.form-actions {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.form-actions button {
+  padding: 10px 20px;
+  background-color: #b57f4f;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.form-actions button:hover {
+  background-color: #96663c;
+}
