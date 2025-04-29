@@ -190,42 +190,7 @@ private function fetchEntitiesFromTripleStore($entityType)
     return [];
 }
 
-public function submitExcavationAction()
-{
-    $formId = $this->params('form-id');
-    $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
-    $form = $cForm->getForm();
-    $form->setData($this->params()->fromPost());
 
-    if ($form->isValid()) {
-        $excavationData = $this->getFormData($cForm);
-        
-        // Capture the additional entity data
-        $excavationData['context'] = [
-            'id' => $this->params()->fromPost('new_context_id', ''),
-            'description' => $this->params()->fromPost('new_context_description', '')
-        ];
-        
-        $excavationData['svu'] = [
-            'id' => $this->params()->fromPost('new_svu_id', ''),
-            'description' => $this->params()->fromPost('new_svu_description', ''),
-            'lower_year' => $this->params()->fromPost('new_svu_lower_year', ''),
-            'lower_bc' => $this->params()->fromPost('new_svu_lower_bc', false) ? true : false,
-            'upper_year' => $this->params()->fromPost('new_svu_upper_year', ''),
-            'upper_bc' => $this->params()->fromPost('new_svu_upper_bc', false) ? true : false
-        ];
-        
-        $excavationData['encounter'] = [
-            'date' => $this->params()->fromPost('new_encounter_date', ''),
-            'depth' => $this->params()->fromPost('new_encounter_depth', '')
-        ];
-        
-        $this->redirectToTriplestore($excavationData, 'excavation');
-    } else {
-        $this->messenger()->addErrors($form->getMessages());
-        return $this->redirect()->toRoute('site/collecting', ['form-id' => $formId, 'action' => 'uploadExcavationForm']);
-    }
-}
 
 private function createTtlFromExcavationData($data)
 {
@@ -250,6 +215,99 @@ private function createTtlFromExcavationData($data)
     $ttl .= "@prefix skos: <http://www.w3.org/2004/02/skos/core#>.\n";
     
     return $ttl;
+}
+
+
+public function submitExcavationAction()
+{
+    $formId = $this->params('form-id');
+    $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
+    $form = $cForm->getForm();
+    $form->setData($this->params()->fromPost());
+
+    if ($form->isValid()) {
+        // Capture main form data
+        $excavationData = $this->getFormData($cForm);
+        
+        // Capture additional entity data from POST
+        $excavationData['entities'] = [
+            // Context handling
+            'context' => $this->processEntitySelection(
+                $this->params()->fromPost('existing_context'),
+                [
+                    'id' => $this->params()->fromPost('new_context_id'),
+                    'description' => $this->params()->fromPost('new_context_description')
+                ],
+                'Context'
+            ),
+            
+            // Stratigraphic Volume Unit handling
+            'svu' => $this->processEntitySelection(
+                $this->params()->fromPost('existing_svu'),
+                [
+                    'id' => $this->params()->fromPost('new_svu_id'),
+                    'description' => $this->params()->fromPost('new_svu_description'),
+                    'lower_year' => $this->params()->fromPost('new_svu_lower_year'),
+                    'lower_bc' => $this->params()->fromPost('new_svu_lower_bc') ? true : false,
+                    'upper_year' => $this->params()->fromPost('new_svu_upper_year'),
+                    'upper_bc' => $this->params()->fromPost('new_svu_upper_bc') ? true : false
+                ],
+                'SVU'
+            ),
+            
+            // Encounter Event handling
+            'encounter' => $this->processEntitySelection(
+                $this->params()->fromPost('existing_encounter'),
+                [
+                    'date' => $this->params()->fromPost('new_encounter_date'),
+                    'depth' => $this->params()->fromPost('new_encounter_depth')
+                ],
+                'EncounterEvent'
+            )
+        ];
+
+        // Create an item set for this excavation
+        $identifier = $excavationData['entities']['context']['data']['id'] ?? 
+                      $excavationData['entities']['svu']['data']['id'] ?? 
+                      $this->params()->fromPost('new_context_id') ?? 
+                      $this->params()->fromPost('new_svu_id') ?? 
+                      'EXC-' . uniqid();
+        
+        // Prepare data for item set creation
+        $itemSetData = [
+            'dcterms:title' => [
+                [
+                    'type' => 'literal',
+                    '@value' => "Excavation $identifier"
+                ]
+            ],
+            'dcterms:description' => [
+                [
+                    'type' => 'literal',
+                    '@value' => "Item set for excavation with identifier $identifier"
+                ]
+            ],
+            'o:is_public' => true
+        ];
+
+        try {
+            // Create the item set
+            $itemSetResponse = $this->api()->create('item_sets', $itemSetData);
+            $itemSetId = $itemSetResponse->getContent()->id();
+
+            // Redirect to AddTriplestore module with item set ID
+            $this->redirectToTriplestore($excavationData, 'excavation', $itemSetId);
+        } catch (\Exception $e) {
+            // Log the error
+            error_log('Failed to create item set: ' . $e->getMessage());
+            
+            // Redirect without item set
+            $this->redirectToTriplestore($excavationData, 'excavation');
+        }
+    } else {
+        $this->messenger()->addErrors($form->getMessages());
+        return $this->redirect()->toRoute('site/collecting', ['form-id' => $formId, 'action' => 'uploadExcavationForm']);
+    }
 }
 
 /**
@@ -284,8 +342,7 @@ private function processEntitySelection($existingUri, array $newData, $entityTyp
 }
 
 /**
- * Helper method to redirect to the AddTriplestore module.
- * Adapt this to your AddTriplestore module's route and data handling!
+ * Redirect to the AddTriplestore module with data and optional item set ID
  */
 private function redirectToTriplestore(array $data, string $uploadType, ?int $itemSetId = null): void
 {
@@ -293,8 +350,10 @@ private function redirectToTriplestore(array $data, string $uploadType, ?int $it
     if ($itemSetId) {
         $query['item_set_id'] = $itemSetId;
     }
+    
     $url = $this->url('site/add-triplestore/upload', ['site-slug' => $this->currentSite()->slug()], true);
     $url .= '?' . http_build_query($query);
+    
     $this->redirect()->toUrl($url);
 }
 

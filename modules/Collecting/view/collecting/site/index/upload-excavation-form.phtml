@@ -39,6 +39,16 @@ ul.tabs li.current {
 .form-group {
     margin-bottom: 15px;
 }
+.existing-entity-select {
+    width: 100%;
+    margin-bottom: 10px;
+}
+.new-entity-form {
+    background: #f9f9f9;
+    padding: 15px;
+    border: 1px solid #eee;
+    border-radius: 5px;
+}
 </style>
 
 <?php echo $this->form()->openTag($form); ?>
@@ -69,13 +79,31 @@ ul.tabs li.current {
     <div id="tab-context" class="tab-content current">
         <div class="entity-selection">
             <h3>Context Information</h3>
+            
+            <!-- Existing Context Selection -->
             <div class="form-group">
-                <label>Context ID</label>
-                <input type="text" name="new_context_id" placeholder="e.g., CTX-001">
+                <label>Select Existing Context (Optional)</label>
+                <select name="existing_context" class="entity-select existing-entity-select">
+                    <option value="">Select an existing context</option>
+                    <?php foreach ($existingContexts as $context): ?>
+                        <option value="<?php echo $this->escapeHtml($context['uri']); ?>">
+                            <?php echo $this->escapeHtml($context['label']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
-            <div class="form-group">
-                <label>Description</label>
-                <textarea name="new_context_description" placeholder="Context description"></textarea>
+
+            <!-- New Context Form -->
+            <div class="new-entity-form">
+                <h4>Create New Context</h4>
+                <div class="form-group">
+                    <label>Context ID</label>
+                    <input type="text" name="new_context_id" placeholder="e.g., CTX-001" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="new_context_description" placeholder="Context description" class="form-control"></textarea>
+                </div>
             </div>
         </div>
     </div>
@@ -84,23 +112,41 @@ ul.tabs li.current {
     <div id="tab-svu" class="tab-content">
         <div class="entity-selection">
             <h3>Stratigraphic Volume Unit Information</h3>
+            
+            <!-- Existing SVU Selection -->
             <div class="form-group">
-                <label>SVU ID</label>
-                <input type="text" name="new_svu_id" placeholder="e.g., SVU-001">
+                <label>Select Existing SVU (Optional)</label>
+                <select name="existing_svu" class="entity-select existing-entity-select">
+                    <option value="">Select an existing SVU</option>
+                    <?php foreach ($existingSVUs as $svu): ?>
+                        <option value="<?php echo $this->escapeHtml($svu['uri']); ?>">
+                            <?php echo $this->escapeHtml($svu['label']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
-            <div class="form-group">
-                <label>Description</label>
-                <textarea name="new_svu_description" placeholder="SVU description"></textarea>
-            </div>
-            <div class="form-group">
-                <label>Lower Bound Year</label>
-                <input type="text" name="new_svu_lower_year" placeholder="e.g., 2500">
-                <input type="checkbox" name="new_svu_lower_bc" value="true"> BC
-            </div>
-            <div class="form-group">
-                <label>Upper Bound Year</label>
-                <input type="text" name="new_svu_upper_year" placeholder="e.g., 2000">
-                <input type="checkbox" name="new_svu_upper_bc" value="true"> BC
+
+            <!-- New SVU Form -->
+            <div class="new-entity-form">
+                <h4>Create New Stratigraphic Volume Unit</h4>
+                <div class="form-group">
+                    <label>SVU ID</label>
+                    <input type="text" name="new_svu_id" placeholder="e.g., SVU-001" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="new_svu_description" placeholder="SVU description" class="form-control"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Lower Bound Year</label>
+                    <input type="text" name="new_svu_lower_year" placeholder="e.g., 2500" class="form-control">
+                    <input type="checkbox" name="new_svu_lower_bc" value="true"> BC
+                </div>
+                <div class="form-group">
+                    <label>Upper Bound Year</label>
+                    <input type="text" name="new_svu_upper_year" placeholder="e.g., 2000" class="form-control">
+                    <input type="checkbox" name="new_svu_upper_bc" value="true"> BC
+                </div>
             </div>
         </div>
     </div>
@@ -109,25 +155,41 @@ ul.tabs li.current {
     <div id="tab-encounter" class="tab-content">
         <div class="entity-selection">
             <h3>Encounter Event Information</h3>
+            
+            <!-- Existing Encounter Event Selection -->
             <div class="form-group">
-                <label>Date</label>
-                <input type="date" name="new_encounter_date">
+                <label>Select Existing Encounter Event (Optional)</label>
+                <select name="existing_encounter" class="entity-select existing-entity-select">
+                    <option value="">Select an existing encounter event</option>
+                    <?php foreach ($existingEncounterEvents as $event): ?>
+                        <option value="<?php echo $this->escapeHtml($event['uri']); ?>">
+                            <?php echo $this->escapeHtml($event['label']); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
             </div>
-            <div class="form-group">
-                <label>Depth</label>
-                <input type="number" step="0.01" name="new_encounter_depth" placeholder="e.g., 1.75">
+
+            <!-- New Encounter Event Form -->
+            <div class="new-entity-form">
+                <h4>Create New Encounter Event</h4>
+                <div class="form-group">
+                    <label>Date</label>
+                    <input type="date" name="new_encounter_date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Depth</label>
+                    <input type="number" step="0.01" name="new_encounter_depth" placeholder="e.g., 1.75" class="form-control">
+                </div>
             </div>
         </div>
     </div>
 </div>
 
-<button type="submit">Submit Excavation Data</button>
-
 <?php echo $this->form()->closeTag(); ?>
 
 <script>
-// Simple tab switching functionality
 document.addEventListener('DOMContentLoaded', function() {
+    // Tab switching
     document.querySelectorAll('ul.tabs li').forEach(function(tab) {
         tab.addEventListener('click', function() {
             var tabId = this.getAttribute('data-tab');
@@ -141,6 +203,28 @@ document.addEventListener('DOMContentLoaded', function() {
             
             this.classList.add('current');
             document.getElementById(tabId).classList.add('current');
+        });
+    });
+
+    // Entity selection logic
+    document.querySelectorAll('.entity-select').forEach(function(select) {
+        select.addEventListener('change', function() {
+            var form = this.closest('.entity-selection');
+            var formFields = form.querySelector('.new-entity-form');
+            
+            if (this.value) {
+                // An existing entity was selected, disable the new entity form
+                formFields.querySelectorAll('input, textarea').forEach(function(input) {
+                    input.disabled = true;
+                });
+                formFields.style.opacity = '0.5';
+            } else {
+                // No entity selected, enable the new entity form
+                formFields.querySelectorAll('input, textarea').forEach(function(input) {
+                    input.disabled = false;
+                });
+                formFields.style.opacity = '1';
+            }
         });
     });
 });
