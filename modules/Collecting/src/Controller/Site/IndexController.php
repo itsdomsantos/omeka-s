@@ -40,39 +40,31 @@ class IndexController extends AbstractActionController
         return $view;
     }
 
-// In modules/Collecting/src/Controller/Site/IndexController.php
-public function uploadExcavationFormAction()
-{
-    $formId = 3;
-    $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
-    $form = $cForm->getForm();
-
-    // Query the triplestore for existing entities (simplified)
-    $existingContexts = [
-        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/Context_CTX-001', 'label' => 'CTX-001'],
-        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/Context_CTX-002', 'label' => 'CTX-002']
-    ];
+    public function uploadExcavationFormAction()
+    {
+        $formId = 3; // Hardcoded excavation form ID
+        $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
+        $form = $cForm->getForm();
     
-    $existingSVUs = [
-        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/SVU_SVU-001', 'label' => 'SVU-001'],
-        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/SVU_SVU-002', 'label' => 'SVU-002']
-    ];
+        // Query the triplestore for existing entities (simplified)
+        $existingContexts = $this->fetchEntitiesFromTripleStore('Context');
+        $existingSVUs = $this->fetchEntitiesFromTripleStore('SVU');
+        $existingEncounterEvents = $this->fetchEntitiesFromTripleStore('EncounterEvent');
     
-    $existingEncounterEvents = [
-        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/Event_CTX-001', 'label' => '2023-06-15'],
-        ['uri' => 'https://purl.org/ah/ms/excavationMS/resource/Event_CTX-002', 'label' => '2023-07-15']
-    ];
-
-    $view = new ViewModel([
-        'form' => $form,
-        'formType' => 'excavation',
-        'existingContexts' => $existingContexts,
-        'existingSVUs' => $existingSVUs,
-        'existingEncounterEvents' => $existingEncounterEvents,
-    ]);
+        // Check if there's a result from a previous upload
+        $result = $this->params()->fromQuery('result');
     
-    return $view;
-}
+        $view = new ViewModel([
+            'form' => $form,
+            'formType' => 'excavation',
+            'existingContexts' => $existingContexts,
+            'existingSVUs' => $existingSVUs,
+            'existingEncounterEvents' => $existingEncounterEvents,
+            'result' => $result
+        ]);
+        
+        return $view;
+    }
 
     public function submitArrowheadAction()
     {
@@ -218,6 +210,36 @@ private function createTtlFromExcavationData($data)
 }
 
 
+private function redirectToTriplestore(array $data, string $uploadType, ?int $itemSetId = null): void
+{
+    // Get current site slug
+    $siteSlug = $this->currentSite()->slug();
+
+    // Determine form ID based on upload type
+    $formId = ($uploadType === 'excavation') ? 3 : 1; // Adjust these IDs to match your actual form IDs
+
+    $query = [
+        'upload_type' => $uploadType,
+        'form_data' => $data
+    ];
+    
+    if ($itemSetId) {
+        $query['item_set_id'] = $itemSetId;
+    }
+    
+    $url = $this->url('site/collecting', [
+        'site-slug' => $siteSlug,
+        'form-id' => $formId,
+        'action' => 'uploadExcavationForm'
+    ], [
+        'query' => $query
+    ]);
+    
+    error_log('Redirecting to: ' . $url);
+    
+    $this->redirect()->toUrl($url);
+}
+
 public function submitExcavationAction()
 {
     $formId = $this->params('form-id');
@@ -310,9 +332,7 @@ public function submitExcavationAction()
     }
 }
 
-/**
- * Process entity selection - either return existing URI or create new entity data
- */
+
 private function processEntitySelection($existingUri, array $newData, $entityType)
 {
     if (!empty($existingUri)) {
@@ -338,24 +358,14 @@ private function processEntitySelection($existingUri, array $newData, $entityTyp
             break;
     }
     
-    return ['data' => $newData, 'isExisting' => false, 'type' => $entityType];
+    return [
+        'data' => $newData, 
+        'isExisting' => false, 
+        'type' => $entityType
+    ];
 }
 
-/**
- * Redirect to the AddTriplestore module with data and optional item set ID
- */
-private function redirectToTriplestore(array $data, string $uploadType, ?int $itemSetId = null): void
-{
-    $query = ['form_data' => $data, 'upload_type' => $uploadType];
-    if ($itemSetId) {
-        $query['item_set_id'] = $itemSetId;
-    }
-    
-    $url = $this->url('site/add-triplestore/upload', ['site-slug' => $this->currentSite()->slug()], true);
-    $url .= '?' . http_build_query($query);
-    
-    $this->redirect()->toUrl($url);
-}
+
 
     /**
      * Helper method to extract and format form data.
