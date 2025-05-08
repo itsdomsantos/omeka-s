@@ -17,10 +17,11 @@ class IndexController extends AbstractActionController
 {
     private $graphdbEndpoint = "http://localhost:7200/repositories/arch-project-shacl/rdf-graphs/service";
     private $graphdbQueryEndpoint = "http://localhost:7200/repositories/arch-project-shacl";
-    private $dataGraphUri = "http://www.arch-project.com/";
+    private $baseDataGraphUri = "http://www.arch-project.com/";
     private $router;
     private $httpClient;
-    private $excavationIdentifier = "0/";
+    private $excavationIdentifier = "0"; // Default to the "0" graph
+        
 
     public function __construct(RouteStackInterface $router, Client $httpClient)
     {
@@ -208,7 +209,7 @@ private function processFormSubmission($request, ?string $uploadType, ?int $item
 private function transformCollectingFormDataToTTL(array $formData, ?string $uploadType): ?string
 {
     $ttl = '';
-    $baseUri = $this->dataGraphUri . $this->excavationIdentifier;
+    $baseUri = $this->baseDataGraphUri . $this->excavationIdentifier;
 
     if ($uploadType === 'arrowhead') {
         $ttl .= "@prefix ah: <http://www.purl.com/ah/ms/ahMS#> .\n";
@@ -250,25 +251,39 @@ private function transformCollectingFormDataToTTL(array $formData, ?string $uplo
 }
 
 
-private function uploadTtlData(string $ttlData, ?int $itemSetId): string {
+private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string {
     // Check if this is excavation data
     $isExcavation = false;
+    $excavationIdentifier = "0"; // Default to "0" graph
+    
     try {
         $this->validateUploadType($ttlData, 'excavation');
         $isExcavation = true;
+        // Extract excavation identifier for graph organization
+        $extractedId = $this->extractExcavationIdentifier($ttlData);
+        if ($extractedId) {
+            $excavationIdentifier = $extractedId;
+        }
+        error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug-final.log');
     } catch (\Exception $e) {
         // If validation fails, it means the data is not excavation data
         error_log('Validation for excavation failed: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        
+        // Check if this item belongs to an excavation item set
+        if ($itemSetId) {
+            $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+            if ($excavationId) {
+                $excavationIdentifier = $excavationId;
+                error_log('Using excavation ID from item set: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+            }
+        }
     }
-    $excavationIdentifier = null;
-    error_log('debug here', 3, OMEKA_PATH . '/logs/excavation-debug.log');
-    // If it's excavation data and no itemSetId is provided, create an item set
+
     error_log('is excavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+
+    // If it's excavation data and no itemSetId is provided, create an item set
     if ($isExcavation && !$itemSetId) {
-        // Extract excavation identifier/acronym
         error_log('Attempting to extract excavation identifier', 3, OMEKA_PATH . '/logs/excavation-debug.log');
-        $excavationIdentifier = $this->extractExcavationIdentifier($ttlData);
-        error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug-final.log');
         
         if ($excavationIdentifier) {
             try {
@@ -296,6 +311,9 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId): string {
                     $newItemSet = $response->getContent();
                     $itemSetId = $newItemSet->id();
                     error_log('Successfully created item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+                    
+                    // Store the excavation identifier in a site setting or other persistent storage
+                    $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
                 } else {
                     error_log('Empty response when creating item set', 3, OMEKA_PATH . '/logs/excavation-debug.log');
                 }
@@ -303,11 +321,16 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId): string {
                 error_log('Error creating item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
             }
         }
+    } else if (!$isExcavation && $itemSetId) {
+        // This is an arrowhead or other item being added to an existing excavation
+        // Retrieve the excavation identifier associated with this item set
+        $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
+        error_log('Retrieved excavation identifier for item set ' . $itemSetId . ': ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
     }
     
     // Now proceed with the regular upload process
-    // First, upload to GraphDB
-    $graphDbResult = $this->sendToGraphDB($ttlData);
+    // First, upload to GraphDB with the excavation identifier if available
+    $graphDbResult = $this->sendToGraphDB($ttlData, $excavationIdentifier);
     
     if (strpos($graphDbResult, 'successfully') !== false) {
         // If GraphDB upload is successful, then process in Omeka S
@@ -325,7 +348,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId): string {
                 if ($isExcavation) {
                     $title = "Excavation $excavationIdentifier Item $itemId";
                 } else {
-                    $title = "Arrowhead $itemId";
+                    $title = "Arrowhead $itemId" . ($excavationIdentifier ? " (Excavation $excavationIdentifier)" : "");
                 }
                 
                 // Update the title with the Omeka ID
@@ -363,6 +386,22 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId): string {
         return 'Failed to upload data to GraphDB: ' . $graphDbResult;
     }
 }
+
+private function storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationId)
+{
+    // Get existing mappings from site settings
+    $mappings = $this->siteSettings()->get('excavation_itemset_mappings', []);
+    
+    // Add the new mapping
+    $mappings[$itemSetId] = $excavationId;
+    
+    // Save the updated mappings
+    $this->siteSettings()->set('excavation_itemset_mappings', $mappings);
+    
+    error_log('Stored mapping: Item Set ' . $itemSetId . ' -> Excavation ' . $excavationId, 3, OMEKA_PATH . '/logs/excavation-mappings.log');
+}
+
+
 
 /**
  * Extract the excavation identifier from TTL data
@@ -634,71 +673,69 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
         return $prefixLines . $ttlData;
     }
 
-    private function sendToGraphDB($data)
-    {
-        $logger = new Logger();
-        $writer = new Stream(OMEKA_PATH . '/logs/graphdb-errors.log');
-        $logger->addWriter($writer);
+    private function sendToGraphDB($data, $excavationId = null)
+{
+    $logger = new Logger();
+    $writer = new Stream(OMEKA_PATH . '/logs/graphdb-errors.log');
+    $logger->addWriter($writer);
 
-        //check if data is excavation data
-        if (strpos($data, 'crmarchaeo:A9_Archaeological_Excavation') !== false) {
-            //find and log the excavation identifier
-            preg_match('/dct:identifier\s+"([^"]+)"\^\^xsd:string\s*;/', $data, $matches);
-            if (isset($matches[1])) {
-                $this->excavationIdentifier = $matches[1] . '/';
-                error_log('Excavation Identifier: ' . $this->excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-identifier.log');
-            }
-        }
-        $this->dataGraphUri.= $this->excavationIdentifier;
-        error_log('Data Graph URI: ' . $this->dataGraphUri, 3, OMEKA_PATH . '/logs/data-graph-uri.log');
+    // Set the graph URI based on excavation ID if provided
+    $graphUri = $this->baseDataGraphUri;
+    
+    // Use the provided excavation ID or default to "0"
+    $this->excavationIdentifier = $excavationId ?: "0";
+    $graphUri .= $this->excavationIdentifier . "/";
+    
+    error_log('Using graph: ' . $graphUri, 3, OMEKA_PATH . '/logs/excavation-debug.log');
 
-        try {
-            $graphUri = $this->dataGraphUri;
+    try {
+        $validationResult = $this->validateData($data, $graphUri);
+        // log the validation result
+        error_log('Validation Result: ' . implode('; ', $validationResult), 3, OMEKA_PATH . '/logs/validation-log.log');
 
-            $validationResult = $this->validateData($data, $graphUri);
-            // log the validation result
-            error_log('Validation Result: ' . implode('; ', $validationResult));
-
-            if (!empty($validationResult)) {
-                $errorMessage = 'Data upload failed: SHACL validation errors: ' . implode('; ', $validationResult);
-                error_log($errorMessage);
-                $logger->err($errorMessage);
-                return $errorMessage;
-            }
-
-            // 2. Upload ONLY if validation passes
-            $client = new Client();
-            $fullUrl = $this->graphdbEndpoint . '?graph=' . urlencode($graphUri);
-            $client->setUri($fullUrl);
-            $client->setMethod('POST');
-            $client->setHeaders(['Content-Type' => 'text/turtle']);
-            $client->setRawBody($data);
-
-            $client->setOptions(['timeout' => 60]); // Adjust the timeout as needed
-
-            $response = $client->send();
-
-            $status = $response->getStatusCode();
-            $body = $response->getBody();
-            $message = "Response Status: $status | Response Body: $body";
-            error_log($message);
-            $logger->info($message);
-
-            if ($response->isSuccess()) {
-                return 'Data uploaded and validated successfully.';
-            } else {
-                $errorMessage = 'Failed to upload data: ' . $message;
-                error_log($errorMessage);
-                $logger->err($errorMessage);
-                return $errorMessage;
-            }
-        } catch (\Exception $e) {
-            $errorMessage = 'Failed to upload data due to an exception: ' . $e->getMessage();
+        if (!empty($validationResult)) {
+            $errorMessage = 'Data upload failed: SHACL validation errors: ' . implode('; ', $validationResult);
+            error_log($errorMessage, 3, OMEKA_PATH . '/logs/graphdb-errors.log');
             $logger->err($errorMessage);
-            error_log($errorMessage);
             return $errorMessage;
         }
+
+        // 2. Upload ONLY if validation passes
+        $client = new Client();
+        $fullUrl = $this->graphdbEndpoint . '?graph=' . urlencode($graphUri);
+        error_log('Uploading to graph: ' . $fullUrl, 3, OMEKA_PATH . '/logs/graphdb-upload.log');
+        
+        $client->setUri($fullUrl);
+        $client->setMethod('POST');
+        $client->setHeaders(['Content-Type' => 'text/turtle']);
+        $client->setRawBody($data);
+
+        $client->setOptions(['timeout' => 60]); // Adjust the timeout as needed
+
+        $response = $client->send();
+
+        $status = $response->getStatusCode();
+        $body = $response->getBody();
+        $message = "Response Status: $status | Response Body: $body";
+        error_log($message, 3, OMEKA_PATH . '/logs/graphdb-response.log');
+        $logger->info($message);
+
+        if ($response->isSuccess()) {
+            return 'Data uploaded and validated successfully.';
+        } else {
+            $errorMessage = 'Failed to upload data: ' . $message;
+            error_log($errorMessage, 3, OMEKA_PATH . '/logs/graphdb-errors.log');
+            $logger->err($errorMessage);
+            return $errorMessage;
+        }
+    } catch (\Exception $e) {
+        $errorMessage = 'Failed to upload data due to an exception: ' . $e->getMessage();
+        $logger->err($errorMessage);
+        error_log($errorMessage, 3, OMEKA_PATH . '/logs/graphdb-errors.log');
+        return $errorMessage;
     }
+}
+
 
     private function validateData($data, $graphUri)
     {
@@ -783,81 +820,167 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
     }
 
 
-    private function transformTtlToOmekaSData($ttlData, $itemSetId): array {
-        $graph = new \EasyRdf\Graph();
-        $graph->parse($ttlData, 'turtle');
-        
-        $omekaData = [];
-        $rdfData = $graph->toRdfPhp();
-        
-        // Find arrowhead subjects - these will be our main items
-        $arrowheadSubjects = [];
-        foreach ($rdfData as $subject => $predicates) {
-            foreach ($predicates as $predicate => $objects) {
-                foreach ($objects as $object) {
-                    if ($predicate === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' && 
-                        $object['type'] === 'uri' && 
-                        $object['value'] === 'http://www.cidoc-crm.org/cidoc-crm/E24_Physical_Man-Made_Thing') {
-                        $arrowheadSubjects[] = $subject;
-                    }
-                }
-            }
-        }
-        
-        // Process each arrowhead as a single item
-        foreach ($arrowheadSubjects as $arrowheadSubject) {
-            $itemData = [
-                'o:resource_class' => ['o:id' => 1], // Default Item Resource Class ID
-                'o:item_set' => [],                  // Will be populated if itemSetId exists
-            ];
-            
-            // Add item to item set if provided
-            if ($itemSetId) {
-                $itemData['o:item_set'][] = ['o:id' => $itemSetId];
-            }
-            
-            // Process the main arrowhead properties
-            $this->processSubjectProperties($rdfData, $arrowheadSubject, $itemData);
-            
-            // Extract identifier for the title
-            $identifier = null;
-            if (isset($itemData['http://purl.org/dc/terms/identifier'])) {
-                foreach ($itemData['http://purl.org/dc/terms/identifier'] as $identifierValue) {
-                    if (isset($identifierValue['@value'])) {
-                        $identifier = $identifierValue['@value'];
-                        break;
-                    }
-                }
-            }
-            
-            // Set a proper title in Dublin Core terms
-            if ($identifier) {
-                $itemData['dcterms:title'] = [
-                    [
-                        'type' => 'literal',
-                        'property_id' => 1, // dcterms:title property ID in Omeka
-                        '@value' => "Arrowhead"
-                    ]
-                ];
-            } else {
-                // Extract subject ID as fallback
-                $itemData['dcterms:title'] = [
-                    [
-                        'type' => 'literal',
-                        'property_id' => 1, // dcterms:title property ID in Omeka
-                        '@value' => "Arrowhead"
-                    ]
-                ];
-            }
-            
-            // Now process related subjects (morphology, typometry, chipping, coordinates)
-            $this->processRelatedSubjects($rdfData, $arrowheadSubject, $itemData);
-            
-            $omekaData[] = $itemData;
-        }
-        
-        return $omekaData;
+
+private function getExcavationIdentifierFromItemSet($itemSetId)
+{
+    // Get mappings from site settings
+    $mappings = $this->siteSettings()->get('excavation_itemset_mappings', []);
+    
+    if (isset($mappings[$itemSetId])) {
+        return $mappings[$itemSetId];
     }
+    
+    // If no mapping found, try to extract from item set title
+    try {
+        $itemSet = $this->api()->read('item_sets', $itemSetId)->getContent();
+        $title = $itemSet->displayTitle();
+        
+        // Parse the title to extract excavation ID if it follows our pattern
+        if (preg_match('/Excavation\s+([^\s]+)/', $title, $matches)) {
+            $excavationId = $matches[1];
+            
+            // Store this mapping for future use
+            $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationId);
+            
+            return $excavationId;
+        }
+    } catch (\Exception $e) {
+        error_log('Error retrieving item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+    }
+    
+    return null;
+}
+
+/**
+ * Modify the transformTtlToOmekaSData method to include excavation context
+ * This method transforms TTL data to Omeka S item data format
+ */
+private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
+    $graph = new \EasyRdf\Graph();
+    $graph->parse($ttlData, 'turtle');
+    
+    $omekaData = [];
+    $rdfData = $graph->toRdfPhp();
+    
+    // Find subjects (arrowheads, excavation components, etc.)
+    $subjects = [];
+    foreach ($rdfData as $subject => $predicates) {
+        foreach ($predicates as $predicate => $objects) {
+            foreach ($objects as $object) {
+                // Look for various types of archaeological objects
+                if ($predicate === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' && $object['type'] === 'uri') {
+                    // E24_Physical_Man-Made_Thing (arrowheads)
+                    if ($object['value'] === 'http://www.cidoc-crm.org/cidoc-crm/E24_Physical_Man-Made_Thing') {
+                        $subjects[] = $subject;
+                    }
+                    // A9_Archaeological_Excavation (excavations)
+                    else if ($object['value'] === 'http://www.cidoc-crm.org/extensions/crmarchaeo/A9_Archaeological_Excavation') {
+                        $subjects[] = $subject;
+                    }
+                    // A1_Excavation_Processing_Unit (contexts)
+                    else if ($object['value'] === 'http://www.cidoc-crm.org/extensions/crmarchaeo/A1_Excavation_Processing_Unit') {
+                        $subjects[] = $subject;
+                    }
+                    // A2_Stratigraphic_Volume_Unit (SVUs)
+                    else if ($object['value'] === 'http://www.cidoc-crm.org/extensions/crmarchaeo/A2_Stratigraphic_Volume_Unit') {
+                        $subjects[] = $subject;
+                    }
+                    // S19_Encounter_Event (encounter events)
+                    else if ($object['value'] === 'https://cidoc-crm.org/extensions/crmsci/S19_Encounter_Event') {
+                        $subjects[] = $subject;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Get excavation identifier for context - use either the default or from item set
+    $excavationId = "0"; // Default
+    if ($itemSetId) {
+        $mappedId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+        if ($mappedId) {
+            $excavationId = $mappedId;
+        }
+    }
+    
+    // Process each subject as a single item
+    foreach ($subjects as $subject) {
+        $itemData = [
+            'o:resource_class' => ['o:id' => 1], // Default Item Resource Class ID
+            'o:item_set' => [],                  // Will be populated if itemSetId exists
+        ];
+        
+        // Add item to item set if provided
+        if ($itemSetId) {
+            $itemData['o:item_set'][] = ['o:id' => $itemSetId];
+        }
+        
+        // Process the main properties
+        $this->processSubjectProperties($rdfData, $subject, $itemData);
+        
+        // Add excavation context as metadata
+        if ($excavationId != "0") {
+            if (!isset($itemData['dcterms:isPartOf'])) {
+                $itemData['dcterms:isPartOf'] = [];
+            }
+            
+            $itemData['dcterms:isPartOf'][] = [
+                'type' => 'literal',
+                'property_id' => 40, // isPartOf property ID in Omeka S
+                '@value' => "Excavation $excavationId"
+            ];
+        }
+        
+        // Extract identifier for the title
+        $identifier = null;
+        if (isset($itemData['dcterms:identifier'])) {
+            foreach ($itemData['dcterms:identifier'] as $identifierValue) {
+                if (isset($identifierValue['@value'])) {
+                    $identifier = $identifierValue['@value'];
+                    break;
+                }
+            }
+        }
+        
+        // Set a proper title in Dublin Core terms
+        if ($identifier) {
+            $itemType = $this->determineItemType($rdfData, $subject);
+            
+            $title = $itemType . " " . $identifier;
+            if ($excavationId != "0") {
+                $title .= " (Excavation $excavationId)";
+            }
+            
+            $itemData['dcterms:title'] = [
+                [
+                    'type' => 'literal',
+                    'property_id' => 1, // dcterms:title property ID in Omeka
+                    '@value' => $title
+                ]
+            ];
+        } else {
+            // Extract subject ID as fallback
+            $parts = explode('/', $subject);
+            $lastPart = end($parts);
+            
+            $itemData['dcterms:title'] = [
+                [
+                    'type' => 'literal',
+                    'property_id' => 1, // dcterms:title property ID in Omeka
+                    '@value' => "Archaeological Item $lastPart"
+                ]
+            ];
+        }
+        
+        // Now process related subjects (morphology, typometry, chipping, coordinates)
+        $this->processRelatedSubjects($rdfData, $subject, $itemData);
+        
+        $omekaData[] = $itemData;
+    }
+    
+    return $omekaData;
+}
+
     
     private function processSubjectProperties($rdfData, $subject, &$itemData) {
         if (!isset($rdfData[$subject])) {
