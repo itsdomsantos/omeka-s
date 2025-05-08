@@ -275,6 +275,9 @@ public function submitExcavationAction()
     $form = $cForm->getForm();
     $form->setData($this->params()->fromPost());
 
+    error_log('Form data: ' . print_r($this->params()->fromPost(), true), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+    error_log('Form validation: ' . ($form->isValid() ? 'valid' : 'invalid'), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+
     if ($form->isValid()) {
         // Capture main form data
         $excavationData = $this->getFormData($cForm);
@@ -322,6 +325,7 @@ public function submitExcavationAction()
         error_log('SVU data: ' . print_r($svuData, true), 3, OMEKA_PATH . '/logs/excavation-submission.log');
         error_log('Encounter data: ' . print_r($encounterData, true), 3, OMEKA_PATH . '/logs/excavation-submission.log');
         
+        
         // Convert the form data + subform data to TTL
         $ttlData = $this->prepareTtlFromExcavationData(
             $excavationIdentifier, 
@@ -350,9 +354,13 @@ public function submitExcavationAction()
                 'o:is_public' => true
             ];
 
+            error_log('Attempting to create item set with data: ' . print_r($itemSetData, true), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+
             // Create the item set
             $itemSetResponse = $this->api()->create('item_sets', $itemSetData);
             $itemSetId = $itemSetResponse->getContent()->id();
+
+            error_log('Item set creation result: ' . ($itemSetResponse ? 'success' : 'failed'), 3, OMEKA_PATH . '/logs/excavation-debug.log');
             
             // Store the mapping between item set and excavation ID
             $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
