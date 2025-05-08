@@ -676,6 +676,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             if ($excavationId) {
                 $excavationIdentifier = $excavationId;
                 $graphUri = $this->baseDataGraphUri . $excavationId . "/";
+
                 error_log('Using excavation ID from item set: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
             }
         }

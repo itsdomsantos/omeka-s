@@ -6,31 +6,15 @@ $itemSetId = $this->params()->fromQuery('item_set_id');
 $result = $this->params()->fromQuery('result', '');
 ?>
 
-<?php if (strpos($result, 'successfully') !== false): ?>
-    <div class="success-message">
-        <?php echo $result; ?>
-    </div>
-    <div class="button-group">
-        <a href="<?php echo $this->url('site/collecting', [
-            'form-id' => 1, 
-            'action' => 'uploadArrowheadForm'
-        ], ['query' => [
-            'item_set_id' => $itemSetId
-        ]], true); ?>" class="button">
-            Add Another Arrowhead using Form
-        </a>
-        <a href="<?php echo $this->url('site/add-triplestore/upload', [
-            'site-slug' => $this->currentSite()->slug()
-        ], ['query' => [
-            'upload_type' => 'arrowhead',
-            'item_set_id' => $itemSetId,
-            'mode' => 'file'
-        ]], true); ?>" class="button">
-            Upload Arrowhead File
-        </a>
-        <a href="<?php echo $this->url('site', [], true); ?>" class="button">
-            Return to Site
-        </a>
+<?php if ($itemSetId): ?>
+    <div class="excavation-context alert <?php echo $result ? 'alert-success' : 'alert-info'; ?>">
+        <p>You are adding an arrowhead to the excavation with Item Set ID: <?php echo $this->escapeHtml($itemSetId); ?></p>
+        
+        <?php if ($result): ?>
+            <div class="result-message">
+                <?php echo $this->escapeHtml($result); ?>
+            </div>
+        <?php endif; ?>
     </div>
 <?php endif; ?>
 
