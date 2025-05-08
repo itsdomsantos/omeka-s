@@ -726,12 +726,12 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
         // This is an arrowhead or other item being added to an existing excavation
         // Retrieve the excavation identifier associated with this item set
         $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
-        error_log('Retrieved excavation identifier for item set ' . $itemSetId . ': ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        error_log('Retrieved excavation identifier for item set ' . $itemSetId . ': ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
     }
     
     // Now proceed with the regular upload process
     // First, upload to GraphDB with the excavation identifier if available
-    $graphDbResult = $this->sendToGraphDB($ttlData, $excavationIdentifier);
+    $graphDbResult = $this->sendToGraphDB($ttlData, $itemSetId);
     
     if (strpos($graphDbResult, 'successfully') !== false) {
         // If GraphDB upload is successful, then process in Omeka S
