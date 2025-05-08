@@ -1,0 +1,348 @@
+<!-- File: modules/AddTriplestore/view/add-triplestore/site/index/excavation-form.phtml -->
+<?php
+$this->headScript()->appendFile($this->assetUrl('js/excavation-form.js', 'AddTriplestore'));
+$result = $this->escapeHtml($this->params()->fromQuery('result', ''));
+?>
+
+<div class="add-triplestore">
+    <h1>Add Archaeological Excavation</h1>
+
+    <?php if (!empty($result)): ?>
+        <div class="<?php echo (strpos($result, 'successfully') !== false) ? 'success-message' : 'error-message'; ?>">
+            <?php echo $result; ?>
+        </div>
+
+        <?php if (strpos($result, 'successfully') !== false && isset($itemSetId)): ?>
+            <div class="button-group">
+                <a href="<?php echo $this->url('site/add-triplestore/upload', 
+                    ['site-slug' => $site->slug(), 'item_set_id' => $itemSetId, 'upload_type' => 'arrowhead'], 
+                    ['query' => ['mode' => 'form']], 
+                    true); ?>" class="button">
+                    Add Arrowheads to this Excavation
+                </a>
+                <a href="<?php echo $this->url('site', ['site-slug' => $site->slug()], true); ?>" class="button">
+                    Return to Site
+                </a>
+            </div>
+        <?php endif; ?>
+    <?php else: ?>
+        <form action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], true); ?>" method="post" enctype="multipart/form-data">
+            <input type="hidden" name="upload_type" value="excavation">
+
+            <div class="form-group">
+                <label for="excavation_id">Excavation ID/Acronym</label>
+                <input type="text" id="excavation_id" name="excavation_id" placeholder="e.g., EXC-001" required class="form-control">
+                <small>Must be a unique identifier</small>
+            </div>
+
+            <div class="form-group">
+                <label for="excavation_site">Name of the Excavation Site</label>
+                <input type="text" id="excavation_site" name="excavation_site" placeholder="Site name" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="parish">Parish of Excavation</label>
+                <input type="text" id="parish" name="parish" placeholder="Parish" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="orcid">ORCID URL</label>
+                <input type="text" id="orcid" name="orcid" placeholder="ORCID identifier" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="archaeologist_name">Name of the Archaeologist</label>
+                <input type="text" id="archaeologist_name" name="archaeologist_name" placeholder="Archaeologist name" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="archaeologist_email">Email contact of Archaeologist</label>
+                <input type="email" id="archaeologist_email" name="archaeologist_email" placeholder="Email address" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="latitude">GPS Coordinates (Latitude)</label>
+                <input type="text" id="latitude" name="latitude" placeholder="e.g., 41.1234" class="form-control">
+            </div>
+
+            <div class="form-group">
+                <label for="longitude">GPS Coordinates (Longitude)</label>
+                <input type="text" id="longitude" name="longitude" placeholder="e.g., -8.5678" class="form-control">
+            </div>
+
+            <!-- Entity selection/creation tabs -->
+            <div class="entity-tabs">
+                <ul class="tabs">
+                    <li class="tab-link current" data-tab="tab-context">Context</li>
+                    <li class="tab-link" data-tab="tab-svu">Stratigraphic Volume Unit</li>
+                    <li class="tab-link" data-tab="tab-encounter">Encounter Event</li>
+                </ul>
+                
+                <!-- Context Tab -->
+                <div id="tab-context" class="tab-content current">
+                    <div class="entity-selection">
+                        <h3>Context Information</h3>
+                        
+                        <!-- Existing Context Selection -->
+                        <div class="form-group">
+                            <label>Select Existing Context (Optional)</label>
+                            <select name="existing_context" class="entity-select existing-entity-select">
+                                <option value="">Select an existing context</option>
+                                <?php foreach ($existingContexts as $context): ?>
+                                    <option value="<?php echo $this->escapeHtml($context['uri']); ?>">
+                                        <?php echo $this->escapeHtml($context['label']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <!-- New Context Form -->
+                        <div class="new-entity-form">
+                            <h4>Create New Context</h4>
+                            <div class="form-group">
+                                <label>Context ID</label>
+                                <input type="text" name="new_context_id" placeholder="e.g., CTX-001" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Description</label>
+                                <textarea name="new_context_description" placeholder="Context description" class="form-control"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- SVU Tab -->
+                <div id="tab-svu" class="tab-content">
+                    <div class="entity-selection">
+                        <h3>Stratigraphic Volume Unit Information</h3>
+                        
+                        <!-- Existing SVU Selection -->
+                        <div class="form-group">
+                            <label>Select Existing SVU (Optional)</label>
+                            <select name="existing_svu" class="entity-select existing-entity-select">
+                                <option value="">Select an existing SVU</option>
+                                <?php foreach ($existingSVUs as $svu): ?>
+                                    <option value="<?php echo $this->escapeHtml($svu['uri']); ?>">
+                                        <?php echo $this->escapeHtml($svu['label']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <!-- New SVU Form -->
+                        <div class="new-entity-form">
+                            <h4>Create New Stratigraphic Volume Unit</h4>
+                            <div class="form-group">
+                                <label>SVU ID</label>
+                                <input type="text" name="new_svu_id" placeholder="e.g., SVU-001" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Description</label>
+                                <textarea name="new_svu_description" placeholder="SVU description" class="form-control"></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Lower Bound Year</label>
+                                <input type="text" name="new_svu_lower_year" placeholder="e.g., 2500" class="form-control">
+                                <input type="checkbox" name="new_svu_lower_bc" value="true"> BC
+                            </div>
+                            <div class="form-group">
+                                <label>Upper Bound Year</label>
+                                <input type="text" name="new_svu_upper_year" placeholder="e.g., 2000" class="form-control">
+                                <input type="checkbox" name="new_svu_upper_bc" value="true"> BC
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Encounter Event Tab -->
+                <div id="tab-encounter" class="tab-content">
+                    <div class="entity-selection">
+                        <h3>Encounter Event Information</h3>
+                        
+                        <!-- Existing Encounter Event Selection -->
+                        <div class="form-group">
+                            <label>Select Existing Encounter Event (Optional)</label>
+                            <select name="existing_encounter" class="entity-select existing-entity-select">
+                                <option value="">Select an existing encounter event</option>
+                                <?php foreach ($existingEncounterEvents as $event): ?>
+                                    <option value="<?php echo $this->escapeHtml($event['uri']); ?>">
+                                        <?php echo $this->escapeHtml($event['label']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <!-- New Encounter Event Form -->
+                        <div class="new-entity-form">
+                            <h4>Create New Encounter Event</h4>
+                            <div class="form-group">
+                                <label>Date</label>
+                                <input type="date" name="new_encounter_date" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>Depth</label>
+                                <input type="number" step="0.01" name="new_encounter_depth" placeholder="e.g., 1.75" class="form-control">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="button">Submit Excavation</button>
+            </div>
+        </form>
+
+        <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Tab switching
+            document.querySelectorAll('ul.tabs li').forEach(function(tab) {
+                tab.addEventListener('click', function() {
+                    var tabId = this.getAttribute('data-tab');
+                    
+                    document.querySelectorAll('ul.tabs li').forEach(function(t) {
+                        t.classList.remove('current');
+                    });
+                    document.querySelectorAll('.tab-content').forEach(function(t) {
+                        t.classList.remove('current');
+                    });
+                    
+                    this.classList.add('current');
+                    document.getElementById(tabId).classList.add('current');
+                });
+            });
+
+            // Entity selection logic
+            document.querySelectorAll('.entity-select').forEach(function(select) {
+                select.addEventListener('change', function() {
+                    var form = this.closest('.entity-selection');
+                    var formFields = form.querySelector('.new-entity-form');
+                    
+                    if (this.value) {
+                        // An existing entity was selected, disable the new entity form
+                        formFields.querySelectorAll('input, textarea').forEach(function(input) {
+                            input.disabled = true;
+                        });
+                        formFields.style.opacity = '0.5';
+                    } else {
+                        // No entity selected, enable the new entity form
+                        formFields.querySelectorAll('input, textarea').forEach(function(input) {
+                            input.disabled = false;
+                        });
+                        formFields.style.opacity = '1';
+                    }
+                });
+            });
+        });
+        </script>
+    <?php endif; ?>
+</div>
+
+<style>
+/* Add your CSS styles here */
+.add-triplestore {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.form-actions {
+    margin-top: 30px;
+}
+
+.button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.button:hover {
+    background-color: #45a049;
+}
+
+.success-message {
+    background-color: #dff0d8;
+    color: #3c763d;
+    border: 1px solid #d6e9c6;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.error-message {
+    background-color: #f2dede;
+    color: #a94442;
+    border: 1px solid #ebccd1;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+/* Tab styles */
+ul.tabs {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-bottom: 1px solid #ccc;
+    overflow: hidden;
+}
+
+ul.tabs li {
+    float: left;
+    padding: 10px 15px;
+    cursor: pointer;
+    background: #f8f8f8;
+    border: 1px solid #ccc;
+    margin-right: 5px;
+    border-radius: 5px 5px 0 0;
+}
+
+ul.tabs li.current {
+    background: #fff;
+    border-bottom-color: #fff;
+}
+
+.tab-content {
+    display: none;
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-top: none;
+    background: #fff;
+}
+
+.tab-content.current {
+    display: block;
+}
+
+.entity-selection {
+    margin-bottom: 20px;
+}
+
+.existing-entity-select {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.new-entity-form {
+    background: #f9f9f9;
+    padding: 15px;
+    border: 1px solid #eee;
+    border-radius: 5px;
+}
+</style>

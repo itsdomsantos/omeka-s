@@ -35,88 +35,135 @@ class IndexController extends AbstractActionController
         return new ViewModel(['site' => $site]);
     }
 
-    public function uploadAction()
+
+public function uploadAction()
 {
-    error_log("uploadAction() called");
-
-    $request = $this->getRequest();
-    if (!$request instanceof \Laminas\Http\Request) {
-        error_log('Invalid request type');
-        throw new \RuntimeException('Expected an instance of Laminas\Http\Request');
-    }
-
-    $uploadType = $request->getPost('upload_type') ?: $request->getQuery('upload_type');
-    $itemSetId = $request->getPost('item_set_id') ?: $request->getQuery('item_set_id');
-    $continuousUpload = $request->getPost('continuous_upload') ?: $request->getQuery('continuous_upload');
-
-    error_log('Upload Type: ' . $uploadType . ', Item Set ID: ' . $itemSetId . ', Continuous: ' . $continuousUpload, 3, OMEKA_PATH . '/logs/upload-type.log');
+    // Get all POST data
+    $postData = $this->params()->fromPost();
     
-    $result = 'No data received.';
-    $ttlData = '';
-    $excavationItemSetId = null;
-
-    if ($request->isPost() || $request->isGet()) {
-        error_log('Processing upload');
-
+    // Log the received data for debugging
+    error_log('Received form submission: ' . print_r($postData, true), 3, OMEKA_PATH . '/logs/excavation-form-debug.log');
+    
+    // Determine upload type - excavation or arrowhead
+    $uploadType = $this->params()->fromPost('upload_type');
+    $itemSetId = $this->params()->fromPost('item_set_id');
+    
+    // Process the form data based on upload type
+    if ($uploadType == 'excavation') {
+        // Extract excavation data
+        $excavationData = [];
+        // Extract context data
+        $contextData = $this->processEntitySelection(
+            $this->params()->fromPost('existing_context'),
+            [
+                'id' => $this->params()->fromPost('new_context_id'),
+                'description' => $this->params()->fromPost('new_context_description')
+            ],
+            'Context'
+        );
+        
+        // Extract SVU data
+        $svuData = $this->processEntitySelection(
+            $this->params()->fromPost('existing_svu'),
+            [
+                'id' => $this->params()->fromPost('new_svu_id'),
+                'description' => $this->params()->fromPost('new_svu_description'),
+                'lower_year' => $this->params()->fromPost('new_svu_lower_year'),
+                'lower_bc' => $this->params()->fromPost('new_svu_lower_bc') ? true : false,
+                'upper_year' => $this->params()->fromPost('new_svu_upper_year'),
+                'upper_bc' => $this->params()->fromPost('new_svu_upper_bc') ? true : false
+            ],
+            'SVU'
+        );
+        
+        // Extract encounter data
+        $encounterData = $this->processEntitySelection(
+            $this->params()->fromPost('existing_encounter'),
+            [
+                'date' => $this->params()->fromPost('new_encounter_date'),
+                'depth' => $this->params()->fromPost('new_encounter_depth')
+            ],
+            'EncounterEvent'
+        );
+        
+        // Generate a unique excavation identifier
+        $excavationIdentifier = $this->params()->fromPost('new_context_id') ?? 
+                                $this->params()->fromPost('new_svu_id') ?? 
+                                'EXC-' . uniqid();
+        
+        // Convert form data to TTL
+        $ttlData = $this->prepareTtlFromExcavationData(
+            $excavationIdentifier, 
+            $excavationData, 
+            $contextData, 
+            $svuData, 
+            $encounterData
+        );
+        
+        // Create an item set and upload TTL to triplestore
         try {
-            // Handle File Upload
-            if ($request->getFiles()->file && $request->getFiles()->file['error'] === UPLOAD_ERR_OK) {
-                $result = $this->processFileUpload($request, $uploadType, $itemSetId);
-                
-                // Check if this is an excavation upload and extract the item set ID
-                if ($uploadType === 'excavation' && strpos($result, 'Created Item Set #') !== false) {
-                    preg_match('/Created Item Set #(\d+)/', $result, $matches);
-                    if (isset($matches[1])) {
-                        $excavationItemSetId = $matches[1];
-                        error_log('Extracted Item Set ID: ' . $excavationItemSetId, 3, OMEKA_PATH . '/logs/upload-type.log');
-                    }
-                }
-            }
-            // Handle Form Submission
-            elseif ($uploadType) {
-                $result = $this->processFormSubmission($request, $uploadType, $itemSetId);
-                
-                // Similar check for form submissions
-                if ($uploadType === 'excavation' && strpos($result, 'Created Item Set #') !== false) {
-                    preg_match('/Created Item Set #(\d+)/', $result, $matches);
-                    if (isset($matches[1])) {
-                        $excavationItemSetId = $matches[1];
-                        error_log('Extracted Item Set ID from form: ' . $excavationItemSetId, 3, OMEKA_PATH . '/logs/upload-type.log');
-                    }
-                }
-            }
-            else {
-                $result = 'No file uploaded or form data received.';
-                error_log($result);
-            }
-
+            // Create item set for the excavation
+            $itemSetData = [
+                'dcterms:title' => [
+                    [
+                        'type' => 'literal',
+                        '@value' => "Excavation $excavationIdentifier"
+                    ]
+                ],
+                'dcterms:description' => [
+                    [
+                        'type' => 'literal',
+                        '@value' => "Item set for excavation with identifier $excavationIdentifier"
+                    ]
+                ],
+                'o:is_public' => true
+            ];
+            
+            // Create the item set
+            $itemSetResponse = $this->api()->create('item_sets', $itemSetData);
+            $itemSetId = $itemSetResponse->getContent()->id();
+            
+            // Store the mapping
+            $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
+            
+            // Upload TTL to the triplestore
+            $uploadResult = $this->uploadTtlData($ttlData, $itemSetId);
+            
+            // Redirect to the excavation form with success message
+            return $this->redirect()->toUrl($this->url()->fromRoute('site/collecting', [
+                'site-slug' => $this->currentSite()->slug(),
+                'form-id' => 3, // Excavation form ID
+                'action' => 'uploadExcavationForm'
+            ], [
+                'query' => [
+                    'result' => $uploadResult,
+                    'item_set_id' => $itemSetId
+                ]
+            ]));
+            
         } catch (\Exception $e) {
-            $result = 'Error during upload processing: ' . $e->getMessage();
-            error_log($result);
+            // Log the error
+            error_log('Failed to create item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-submission.log');
+            
+            // Redirect with error message
+            return $this->redirect()->toUrl($this->url()->fromRoute('site/collecting', [
+                'site-slug' => $this->currentSite()->slug(),
+                'form-id' => 3, // Excavation form ID
+                'action' => 'uploadExcavationForm'
+            ], [
+                'query' => [
+                    'result' => 'Error: ' . $e->getMessage()
+                ]
+            ]));
         }
-    }
-
-    error_log('Final result: ' . $result);
-    
-    // Prepare view variables
-    $viewVars = [
-        'result' => $result, 
-        'site' => $this->currentSite()
-    ];
-    
-    // Add excavation ID if available
-    if ($excavationItemSetId) {
-        $viewVars['excavationItemSetId'] = $excavationItemSetId;
+    } else if ($uploadType == 'arrowhead') {
+        // Process arrowhead submission
+        // ...similar to excavation processing
+        // Return after processing
     }
     
-    // For continuous upload (arrowhead uploaded after excavation)
-    if ($continuousUpload && $itemSetId) {
-        $viewVars['continuousUpload'] = true;
-        $viewVars['itemSetId'] = $itemSetId;
-    }
-    
-    return (new ViewModel($viewVars))
-        ->setTemplate('add-triplestore/site/index/index');
+    // Default response if no specific upload type was recognized
+    return $this->redirect()->toUrl($this->url()->fromRoute('site', ['site-slug' => $this->currentSite()->slug()]));
 }
 
 
