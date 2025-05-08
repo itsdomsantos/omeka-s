@@ -314,10 +314,12 @@ public function submitExcavationAction()
             'EncounterEvent'
         );
 
-        // Extract or generate excavation identifier
-        $excavationIdentifier = $this->params()->fromPost('new_context_id') ?? 
-                                $this->params()->fromPost('new_svu_id') ?? 
-                                'EXC-' . uniqid();
+        $excavationIdentifier = $this->params()->fromPost('excavation_id');
+
+        // If no dedicated excavation ID found, generate a new one with proper prefix
+        if (empty($excavationIdentifier)) {
+            $excavationIdentifier = 'EXC-' . uniqid();
+        }
 
         // Log the data we're working with
         error_log('Excavation data: ' . print_r($excavationData, true), 3, OMEKA_PATH . '/logs/excavation-submission.log');
@@ -448,131 +450,131 @@ private function prepareTtlFromExcavationData($excavationId, $excavationData, $c
     } else {
         $contextId = 'CTX-' . uniqid();
     }
-
+    
     $contextUri = "$baseUri/context/$contextId";
 
-    
-    // Create SVU with proper ID
-    $svuId = ($svuData && !$svuData['isExisting']) 
-        ? $svuData['data']['id'] 
-        : 'SVU-' . uniqid();
-    $svuUri = "$baseUri/svu/$svuId";
-    
-    // Use existing URIs if provided
-    if ($contextData && $contextData['isExisting']) {
-        $contextUri = $contextData['uri'];
-    }
-    if ($svuData && $svuData['isExisting']) {
-        $svuUri = $svuData['uri'];
-    }
-    
-    // Start building the TTL
-    $ttl = $this->getTtlPrefixes();
-    
-    // Add excavation with required link to context
-    $ttl .= "<$excavationUri> a crmarchaeo:A9_Archaeological_Excavation;\n";
-    $ttl .= "    dct:identifier \"$excavationId\"^^xsd:string;\n";
-    $ttl .= "    excav:hasContext <$contextUri>;\n";
-    $ttl .= "    .\n\n";
-    
-    // Add context with required ID and link to SVU (if provided)
-    $ttl .= "<$contextUri> a crmarchaeo:A1_Excavation_Processing_Unit;\n";
-    $ttl .= "    dct:identifier \"$contextId\"^^xsd:string;\n";
-    
-    // Only add hasSVU if SVU data exists
-    if ($svuData) {
-        $ttl .= "    excav:hasSVU <$svuUri>;\n";
-    }
+
+// Create SVU with proper ID
+$svuId = ($svuData && !$svuData['isExisting']) 
+    ? $svuData['data']['id'] 
+    : 'SVU-' . uniqid();
+$svuUri = "$baseUri/svu/$svuId";
+
+// Use existing URIs if provided
+if ($contextData && $contextData['isExisting']) {
+    $contextUri = $contextData['uri'];
+}
+if ($svuData && $svuData['isExisting']) {
+    $svuUri = $svuData['uri'];
+}
+
+// Start building the TTL
+$ttl = $this->getTtlPrefixes();
+
+// Add excavation with required link to context
+$ttl .= "<$excavationUri> a crmarchaeo:A9_Archaeological_Excavation;\n";
+$ttl .= "    dct:identifier \"$excavationId\"^^xsd:string;\n";
+$ttl .= "    excav:hasContext <$contextUri>;\n";
+$ttl .= "    .\n\n";
+
+// Add context with required ID and link to SVU (if provided)
+$ttl .= "<$contextUri> a crmarchaeo:A1_Excavation_Processing_Unit;\n";
+$ttl .= "    dct:identifier \"$contextId\"^^xsd:string;\n";
+
+// Only add hasSVU if SVU data exists
+if ($svuData) {
+    $ttl .= "    excav:hasSVU <$svuUri>;\n";
+}
+
+// Add description if available
+if ($contextData && !$contextData['isExisting'] && !empty($contextData['data']['description'])) {
+    $ttl .= "    dct:description \"" . $contextData['data']['description'] . "\"^^xsd:string;\n";
+}
+
+$ttl .= "    .\n\n";
+
+// Add SVU if provided
+if ($svuData) {
+    $ttl .= "<$svuUri> a crmarchaeo:A2_Stratigraphic_Volume_Unit;\n";
+    $ttl .= "    dct:identifier \"$svuId\"^^xsd:string;\n";
     
     // Add description if available
-    if ($contextData && !$contextData['isExisting'] && !empty($contextData['data']['description'])) {
-        $ttl .= "    dct:description \"" . $contextData['data']['description'] . "\"^^xsd:string;\n";
+    if ($svuData && !$svuData['isExisting'] && !empty($svuData['data']['description'])) {
+        $ttl .= "    dct:description \"" . $svuData['data']['description'] . "\"^^xsd:string;\n";
     }
     
-    $ttl .= "    .\n\n";
-    
-    // Add SVU if provided
-    if ($svuData) {
-        $ttl .= "<$svuUri> a crmarchaeo:A2_Stratigraphic_Volume_Unit;\n";
-        $ttl .= "    dct:identifier \"$svuId\"^^xsd:string;\n";
+    // Add timeline if year data is provided
+    if ($svuData && !$svuData['isExisting'] && 
+        (!empty($svuData['data']['lower_year']) || !empty($svuData['data']['upper_year']))) {
+        $timelineUri = "$svuUri/timeline";
+        $ttl .= "    excav:hasTimeLine <$timelineUri>;\n";
+        $ttl .= "    .\n\n";
         
-        // Add description if available
-        if ($svuData && !$svuData['isExisting'] && !empty($svuData['data']['description'])) {
-            $ttl .= "    dct:description \"" . $svuData['data']['description'] . "\"^^xsd:string;\n";
+        // Add timeline
+        $ttl .= "<$timelineUri> a time:TemporalEntity;\n";
+        
+        if (!empty($svuData['data']['lower_year'])) {
+            $lowerInstantUri = "$timelineUri/beginning";
+            $ttl .= "    time:hasBeginning <$lowerInstantUri>;\n";
         }
         
-        // Add timeline if year data is provided
-        if ($svuData && !$svuData['isExisting'] && 
-            (!empty($svuData['data']['lower_year']) || !empty($svuData['data']['upper_year']))) {
-            $timelineUri = "$svuUri/timeline";
-            $ttl .= "    excav:hasTimeLine <$timelineUri>;\n";
-            $ttl .= "    .\n\n";
-            
-            // Add timeline
-            $ttl .= "<$timelineUri> a time:TemporalEntity;\n";
-            
-            if (!empty($svuData['data']['lower_year'])) {
-                $lowerInstantUri = "$timelineUri/beginning";
-                $ttl .= "    time:hasBeginning <$lowerInstantUri>;\n";
-            }
-            
-            if (!empty($svuData['data']['upper_year'])) {
-                $upperInstantUri = "$timelineUri/end";
-                $ttl .= "    time:hasEnd <$upperInstantUri>;\n";
-            }
-            
-            $ttl .= "    .\n\n";
-            
-            // Add instants
-            if (!empty($svuData['data']['lower_year'])) {
-                $ttl .= "<$lowerInstantUri> a time:Instant;\n";
-                $ttl .= "    time:inXSDYear \"" . $svuData['data']['lower_year'] . "\"^^xsd:gYear;\n";
-                $ttl .= "    excav:bc " . ($svuData['data']['lower_bc'] ? "true" : "false") . ";\n";
-                $ttl .= "    .\n\n";
-            }
-            
-            if (!empty($svuData['data']['upper_year'])) {
-                $ttl .= "<$upperInstantUri> a time:Instant;\n";
-                $ttl .= "    time:inXSDYear \"" . $svuData['data']['upper_year'] . "\"^^xsd:gYear;\n";
-                $ttl .= "    excav:bc " . ($svuData['data']['upper_bc'] ? "true" : "false") . ";\n";
-                $ttl .= "    .\n\n";
-            }
-        } else {
-            $ttl .= "    .\n\n";
-        }
-    }
-    
-    // Add encounter event if provided
-    if ($encounterData) {
-        $encounterUri = "$baseUri/encounter/" . uniqid();
-        if ($encounterData['isExisting']) {
-            $encounterUri = $encounterData['uri'];
-        }
-        
-        $ttl .= "<$encounterUri> a crmsci:S19_Encounter_Event;\n";
-        
-        if (!$encounterData['isExisting']) {
-            if (!empty($encounterData['data']['date'])) {
-                $ttl .= "    dct:date \"" . $encounterData['data']['date'] . "\"^^xsd:date;\n";
-            }
-            
-            if (!empty($encounterData['data']['depth'])) {
-                $ttl .= "    dbo:depth \"" . $encounterData['data']['depth'] . "\"^^xsd:decimal;\n";
-            }
-        }
-        
-        $ttl .= "    excav:foundInAExcavation <$excavationUri>;\n";
-        $ttl .= "    excav:foundInAContext <$contextUri>;\n";
-        
-        if ($svuData) {
-            $ttl .= "    excav:foundInSVU <$svuUri>;\n";
+        if (!empty($svuData['data']['upper_year'])) {
+            $upperInstantUri = "$timelineUri/end";
+            $ttl .= "    time:hasEnd <$upperInstantUri>;\n";
         }
         
         $ttl .= "    .\n\n";
+        
+        // Add instants
+        if (!empty($svuData['data']['lower_year'])) {
+            $ttl .= "<$lowerInstantUri> a time:Instant;\n";
+            $ttl .= "    time:inXSDYear \"" . $svuData['data']['lower_year'] . "\"^^xsd:gYear;\n";
+            $ttl .= "    excav:bc " . ($svuData['data']['lower_bc'] ? "true" : "false") . ";\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        if (!empty($svuData['data']['upper_year'])) {
+            $ttl .= "<$upperInstantUri> a time:Instant;\n";
+            $ttl .= "    time:inXSDYear \"" . $svuData['data']['upper_year'] . "\"^^xsd:gYear;\n";
+            $ttl .= "    excav:bc " . ($svuData['data']['upper_bc'] ? "true" : "false") . ";\n";
+            $ttl .= "    .\n\n";
+        }
+    } else {
+        $ttl .= "    .\n\n";
     }
-    error_log('TTL data: ' . $ttl, 3, OMEKA_PATH . '/logs/dkdkdk-submission.log');
+}
 
-    return $ttl;
+// Add encounter event if provided
+if ($encounterData) {
+    $encounterUri = "$baseUri/encounter/" . uniqid();
+    if ($encounterData['isExisting']) {
+        $encounterUri = $encounterData['uri'];
+    }
+    
+    $ttl .= "<$encounterUri> a crmsci:S19_Encounter_Event;\n";
+    
+    if (!$encounterData['isExisting']) {
+        if (!empty($encounterData['data']['date'])) {
+            $ttl .= "    dct:date \"" . $encounterData['data']['date'] . "\"^^xsd:date;\n";
+        }
+        
+        if (!empty($encounterData['data']['depth'])) {
+            $ttl .= "    dbo:depth \"" . $encounterData['data']['depth'] . "\"^^xsd:decimal;\n";
+        }
+    }
+    
+    $ttl .= "    excav:foundInAExcavation <$excavationUri>;\n";
+    $ttl .= "    excav:foundInAContext <$contextUri>;\n";
+    
+    if ($svuData) {
+        $ttl .= "    excav:foundInSVU <$svuUri>;\n";
+    }
+    
+    $ttl .= "    .\n\n";
+}
+error_log('TTL data: ' . $ttl, 3, OMEKA_PATH . '/logs/dkdkdk-submission.log');
+
+return $ttl;
 }
 
 /**

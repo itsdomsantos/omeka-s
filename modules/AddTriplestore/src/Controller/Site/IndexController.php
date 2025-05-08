@@ -187,28 +187,28 @@ public function uploadAction()
     }
 
     private function prepareTtlFromExcavationData($excavationId, $excavationData, $contextData, $svuData, $encounterData)
-{
-    // Ensure we have a valid excavation ID with proper prefix
-    if (empty($excavationId) || $excavationId === "") {
-        $excavationId = "EXC-" . uniqid();
-    } else if (strpos($excavationId, 'EXC-') !== 0) {
-        // Ensure excavation ID has the right prefix
-        $excavationId = "EXC-" . $excavationId;
-    }
-    
-    // Generate base URIs for the resources
-    $baseUri = "http://www.arch-project.com/data";
-    $excavationUri = "$baseUri/excavation/$excavationId";
-    
-    // Create context with proper ID - never use the excavation ID for the context
-    $contextId = null;
-    if ($contextData && !$contextData['isExisting']) {
-        $contextId = $contextData['data']['id'];
-    } else {
-        $contextId = 'CTX-' . uniqid();
-    }
-
-    $contextUri = "$baseUri/context/$contextId";
+    {
+        // Ensure we have a valid excavation ID with proper prefix
+        if (empty($excavationId) || $excavationId === "") {
+            $excavationId = "EXC-" . uniqid();
+        } else if (strpos($excavationId, 'EXC-') !== 0) {
+            // Ensure excavation ID has the right prefix
+            $excavationId = "EXC-" . $excavationId;
+        }
+        
+        // Generate base URIs for the resources
+        $baseUri = "http://www.arch-project.com/data";
+        $excavationUri = "$baseUri/excavation/$excavationId";
+        
+        // Create context with proper ID - never use the excavation ID for the context
+        $contextId = null;
+        if ($contextData && !$contextData['isExisting']) {
+            $contextId = $contextData['data']['id'];
+        } else {
+            $contextId = 'CTX-' . uniqid();
+        }
+        
+        $contextUri = "$baseUri/context/$contextId";
 
     
     // Create SVU with proper ID
