@@ -67,50 +67,60 @@ class IndexController extends AbstractActionController
     }
 
     public function submitArrowheadAction()
-{
-    $formId = $this->params('form-id');
-    $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
-    $form = $cForm->getForm();
-    $form->setData($this->params()->fromPost());
-    
-    // Get the item set ID from the query parameters
-    $itemSetId = $this->params()->fromQuery('item_set_id');
-    
-    if ($form->isValid()) {
-        $arrowheadData = $this->getFormData($cForm);
+    {
+        $formId = $this->params('form-id');
+        $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
+        $form = $cForm->getForm();
+        $form->setData($this->params()->fromPost());
         
-        // If an item set ID is provided, include it in the redirection
-        $query = [
-            'upload_type' => 'arrowhead',
-            'form_data' => $arrowheadData
-        ];
+        // Get the item set ID from the query parameters
+        $itemSetId = $this->params()->fromQuery('item_set_id');
         
-        if ($itemSetId) {
-            $query['item_set_id'] = $itemSetId;
+        if ($form->isValid()) {
+            $arrowheadData = $this->getFormData($cForm);
             
-            // Add excavation identifier to the arrowhead data if we can find it
-            $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
-            if ($excavationId) {
-                $arrowheadData['excavation_id'] = $excavationId;
+            // If an item set ID is provided, include it in the redirection
+            $query = [
+                'upload_type' => 'arrowhead',
+                'form_data' => $arrowheadData
+            ];
+            
+            if ($itemSetId) {
+                $query['item_set_id'] = $itemSetId;
+                
+                // Add excavation identifier to the arrowhead data if we can find it
+                $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+                if ($excavationId) {
+                    $arrowheadData['excavation_id'] = $excavationId;
+                }
             }
+            
+            $url = $this->url('site/collecting', [
+                'site-slug' => $this->currentSite()->slug(),
+                'form-id' => $formId,
+                'action' => 'uploadArrowheadForm'
+            ], [
+                'query' => $query
+            ]);
+            
+            $this->redirect()->toUrl($url);
+        } else {
+            $this->messenger()->addErrors($form->getMessages());
+            return $this->redirect()->toRoute('site/collecting', ['form-id' => $formId, 'action' => 'uploadArrowheadForm']);
+        }
+    }
+    
+    private function getExcavationIdentifierFromItemSet($itemSetId)
+    {
+        // Get mappings from site settings
+        $mappings = $this->siteSettings()->get('excavation_itemset_mappings', []);
+        
+        if (isset($mappings[$itemSetId])) {
+            return $mappings[$itemSetId];
         }
         
-        $url = $this->url('site/collecting', [
-            'site-slug' => $this->currentSite()->slug(),
-            'form-id' => $formId,
-            'action' => 'uploadArrowheadForm'
-        ], [
-            'query' => $query
-        ]);
-        
-        error_log('Redirecting to: ' . $url, 3, OMEKA_PATH . '/logs/redirect-log.log');
-        
-        $this->redirect()->toUrl($url);
-    } else {
-        $this->messenger()->addErrors($form->getMessages());
-        return $this->redirect()->toRoute('site/collecting', ['form-id' => $formId, 'action' => 'uploadArrowheadForm']);
+        return null;
     }
-}
 
     /**
  * Fetch entities of a specific type from the triple store
