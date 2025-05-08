@@ -267,6 +267,7 @@ private function redirectToTriplestore(array $data, string $uploadType, ?int $it
     $this->redirect()->toUrl($url);
 }
 
+
 public function submitExcavationAction()
 {
     $formId = $this->params('form-id');
@@ -278,80 +279,96 @@ public function submitExcavationAction()
         // Capture main form data
         $excavationData = $this->getFormData($cForm);
         
-        // Capture additional entity data from POST
-        $excavationData['entities'] = [
-            // Context handling
-            'context' => $this->processEntitySelection(
-                $this->params()->fromPost('existing_context'),
-                [
-                    'id' => $this->params()->fromPost('new_context_id'),
-                    'description' => $this->params()->fromPost('new_context_description')
-                ],
-                'Context'
-            ),
-            
-            // Stratigraphic Volume Unit handling
-            'svu' => $this->processEntitySelection(
-                $this->params()->fromPost('existing_svu'),
-                [
-                    'id' => $this->params()->fromPost('new_svu_id'),
-                    'description' => $this->params()->fromPost('new_svu_description'),
-                    'lower_year' => $this->params()->fromPost('new_svu_lower_year'),
-                    'lower_bc' => $this->params()->fromPost('new_svu_lower_bc') ? true : false,
-                    'upper_year' => $this->params()->fromPost('new_svu_upper_year'),
-                    'upper_bc' => $this->params()->fromPost('new_svu_upper_bc') ? true : false
-                ],
-                'SVU'
-            ),
-            
-            // Encounter Event handling
-            'encounter' => $this->processEntitySelection(
-                $this->params()->fromPost('existing_encounter'),
-                [
-                    'date' => $this->params()->fromPost('new_encounter_date'),
-                    'depth' => $this->params()->fromPost('new_encounter_depth')
-                ],
-                'EncounterEvent'
-            )
-        ];
-
-        // Create an item set for this excavation
-        $identifier = $excavationData['entities']['context']['data']['id'] ?? 
-                      $excavationData['entities']['svu']['data']['id'] ?? 
-                      $this->params()->fromPost('new_context_id') ?? 
-                      $this->params()->fromPost('new_svu_id') ?? 
-                      'EXC-' . uniqid();
+        // Capture additional entity data from POST for the subforms
+        $contextData = $this->processEntitySelection(
+            $this->params()->fromPost('existing_context'),
+            [
+                'id' => $this->params()->fromPost('new_context_id'),
+                'description' => $this->params()->fromPost('new_context_description')
+            ],
+            'Context'
+        );
         
-        // Prepare data for item set creation
-        $itemSetData = [
-            'dcterms:title' => [
-                [
-                    'type' => 'literal',
-                    '@value' => "Excavation $identifier"
-                ]
+        $svuData = $this->processEntitySelection(
+            $this->params()->fromPost('existing_svu'),
+            [
+                'id' => $this->params()->fromPost('new_svu_id'),
+                'description' => $this->params()->fromPost('new_svu_description'),
+                'lower_year' => $this->params()->fromPost('new_svu_lower_year'),
+                'lower_bc' => $this->params()->fromPost('new_svu_lower_bc') ? true : false,
+                'upper_year' => $this->params()->fromPost('new_svu_upper_year'),
+                'upper_bc' => $this->params()->fromPost('new_svu_upper_bc') ? true : false
             ],
-            'dcterms:description' => [
-                [
-                    'type' => 'literal',
-                    '@value' => "Item set for excavation with identifier $identifier"
-                ]
+            'SVU'
+        );
+        
+        $encounterData = $this->processEntitySelection(
+            $this->params()->fromPost('existing_encounter'),
+            [
+                'date' => $this->params()->fromPost('new_encounter_date'),
+                'depth' => $this->params()->fromPost('new_encounter_depth')
             ],
-            'o:is_public' => true
-        ];
+            'EncounterEvent'
+        );
 
+        // Extract or generate excavation identifier
+        $excavationIdentifier = $this->params()->fromPost('new_context_id') ?? 
+                                $this->params()->fromPost('new_svu_id') ?? 
+                                'EXC-' . uniqid();
+
+        // Log the data we're working with
+        error_log('Excavation data: ' . print_r($excavationData, true), 3, OMEKA_PATH . '/logs/excavation-submission.log');
+        error_log('Context data: ' . print_r($contextData, true), 3, OMEKA_PATH . '/logs/excavation-submission.log');
+        error_log('SVU data: ' . print_r($svuData, true), 3, OMEKA_PATH . '/logs/excavation-submission.log');
+        error_log('Encounter data: ' . print_r($encounterData, true), 3, OMEKA_PATH . '/logs/excavation-submission.log');
+        
+        // Convert the form data + subform data to TTL
+        $ttlData = $this->prepareTtlFromExcavationData(
+            $excavationIdentifier, 
+            $excavationData, 
+            $contextData, 
+            $svuData, 
+            $encounterData
+        );
+        
+        // Create an item set for this excavation
         try {
+            // Prepare data for item set creation
+            $itemSetData = [
+                'dcterms:title' => [
+                    [
+                        'type' => 'literal',
+                        '@value' => "Excavation $excavationIdentifier"
+                    ]
+                ],
+                'dcterms:description' => [
+                    [
+                        'type' => 'literal',
+                        '@value' => "Item set for excavation with identifier $excavationIdentifier"
+                    ]
+                ],
+                'o:is_public' => true
+            ];
+
             // Create the item set
             $itemSetResponse = $this->api()->create('item_sets', $itemSetData);
             $itemSetId = $itemSetResponse->getContent()->id();
-
-            // Redirect to AddTriplestore module with item set ID
-            $this->redirectToTriplestore($excavationData, 'excavation', $itemSetId);
+            
+            // Store the mapping between item set and excavation ID
+            $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
+            
+            // Upload TTL to the triplestore
+            $uploadResult = $this->uploadTtlData($ttlData, $itemSetId);
+            
+            // Redirect to excavation form with success message
+            $this->redirectToTriplestore(['result' => $uploadResult], 'excavation', $itemSetId);
+            
         } catch (\Exception $e) {
             // Log the error
-            error_log('Failed to create item set: ' . $e->getMessage());
+            error_log('Failed to create item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-submission.log');
             
-            // Redirect without item set
-            $this->redirectToTriplestore($excavationData, 'excavation');
+            // Redirect with error message
+            $this->redirectToTriplestore(['result' => 'Error: ' . $e->getMessage()], 'excavation');
         }
     } else {
         $this->messenger()->addErrors($form->getMessages());
@@ -359,11 +376,18 @@ public function submitExcavationAction()
     }
 }
 
-
+/**
+ * Process entity selection from form data, handling both existing and new entities
+ * 
+ * @param string|null $existingUri URI of existing entity (if selected)
+ * @param array $newData Data for creating a new entity
+ * @param string $entityType Type of entity (Context, SVU, EncounterEvent)
+ * @return array|null Processed entity data or null if no valid data
+ */
 private function processEntitySelection($existingUri, array $newData, $entityType)
 {
     if (!empty($existingUri)) {
-        return ['uri' => $existingUri, 'isExisting' => true];
+        return ['uri' => $existingUri, 'isExisting' => true, 'type' => $entityType];
     }
     
     // Check if we have the minimum required data to create a new entity
@@ -392,6 +416,259 @@ private function processEntitySelection($existingUri, array $newData, $entityTyp
     ];
 }
 
+/**
+ * Convert excavation form data to TTL format with proper relationships
+ * 
+ * @param string $excavationId The excavation identifier
+ * @param array $excavationData The main excavation form data
+ * @param array|null $contextData The context subform data
+ * @param array|null $svuData The SVU subform data
+ * @param array|null $encounterData The encounter event subform data
+ * @return string The TTL data
+ */
+private function prepareTtlFromExcavationData($excavationId, $excavationData, $contextData, $svuData, $encounterData)
+{
+    // Generate base URIs for the resources
+    $baseUri = "http://www.arch-project.com/$excavationId";
+    $excavationUri = "$baseUri/excavation/$excavationId";
+    $contextUri = "$baseUri/context/" . ($contextData && !$contextData['isExisting'] ? $contextData['data']['id'] : 'ctx_' . uniqid());
+    $svuUri = "$baseUri/svu/" . ($svuData && !$svuData['isExisting'] ? $svuData['data']['id'] : 'svu_' . uniqid());
+    $encounterUri = "$baseUri/encounter/" . uniqid();
+    
+    // Use existing URIs if provided
+    if ($contextData && $contextData['isExisting']) {
+        $contextUri = $contextData['uri'];
+    }
+    if ($svuData && $svuData['isExisting']) {
+        $svuUri = $svuData['uri'];
+    }
+    if ($encounterData && $encounterData['isExisting']) {
+        $encounterUri = $encounterData['uri'];
+    }
+    
+    // Start building the TTL
+    $ttl = $this->getTtlPrefixes();
+    
+    // Add excavation
+    $ttl .= "<$excavationUri> a crmarchaeo:A9_Archaeological_Excavation;\n";
+    $ttl .= "    dct:identifier \"$excavationId\"^^xsd:string;\n";
+    
+    // Add basic excavation properties from the main form
+    foreach ($excavationData as $key => $value) {
+        if (empty($value)) continue;
+        
+        switch ($key) {
+            case 'title':
+                $ttl .= "    dct:title \"$value\"^^xsd:string;\n";
+                break;
+            case 'description':
+                $ttl .= "    dct:description \"$value\"^^xsd:string;\n";
+                break;
+            case 'location':
+                $ttl .= "    dul:hasLocation <$baseUri/location/" . urlencode($value) . ">;\n";
+                $ttl .= $this->generateLocationTtl("$baseUri/location/" . urlencode($value), $value);
+                break;
+            // Add more mappings as needed
+        }
+    }
+    
+    // Link to context if provided
+    if ($contextData) {
+        $ttl .= "    excav:hasContext <$contextUri>;\n";
+        
+        // If it's a new context, generate the TTL for it
+        if (!$contextData['isExisting']) {
+            $ttl .= "    .\n\n"; // Close excavation
+            $ttl .= $this->generateContextTtl($contextUri, $contextData['data'], $svuUri);
+        } else {
+            $ttl .= "    .\n\n"; // Close excavation
+        }
+    } else {
+        $ttl .= "    .\n\n"; // Close excavation
+    }
+    
+    // Add SVU if provided and not already handled in context
+    if ($svuData && !($contextData && !$contextData['isExisting'])) {
+        $ttl .= $this->generateSvuTtl($svuUri, $svuData['data']);
+    }
+    
+    // Add encounter event if provided
+    if ($encounterData) {
+        $ttl .= $this->generateEncounterTtl($encounterUri, $encounterData['data'], $excavationUri, $contextUri, $svuUri);
+    }
+    
+    return $ttl;
+}
+
+/**
+ * Generate TTL for a context
+ */
+private function generateContextTtl($contextUri, $contextData, $svuUri = null)
+{
+    $ttl = "<$contextUri> a crmarchaeo:A1_Excavation_Processing_Unit;\n";
+    $ttl .= "    dct:identifier \"" . $contextData['id'] . "\"^^xsd:string;\n";
+    
+    if (!empty($contextData['description'])) {
+        $ttl .= "    dct:description \"" . $contextData['description'] . "\"^^xsd:string;\n";
+    }
+    
+    if ($svuUri) {
+        $ttl .= "    excav:hasSVU <$svuUri>;\n";
+    }
+    
+    $ttl .= "    .\n\n";
+    return $ttl;
+}
+
+/**
+ * Generate TTL for a Stratigraphic Volume Unit (SVU)
+ */
+private function generateSvuTtl($svuUri, $svuData)
+{
+    $ttl = "<$svuUri> a crmarchaeo:A2_Stratigraphic_Volume_Unit;\n";
+    $ttl .= "    dct:identifier \"" . $svuData['id'] . "\"^^xsd:string;\n";
+    
+    if (!empty($svuData['description'])) {
+        $ttl .= "    dct:description \"" . $svuData['description'] . "\"^^xsd:string;\n";
+    }
+    
+    // Add timeline if year data is provided
+    if (!empty($svuData['lower_year']) || !empty($svuData['upper_year'])) {
+        $timelineUri = $svuUri . "/timeline";
+        $ttl .= "    excav:hasTimeLine <$timelineUri>;\n";
+        $ttl .= "    .\n\n";
+        
+        // Add timeline
+        $ttl .= "<$timelineUri> a time:TemporalEntity;\n";
+        
+        if (!empty($svuData['lower_year'])) {
+            $lowerInstantUri = $timelineUri . "/beginning";
+            $ttl .= "    time:hasBeginning <$lowerInstantUri>;\n";
+        }
+        
+        if (!empty($svuData['upper_year'])) {
+            $upperInstantUri = $timelineUri . "/end";
+            $ttl .= "    time:hasEnd <$upperInstantUri>;\n";
+        }
+        
+        $ttl .= "    .\n\n";
+        
+        // Add instants
+        if (!empty($svuData['lower_year'])) {
+            $ttl .= "<$lowerInstantUri> a time:Instant;\n";
+            $ttl .= "    time:inXSDYear \"" . $svuData['lower_year'] . "\"^^xsd:gYear;\n";
+            $ttl .= "    excav:bc " . ($svuData['lower_bc'] ? "true" : "false") . ";\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        if (!empty($svuData['upper_year'])) {
+            $ttl .= "<$upperInstantUri> a time:Instant;\n";
+            $ttl .= "    time:inXSDYear \"" . $svuData['upper_year'] . "\"^^xsd:gYear;\n";
+            $ttl .= "    excav:bc " . ($svuData['upper_bc'] ? "true" : "false") . ";\n";
+            $ttl .= "    .\n\n";
+        }
+    } else {
+        $ttl .= "    .\n\n";
+    }
+    
+    return $ttl;
+}
+
+/**
+ * Generate TTL for an encounter event
+ */
+private function generateEncounterTtl($encounterUri, $encounterData, $excavationUri, $contextUri = null, $svuUri = null)
+{
+    $ttl = "<$encounterUri> a crmsci:S19_Encounter_Event;\n";
+    
+    if (!empty($encounterData['date'])) {
+        $ttl .= "    dct:date \"" . $encounterData['date'] . "\"^^xsd:date;\n";
+    } else {
+        $ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:date;\n";
+    }
+    
+    if (!empty($encounterData['depth'])) {
+        $ttl .= "    dbo:depth \"" . $encounterData['depth'] . "\"^^xsd:decimal;\n";
+    }
+    
+    $ttl .= "    excav:foundInAExcavation <$excavationUri>;\n";
+    
+    if ($contextUri) {
+        $ttl .= "    excav:foundInAContext <$contextUri>;\n";
+    }
+    
+    if ($svuUri) {
+        $ttl .= "    excav:foundInSVU <$svuUri>;\n";
+    }
+    
+    $ttl .= "    .\n\n";
+    return $ttl;
+}
+
+/**
+ * Generate TTL for a location
+ */
+private function generateLocationTtl($locationUri, $locationName)
+{
+    $ttl = "";
+    $ttl .= "<$locationUri> a dbo:Place;\n";
+    $ttl .= "    dbo:informationName \"$locationName\"^^xsd:string;\n";
+    
+    // Add placeholder district and parish if needed
+    $districtUri = $locationUri . "/district";
+    $parishUri = $locationUri . "/parish";
+    
+    $ttl .= "    dbo:district <$districtUri>;\n";
+    $ttl .= "    dbo:parish <$parishUri>;\n";
+    
+    // Add placeholder coordinates
+    $coordinatesUri = $locationUri . "/coordinates";
+    $ttl .= "    excav:hasGPSCoordinates <$coordinatesUri>;\n";
+    $ttl .= "    .\n\n";
+    
+    // Add district
+    $ttl .= "<$districtUri> a dbo:District;\n";
+    $ttl .= "    dbo:informationName \"Unknown District\"^^xsd:string;\n";
+    $ttl .= "    .\n\n";
+    
+    // Add parish
+    $ttl .= "<$parishUri> a dbo:Parish;\n";
+    $ttl .= "    dbo:informationName \"Unknown Parish\"^^xsd:string;\n";
+    $ttl .= "    .\n\n";
+    
+    // Add coordinates
+    $ttl .= "<$coordinatesUri> a geo:SpatialThing;\n";
+    $ttl .= "    geo:lat \"0.0\"^^xsd:decimal;\n";
+    $ttl .= "    geo:long \"0.0\"^^xsd:decimal;\n";
+    $ttl .= "    .\n\n";
+    
+    return $ttl;
+}
+
+/**
+ * Get standard TTL prefixes for archaeological data
+ */
+private function getTtlPrefixes()
+{
+    return "@prefix ah: <http://www.purl.com/ah/ms/ahMS#>.\n" .
+           "@prefix ah-vocab: <http://www.purl.com/ah/kos#>.\n" .
+           "@prefix excav: <https://purl.org/ah/ms/excavationMS#>.\n" .
+           "@prefix dct: <http://purl.org/dc/terms/>.\n" .
+           "@prefix foaf: <http://xmlns.com/foaf/0.1/>.\n" .
+           "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.\n" .
+           "@prefix schema: <http://schema.org/>.\n" .
+           "@prefix skos: <http://www.w3.org/2004/02/skos/core#>.\n" .
+           "@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.\n" .
+           "@prefix dbo: <http://dbpedia.org/ontology/>.\n" .
+           "@prefix time: <http://www.w3.org/2006/time#>.\n" .
+           "@prefix edm: <http://www.europeana.eu/schemas/edm#>.\n" .
+           "@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>.\n" .
+           "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/>.\n" .
+           "@prefix crmsci: <https://cidoc-crm.org/extensions/crmsci/>.\n" .
+           "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/>.\n" .
+           "@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>.\n" .
+           "@prefix sh: <http://www.w3.org/ns/shacl#>.\n\n";
+}
 
 
     /**
