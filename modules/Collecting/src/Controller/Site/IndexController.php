@@ -32,10 +32,16 @@ class IndexController extends AbstractActionController
         $formId = $this->params('form-id');
         $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
         $form = $cForm->getForm(); // Get the Laminas Form object
-
+        
+        // Get the item set ID from query parameters if present
+        $itemSetId = $this->params()->fromQuery('item_set_id');
+        $result = $this->params()->fromQuery('result', '');
+        
         $view = new ViewModel([
             'form' => $form,
-            'formType' => 'arrowhead', // Pass form type to the view
+            'formType' => 'arrowhead', 
+            'itemSetId' => $itemSetId,
+            'result' => $result
         ]);
         return $view;
     }

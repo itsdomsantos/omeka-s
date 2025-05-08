@@ -7,22 +7,23 @@ $result = $this->params()->fromQuery('result', '');
 ?>
 
 <?php if (strpos($result, 'successfully') !== false): ?>
+    <div class="success-message">
+        <?php echo $result; ?>
+    </div>
     <div class="button-group">
         <a href="<?php echo $this->url('site/collecting', [
-            'form-id' => 1, // Arrowhead form ID
+            'form-id' => 1, 
             'action' => 'uploadArrowheadForm'
         ], ['query' => [
-            'item_set_id' => $this->params()->fromQuery('item_set_id'),
-            'mode' => 'form'
+            'item_set_id' => $itemSetId
         ]], true); ?>" class="button">
-            Add Arrowhead using Form
+            Add Another Arrowhead using Form
         </a>
         <a href="<?php echo $this->url('site/add-triplestore/upload', [
-            'site-slug' => $this->currentSite()->slug(),
-            'action' => 'upload'
+            'site-slug' => $this->currentSite()->slug()
         ], ['query' => [
             'upload_type' => 'arrowhead',
-            'item_set_id' => $this->params()->fromQuery('item_set_id'),
+            'item_set_id' => $itemSetId,
             'mode' => 'file'
         ]], true); ?>" class="button">
             Upload Arrowhead File
