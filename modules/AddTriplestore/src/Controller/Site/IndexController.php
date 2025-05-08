@@ -54,6 +54,7 @@ public function uploadAction()
         $excavationData = [];
         // Extract context data
         $contextData = $this->processEntitySelection(
+
             $this->params()->fromPost('existing_context'),
             [
                 'id' => $this->params()->fromPost('new_context_id'),
@@ -64,6 +65,7 @@ public function uploadAction()
         
         // Extract SVU data
         $svuData = $this->processEntitySelection(
+
             $this->params()->fromPost('existing_svu'),
             [
                 'id' => $this->params()->fromPost('new_svu_id'),
@@ -181,6 +183,281 @@ public function uploadAction()
             return new \Laminas\Form\Form('error-form'); // Or return null;
         }
     }
+
+    private function prepareTtlFromExcavationData($excavationId, $excavationData, $contextData, $svuData, $encounterData)
+{
+    // Generate base URIs for the resources
+    $baseUri = "http://www.arch-project.com/$excavationId";
+    $excavationUri = "$baseUri/excavation/$excavationId";
+    $contextUri = "$baseUri/context/" . ($contextData && !$contextData['isExisting'] ? $contextData['data']['id'] : 'ctx_' . uniqid());
+    $svuUri = "$baseUri/svu/" . ($svuData && !$svuData['isExisting'] ? $svuData['data']['id'] : 'svu_' . uniqid());
+    $encounterUri = "$baseUri/encounter/" . uniqid();
+    
+    // Use existing URIs if provided
+    if ($contextData && $contextData['isExisting']) {
+        $contextUri = $contextData['uri'];
+    }
+    if ($svuData && $svuData['isExisting']) {
+        $svuUri = $svuData['uri'];
+    }
+    if ($encounterData && $encounterData['isExisting']) {
+        $encounterUri = $encounterData['uri'];
+    }
+    
+    // Start building the TTL
+    $ttl = $this->getTtlPrefixes();
+    
+    // Add excavation
+    $ttl .= "<$excavationUri> a crmarchaeo:A9_Archaeological_Excavation;\n";
+    $ttl .= "    dct:identifier \"$excavationId\"^^xsd:string;\n";
+    
+    // Add basic excavation properties from the main form
+    foreach ($excavationData as $key => $value) {
+        if (empty($value)) continue;
+        
+        switch ($key) {
+            case 'title':
+                $ttl .= "    dct:title \"$value\"^^xsd:string;\n";
+                break;
+            case 'description':
+                $ttl .= "    dct:description \"$value\"^^xsd:string;\n";
+                break;
+            case 'location':
+                $ttl .= "    dul:hasLocation <$baseUri/location/" . urlencode($value) . ">;\n";
+                $ttl .= $this->generateLocationTtl("$baseUri/location/" . urlencode($value), $value);
+                break;
+            // Add more mappings as needed
+        }
+    }
+    
+    // Link to context if provided
+    if ($contextData) {
+        $ttl .= "    excav:hasContext <$contextUri>;\n";
+        
+        // If it's a new context, generate the TTL for it
+        if (!$contextData['isExisting']) {
+            $ttl .= "    .\n\n"; // Close excavation
+            $ttl .= $this->generateContextTtl($contextUri, $contextData['data'], $svuUri);
+        } else {
+            $ttl .= "    .\n\n"; // Close excavation
+        }
+    } else {
+        $ttl .= "    .\n\n"; // Close excavation
+    }
+    
+    // Add SVU if provided and not already handled in context
+    if ($svuData && !($contextData && !$contextData['isExisting'])) {
+        $ttl .= $this->generateSvuTtl($svuUri, $svuData['data']);
+    }
+    
+    // Add encounter event if provided
+    if ($encounterData) {
+        $ttl .= $this->generateEncounterTtl($encounterUri, $encounterData['data'], $excavationUri, $contextUri, $svuUri);
+    }
+
+    error_log('Generated TTL: ' . $ttl, 3, OMEKA_PATH . '/logs/excavatidjfon-ttl.log');
+    
+    return $ttl;
+}
+
+private function processEntitySelection($existingUri, array $newData, $entityType)
+{
+    if (!empty($existingUri)) {
+        return ['uri' => $existingUri, 'isExisting' => true, 'type' => $entityType];
+    }
+    
+    // Check if we have the minimum required data to create a new entity
+    switch ($entityType) {
+        case 'Context':
+            if (empty($newData['id'])) {
+                return null;
+            }
+            break;
+        case 'SVU':
+            if (empty($newData['id'])) {
+                return null;
+            }
+            break;
+        case 'EncounterEvent':
+            if (empty($newData['date'])) {
+                return null;
+            }
+            break;
+    }
+    
+    return [
+        'data' => $newData, 
+        'isExisting' => false, 
+        'type' => $entityType
+    ];
+}
+
+private function getTtlPrefixes()
+{
+    return "@prefix ah: <http://www.purl.com/ah/ms/ahMS#>.\n" .
+           "@prefix ah-vocab: <http://www.purl.com/ah/kos#>.\n" .
+           "@prefix excav: <https://purl.org/ah/ms/excavationMS#>.\n" .
+           "@prefix dct: <http://purl.org/dc/terms/>.\n" .
+           "@prefix foaf: <http://xmlns.com/foaf/0.1/>.\n" .
+           "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.\n" .
+           "@prefix schema: <http://schema.org/>.\n" .
+           "@prefix skos: <http://www.w3.org/2004/02/skos/core#>.\n" .
+           "@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.\n" .
+           "@prefix dbo: <http://dbpedia.org/ontology/>.\n" .
+           "@prefix time: <http://www.w3.org/2006/time#>.\n" .
+           "@prefix edm: <http://www.europeana.eu/schemas/edm#>.\n" .
+           "@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>.\n" .
+           "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/>.\n" .
+           "@prefix crmsci: <https://cidoc-crm.org/extensions/crmsci/>.\n" .
+           "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/>.\n" .
+           "@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>.\n" .
+           "@prefix sh: <http://www.w3.org/ns/shacl#>.\n\n";
+}
+
+/**
+ * Generate TTL for a context
+ */
+private function generateContextTtl($contextUri, $contextData, $svuUri = null)
+{
+    $ttl = "<$contextUri> a crmarchaeo:A1_Excavation_Processing_Unit;\n";
+    $ttl .= "    dct:identifier \"" . $contextData['id'] . "\"^^xsd:string;\n";
+    
+    if (!empty($contextData['description'])) {
+        $ttl .= "    dct:description \"" . $contextData['description'] . "\"^^xsd:string;\n";
+    }
+    
+    if ($svuUri) {
+        $ttl .= "    excav:hasSVU <$svuUri>;\n";
+    }
+    
+    $ttl .= "    .\n\n";
+    return $ttl;
+}
+
+/**
+ * Generate TTL for a Stratigraphic Volume Unit (SVU)
+ */
+private function generateSvuTtl($svuUri, $svuData)
+{
+    $ttl = "<$svuUri> a crmarchaeo:A2_Stratigraphic_Volume_Unit;\n";
+    $ttl .= "    dct:identifier \"" . $svuData['id'] . "\"^^xsd:string;\n";
+    
+    if (!empty($svuData['description'])) {
+        $ttl .= "    dct:description \"" . $svuData['description'] . "\"^^xsd:string;\n";
+    }
+    
+    // Add timeline if year data is provided
+    if (!empty($svuData['lower_year']) || !empty($svuData['upper_year'])) {
+        $timelineUri = $svuUri . "/timeline";
+        $ttl .= "    excav:hasTimeLine <$timelineUri>;\n";
+        $ttl .= "    .\n\n";
+        
+        // Add timeline
+        $ttl .= "<$timelineUri> a time:TemporalEntity;\n";
+        
+        if (!empty($svuData['lower_year'])) {
+            $lowerInstantUri = $timelineUri . "/beginning";
+            $ttl .= "    time:hasBeginning <$lowerInstantUri>;\n";
+        }
+        
+        if (!empty($svuData['upper_year'])) {
+            $upperInstantUri = $timelineUri . "/end";
+            $ttl .= "    time:hasEnd <$upperInstantUri>;\n";
+        }
+        
+        $ttl .= "    .\n\n";
+        
+        // Add instants
+        if (!empty($svuData['lower_year'])) {
+            $ttl .= "<$lowerInstantUri> a time:Instant;\n";
+            $ttl .= "    time:inXSDYear \"" . $svuData['lower_year'] . "\"^^xsd:gYear;\n";
+            $ttl .= "    excav:bc " . ($svuData['lower_bc'] ? "true" : "false") . ";\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        if (!empty($svuData['upper_year'])) {
+            $ttl .= "<$upperInstantUri> a time:Instant;\n";
+            $ttl .= "    time:inXSDYear \"" . $svuData['upper_year'] . "\"^^xsd:gYear;\n";
+            $ttl .= "    excav:bc " . ($svuData['upper_bc'] ? "true" : "false") . ";\n";
+            $ttl .= "    .\n\n";
+        }
+    } else {
+        $ttl .= "    .\n\n";
+    }
+    
+    return $ttl;
+}
+
+/**
+ * Generate TTL for an encounter event
+ */
+private function generateEncounterTtl($encounterUri, $encounterData, $excavationUri, $contextUri = null, $svuUri = null)
+{
+    $ttl = "<$encounterUri> a crmsci:S19_Encounter_Event;\n";
+    
+    if (!empty($encounterData['date'])) {
+        $ttl .= "    dct:date \"" . $encounterData['date'] . "\"^^xsd:date;\n";
+    } else {
+        $ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:date;\n";
+    }
+    
+    if (!empty($encounterData['depth'])) {
+        $ttl .= "    dbo:depth \"" . $encounterData['depth'] . "\"^^xsd:decimal;\n";
+    }
+    
+    $ttl .= "    excav:foundInAExcavation <$excavationUri>;\n";
+    
+    if ($contextUri) {
+        $ttl .= "    excav:foundInAContext <$contextUri>;\n";
+    }
+    
+    if ($svuUri) {
+        $ttl .= "    excav:foundInSVU <$svuUri>;\n";
+    }
+    
+    $ttl .= "    .\n\n";
+    return $ttl;
+}
+
+/**
+ * Generate TTL for a location
+ */
+private function generateLocationTtl($locationUri, $locationName)
+{
+    $ttl = "";
+    $ttl .= "<$locationUri> a dbo:Place;\n";
+    $ttl .= "    dbo:informationName \"$locationName\"^^xsd:string;\n";
+    
+    // Add placeholder district and parish if needed
+    $districtUri = $locationUri . "/district";
+    $parishUri = $locationUri . "/parish";
+    
+    $ttl .= "    dbo:district <$districtUri>;\n";
+    $ttl .= "    dbo:parish <$parishUri>;\n";
+    
+    // Add placeholder coordinates
+    $coordinatesUri = $locationUri . "/coordinates";
+    $ttl .= "    excav:hasGPSCoordinates <$coordinatesUri>;\n";
+    $ttl .= "    .\n\n";
+    
+    // Add district
+    $ttl .= "<$districtUri> a dbo:District;\n";
+    $ttl .= "    dbo:informationName \"Unknown District\"^^xsd:string;\n";
+    $ttl .= "    .\n\n";
+    
+    // Add parish
+    $ttl .= "<$parishUri> a dbo:Parish;\n";
+    $ttl .= "    dbo:informationName \"Unknown Parish\"^^xsd:string;\n";
+    $ttl .= "    .\n\n";
+    
+    // Add coordinates
+    $ttl .= "<$coordinatesUri> a geo:SpatialThing;\n";
+    $ttl .= "    geo:lat \"0.0\"^^xsd:decimal;\n";
+    $ttl .= "    geo:long \"0.0\"^^xsd:decimal;\n";
+    $ttl .= "    .\n\n";
+    
+    return $ttl;
+}
 
     private function getCollectingFormRepresentation(int $formId)
     {
