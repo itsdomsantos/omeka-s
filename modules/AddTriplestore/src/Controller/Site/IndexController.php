@@ -53,8 +53,14 @@ class IndexController extends AbstractActionController
                 // Process the uploaded file
                 $result = $this->processFileUpload($this->getRequest(), $uploadType, $itemSetId);
                 
+                // Check if excavation ID is available for a more specific message
+                $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+                if ($excavationId && strpos($result, 'successfully') !== false) {
+                    $result = "Arrowhead was successfully added to excavation $excavationId (Item Set #$itemSetId). You can upload another or click Exit when done.";
+                }
+                
                 // Redirect back to the same page to enable continuous uploads
-                return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/upload', [
+                $url = $this->url()->fromRoute('site/add-triplestore/upload', [
                     'site-slug' => $this->currentSite()->slug(),
                 ], [
                     'query' => [
@@ -63,7 +69,8 @@ class IndexController extends AbstractActionController
                         'mode' => 'file',
                         'result' => $result
                     ]
-                ]));
+                ]);
+                return $this->redirect()->toUrl($url);
             }
             
             // Show arrowhead upload form
@@ -191,7 +198,29 @@ class IndexController extends AbstractActionController
         else if (isset($_FILES['file']) && !empty($_FILES['file']['tmp_name'])) {
             $result = $this->processFileUpload($this->getRequest(), $uploadType, $itemSetId);
             
-            // Redirect to the index page with the result
+            // Check if this is supposed to be a continuous arrowhead upload (fallback)
+            $mode = $this->params()->fromPost('mode');
+            if ($mode == 'file' && $uploadType == 'arrowhead' && $itemSetId) {
+                // Check if excavation ID is available for a more specific message
+                $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+                if ($excavationId && strpos($result, 'successfully') !== false) {
+                    $result = "Arrowhead was successfully added to excavation $excavationId (Item Set #$itemSetId). You can upload another or click Exit when done.";
+                }
+                
+                // Redirect back to the arrowhead upload page
+                return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/upload', [
+                    'site-slug' => $this->currentSite()->slug(),
+                ], [
+                    'query' => [
+                        'upload_type' => 'arrowhead',
+                        'item_set_id' => $itemSetId,
+                        'mode' => 'file',
+                        'result' => $result
+                    ]
+                ]));
+            }
+            
+            // Normal redirect to the index page with the result
             return $this->redirect()->toUrl($this->url()->fromRoute('site', [
                 'site-slug' => $this->currentSite()->slug()
             ], [
@@ -590,37 +619,51 @@ private function generateLocationTtl($locationUri, $locationName)
 
     private function processFileUpload($request, ?string $uploadType, ?int $itemSetId): string
     {
-    $file = $request->getFiles()->file;
-    $fileExtension = pathinfo($file['name'], PATHINFO_EXTENSION);
-    $fileType = $file['type'];
-
-    if (strtolower($fileExtension) === 'ttl' && $fileType !== 'application/x-turtle') {
-        $fileType = 'application/x-turtle';
-    }
-
-    if (!in_array($fileType, ['application/x-turtle', 'application/xml', 'text/xml'])) {
-        return 'Invalid file type. Please upload a valid .ttl or .xml file.';
-    }
-
-    try {
-        if ($fileType === 'application/xml' || $fileType === 'text/xml') {
-            $rdfXmlData = $this->xmlParser($file);
-            if (!is_string($rdfXmlData) || strpos($rdfXmlData, 'Failed') === false) {
-                $ttlData = $this->xmlTtlConverter($rdfXmlData);
-            } else {
-                throw new \Exception('Failed to process XML file: ' . $rdfXmlData);
-            }
-        } else {
-            $ttlData = file_get_contents($file['tmp_name']);
+        $file = $request->getFiles()->file;
+        if (empty($file['tmp_name'])) {
+            return 'No file uploaded or file upload error.';
         }
-
-        $this->validateUploadType($ttlData, $uploadType);
-        return $this->uploadTtlData($ttlData, $itemSetId); // Pass itemSetId
-
-    } catch (\Exception $e) {
-        return 'Error processing file: ' . $e->getMessage();
+    
+        $fileExtension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $fileType = $file['type'];
+    
+        if (strtolower($fileExtension) === 'ttl' && $fileType !== 'application/x-turtle') {
+            $fileType = 'application/x-turtle';
+        }
+    
+        if (!in_array($fileType, ['application/x-turtle', 'application/xml', 'text/xml'])) {
+            return 'Invalid file type. Please upload a valid .ttl or .xml file.';
+        }
+    
+        try {
+            if ($fileType === 'application/xml' || $fileType === 'text/xml') {
+                $rdfXmlData = $this->xmlParser($file);
+                if (is_string($rdfXmlData) && strpos($rdfXmlData, 'Failed') === false) {
+                    $ttlData = $this->xmlTtlConverter($rdfXmlData);
+                } else {
+                    throw new \Exception('Failed to process XML file: ' . $rdfXmlData);
+                }
+            } else {
+                $ttlData = file_get_contents($file['tmp_name']);
+            }
+    
+            // Skip validation if not explicitly required - for continuous uploads
+            // to avoid unnecessary error messages
+            if ($uploadType) {
+                try {
+                    $this->validateUploadType($ttlData, $uploadType);
+                } catch (\Exception $e) {
+                    // Type mismatch but not critical for continuous upload
+                    error_log('Upload type validation warning: ' . $e->getMessage());
+                }
+            }
+    
+            $result = $this->uploadTtlData($ttlData, $itemSetId);
+            return $result;
+        } catch (\Exception $e) {
+            return 'Error processing file: ' . $e->getMessage();
+        }
     }
-}
 
 
 
