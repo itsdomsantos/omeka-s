@@ -44,7 +44,7 @@ class IndexController extends AbstractActionController
         // Check if this is a continuous arrowhead upload
         $uploadType = $this->params()->fromQuery('upload_type') ?: $this->params()->fromPost('upload_type');
         $itemSetId = $this->params()->fromQuery('item_set_id') ?: $this->params()->fromPost('item_set_id');
-        $mode = $this->params()->fromQuery('mode', 'upload');
+        $mode = $this->params()->fromQuery('mode', $this->params()->fromPost('mode', 'upload'));
         
         // Process arrowhead file upload
         if ($mode == 'file' && $uploadType == 'arrowhead' && $itemSetId) {
@@ -84,7 +84,7 @@ class IndexController extends AbstractActionController
         }
         
         // Process the excavation form submission
-        if ($uploadType == 'excavation') {
+        if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
             $excavationData = [];
             // Extract context data
             $contextData = $this->processEntitySelection(
@@ -194,12 +194,44 @@ class IndexController extends AbstractActionController
                 ]));
             }
         }
+        
         // For direct file uploads - handle normally
         else if (isset($_FILES['file']) && !empty($_FILES['file']['tmp_name'])) {
+            // Log the upload type for debugging
+            error_log('File upload detected: ' . $uploadType, 3, OMEKA_PATH . '/logs/file-upload.log');
+            
             $result = $this->processFileUpload($this->getRequest(), $uploadType, $itemSetId);
             
+            // If this is an excavation file upload, create an item set if needed and redirect to arrowhead upload
+            if ($uploadType == 'excavation') {
+                // Extract excavation identifier from the upload result
+                preg_match('/Excavation ([A-Z0-9-]+)/', $result, $matches);
+                $excavationIdentifier = isset($matches[1]) ? $matches[1] : null;
+                
+                if ($excavationIdentifier) {
+                    // Get the item set ID either from the upload result or from the mapping
+                    if (strpos($result, 'Item Set #') !== false) {
+                        preg_match('/Item Set #(\d+)/', $result, $matches);
+                        $itemSetId = isset($matches[1]) ? $matches[1] : null;
+                    }
+                    
+                    if ($itemSetId) {
+                        // Redirect to the arrowhead upload form with the excavation context
+                        return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/upload', [
+                            'site-slug' => $this->currentSite()->slug(),
+                        ], [
+                            'query' => [
+                                'upload_type' => 'arrowhead',
+                                'item_set_id' => $itemSetId,
+                                'mode' => 'file',
+                                'result' => $result
+                            ]
+                        ]));
+                    }
+                }
+            }
+            
             // Check if this is supposed to be a continuous arrowhead upload (fallback)
-            $mode = $this->params()->fromPost('mode');
             if ($mode == 'file' && $uploadType == 'arrowhead' && $itemSetId) {
                 // Check if excavation ID is available for a more specific message
                 $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
@@ -220,7 +252,27 @@ class IndexController extends AbstractActionController
                 ]));
             }
             
-            // Normal redirect to the index page with the result
+            // For excavation file uploads, make sure we redirect to a page where arrowheads can be added
+            if ($uploadType == 'excavation' && strpos($result, 'successfully') !== false) {
+                // Try to extract item set ID from the result
+                preg_match('/Item Set #(\d+)/', $result, $matches);
+                $newItemSetId = isset($matches[1]) ? $matches[1] : null;
+                
+                if ($newItemSetId) {
+                    return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/upload', [
+                        'site-slug' => $this->currentSite()->slug(),
+                    ], [
+                        'query' => [
+                            'upload_type' => 'arrowhead',
+                            'item_set_id' => $newItemSetId,
+                            'mode' => 'file',
+                            'result' => $result
+                        ]
+                    ]));
+                }
+            }
+            
+            // Normal redirect to the index page with the result if we couldn't determine a better redirect
             return $this->redirect()->toUrl($this->url()->fromRoute('site', [
                 'site-slug' => $this->currentSite()->slug()
             ], [
@@ -1155,7 +1207,7 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
         return $prefixLines . $ttlData;
     }
 
-    private function sendToGraphDB($data, $excavationId = null)
+    private function sendToGraphDB($data, $excavationId)
 {
     $logger = new Logger();
     $writer = new Stream(OMEKA_PATH . '/logs/graphdb-errors.log');
