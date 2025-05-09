@@ -14,6 +14,7 @@ $form->setAttribute('enctype', 'multipart/form-data');
 
 // Ensure result is safely displayed
 $result = $this->escapeHtml($this->params()->fromQuery('result', ''));
+$itemSetId = $this->params()->fromQuery('item_set_id');
 ?>
 <style>
 /* Basic styling for tabs and entity selection */
@@ -122,29 +123,23 @@ ul.tabs li.current {
         <?php echo $result; ?>
     </div>
 
-    <!-- Show options after successful upload -->
-<?php if (strpos($result, 'successfully') !== false): ?>
-    <div class="button-group">
-        <a href="<?php echo $this->url('site/collecting', [
-            'form-id' => 1, // Arrowhead form ID
-            'action' => 'uploadArrowheadForm'
-        ], ['query' => ['item_set_id' => $this->params()->fromQuery('item_set_id')]],true); ?>" class="button">
-            Add Arrowhead using Form
-        </a>
-        <a href="<?php echo $this->url('site/add-triplestore/upload', [
-            'site-slug' => $this->currentSite()->slug()
-        ], ['query' => [
-            'upload_type' => 'arrowhead',
-            'item_set_id' => $this->params()->fromQuery('item_set_id'),
-            'mode' => 'file'
-        ]], true); ?>" class="button">
-            Upload Arrowhead File
-        </a>
-        <a href="<?php echo $this->url('site', [], true); ?>" class="button">
-            Return to Site
-        </a>
-    </div>
-<?php endif; ?>
+    <!-- Simplified options after successful upload -->
+    <?php if (strpos($result, 'successfully') !== false && $itemSetId): ?>
+        <div class="button-group">
+            <a href="<?php echo $this->url('site/add-triplestore/upload', [
+                'site-slug' => $this->currentSite()->slug()
+            ], ['query' => [
+                'upload_type' => 'arrowhead',
+                'item_set_id' => $itemSetId,
+                'mode' => 'file'
+            ]], true); ?>" class="button">
+                Upload Arrowhead File
+            </a>
+            <a href="<?php echo $this->url('site', [], true); ?>" class="button">
+                Exit
+            </a>
+        </div>
+    <?php endif; ?>
 <?php else: ?>
     <?php echo $this->form()->openTag($form); ?>
 
