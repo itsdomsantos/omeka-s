@@ -10,7 +10,12 @@
     
     <p>This arrowhead will be added to the excavation with Item Set ID: <?php echo $this->escapeHtml($itemSetId); ?></p>
     
-    <form action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $this->currentSite()->slug()], true); ?>" method="post" enctype="multipart/form-data">
+    <div class="button-group" style="margin-bottom: 20px;">
+        <button id="showFileUpload" class="button">Upload File</button>
+        <button id="showForm" class="button">Add by Form</button>
+    </div>
+
+    <form id="fileUploadForm" action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $this->currentSite()->slug()], true); ?>" method="post" enctype="multipart/form-data">
         <div class="form-group">
             <label for="file">Select arrowhead file to upload (.ttl or .xml):</label>
             <input type="file" name="file" id="file" required>
@@ -24,6 +29,28 @@
             <a href="<?php echo $this->url('site', [], true); ?>" class="button">Exit</a>
         </div>
     </form>
+
+    <form id="manualForm" action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $this->currentSite()->slug()], true); ?>" method="post" style="display: none;">
+        <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($uploadType); ?>">
+        <input type="hidden" name="item_set_id" value="<?php echo $this->escapeHtml($itemSetId); ?>">
+        <input type="hidden" name="mode" value="form">
+        
+        <div class="button-group">
+            <button type="submit" class="button">Submit</button>
+            <a href="<?php echo $this->url('site', [], true); ?>" class="button">Exit</a>
+        </div>
+    </form>
+
+    <script>
+        document.getElementById('showFileUpload').onclick = function() {
+            document.getElementById('fileUploadForm').style.display = 'block';
+            document.getElementById('manualForm').style.display = 'none';
+        }
+        document.getElementById('showForm').onclick = function() {
+            document.getElementById('fileUploadForm').style.display = 'none';
+            document.getElementById('manualForm').style.display = 'block';
+        }
+    </script>
 </div>
 
 <style>
