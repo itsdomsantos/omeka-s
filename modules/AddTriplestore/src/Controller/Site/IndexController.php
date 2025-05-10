@@ -136,30 +136,47 @@ class IndexController extends AbstractActionController
                 $svuData, 
                 $encounterData
             );
-            
-            // Create an item set and upload TTL to triplestore
+            $excavationIdentifier = str_replace(' ', '_', $excavationIdentifier);
+            error_log('Creating item set with title: Excavation ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/title-debug.log');
             try {
-                // Create item set for the excavation
+            
                 $itemSetData = [
                     'dcterms:title' => [
                         [
                             'type' => 'literal',
-                            '@value' => "Excavation $excavationIdentifier"
+                            'property_id' => 1,
+                            '@value' => "Excavation (Temporary)"
                         ]
                     ],
                     'dcterms:description' => [
                         [
                             'type' => 'literal',
+                            'property_id' => 4,
                             '@value' => "Item set for excavation with identifier $excavationIdentifier"
                         ]
                     ],
                     'o:is_public' => true
                 ];
                 
+
                 // Create the item set
                 $itemSetResponse = $this->api()->create('item_sets', $itemSetData);
                 $itemSetId = $itemSetResponse->getContent()->id();
-                
+
+                // Now update the title to include the item set ID
+                $newTitle = "Excavation EXC-$itemSetId";
+                error_log('Updating item set with new title: ' . $newTitle, 3, OMEKA_PATH . '/logs/title-debug.log');
+
+                // Update the item set with the new title
+                $updateResult = $this->api()->update('item_sets', $itemSetId, [
+                    'dcterms:title' => [
+                        [
+                            'type' => 'literal',
+                            'property_id' => 1, 
+                            '@value' => $newTitle
+                        ]
+                    ]
+                ], [], ['isPartial' => true]);
                 // Store the mapping
                 $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
                 
@@ -906,7 +923,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             }
             
             if ($isExcavation && $itemSetId) {
-                return "Data uploaded successfully to both GraphDB and Omeka S. Created Item Set #{$itemSetId} for excavation '{$excavationIdentifier}' and " . 
+                return "Data uploaded successfully to both GraphDB and Omeka S. Created Item Set #{$itemSetId} for excavation 'EXC-{$itemSetId}' and " . 
                       count($createdItems) . " items with updated titles.";
             } else {
                 return 'Data uploaded successfully to both GraphDB and Omeka S. Created ' . 
