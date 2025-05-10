@@ -82,7 +82,12 @@ class IndexController extends AbstractActionController
             $view->setTemplate('add-triplestore/site/index/upload-arrowhead');
             return $view;
         }
-        
+
+        if($uploadType == 'arrowhead' && $itemSetId && $mode != 'file') {
+            // develop
+          
+
+        }
         // Process the excavation form submission
         if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
             $excavationData = [];
