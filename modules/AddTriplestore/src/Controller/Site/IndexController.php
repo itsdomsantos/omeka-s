@@ -35,6 +35,99 @@ class IndexController extends AbstractActionController
         return new ViewModel(['site' => $site]);
     }
 
+    private function processArrowheadFormData($formData, $itemSetId)
+{
+    // Generate a base URI for resources
+    $baseUri = "http://www.arch-project.com/data";
+    
+    // Generate a unique ID for the arrowhead if not provided
+    $arrowheadId = !empty($formData['arrowhead_identifier']) 
+        ? $formData['arrowhead_identifier'] 
+        : 'AH-' . uniqid();
+    
+    // Create resource URIs
+    $arrowheadUri = "$baseUri/arrowhead/$arrowheadId";
+    $morphologyUri = "$baseUri/morphology/" . substr($arrowheadId, 3); // Remove "AH-" prefix
+    $typometryUri = "$baseUri/typometry/" . substr($arrowheadId, 3);
+    $gpsUri = "$baseUri/gps/" . substr($arrowheadId, 3);
+    
+    // Get excavation ID if available
+    $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+    
+    // Build TTL data
+    $ttl = $this->getTtlPrefixes();
+    
+    // Add material instance if specified
+    if (!empty($formData['arrowhead_material'])) {
+        $materialUri = "$baseUri/material/" . strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $formData['arrowhead_material']));
+        $ttl .= "<$materialUri> a crm:E57_Material;\n";
+        $ttl .= "    rdfs:label \"" . $formData['arrowhead_material'] . "\";\n";
+        $ttl .= "    .\n\n";
+    }
+    
+    // Add arrowhead
+    $ttl .= "<$arrowheadUri> a crm:E24_Physical_Man-Made_Thing;\n";
+    $ttl .= "    dcterms:identifier \"$arrowheadId\"^^xsd:string;\n";
+    
+    // Add shape if selected
+    if (!empty($formData['arrowhead_shape'])) {
+        $ttl .= "    ah:shape ah-shape:" . $formData['arrowhead_shape'] . ";\n";
+    }
+    
+    // Add variant if selected
+    if (!empty($formData['arrowhead_variant'])) {
+        $ttl .= "    ah:variant ah-variant:" . $formData['arrowhead_variant'] . ";\n";
+    }
+    
+    // Add material reference if specified
+    if (!empty($formData['arrowhead_material'])) {
+        $ttl .= "    crm:P45_consists_of <$materialUri>;\n";
+    }
+    
+    // Add annotation if provided
+    if (!empty($formData['arrowhead_annotation'])) {
+        $ttl .= "    dbo:Annotation \"" . $formData['arrowhead_annotation'] . "\"^^xsd:string;\n";
+    }
+    
+    // Add morphology and typometry references
+    $ttl .= "    ah:hasMorphology <$morphologyUri>;\n";
+    $ttl .= "    ah:hasTypometry <$typometryUri>;\n";
+    
+    // Add GPS coordinates if provided
+    if (!empty($formData['latitude']) && !empty($formData['longitude'])) {
+        $ttl .= "    ah:foundInCoordinates <$gpsUri>;\n";
+    }
+    
+    $ttl .= "    .\n\n";
+    
+    // Add morphology
+    $ttl .= "<$morphologyUri> a ah:Morphology;\n";
+    
+    // Add base if selected
+    if (!empty($formData['arrowhead_base'])) {
+        $ttl .= "    ah:base ah-base:" . $formData['arrowhead_base'] . ";\n";
+    }
+    
+    // Default values for other morphology properties
+    $ttl .= "    ah:point \"true\"^^xsd:boolean;\n";
+    $ttl .= "    ah:body \"true\"^^xsd:boolean;\n";
+    $ttl .= "    .\n\n";
+    
+    // Add typometry with placeholder values
+    $ttl .= "<$typometryUri> a ah:Typometry;\n";
+    $ttl .= "    crm:E54_Dimension \"50\"^^xsd:decimal, \"25\"^^xsd:decimal, \"5\"^^xsd:decimal;\n";
+    $ttl .= "    .\n\n";
+    
+    // Add GPS coordinates if provided
+    if (!empty($formData['latitude']) && !empty($formData['longitude'])) {
+        $ttl .= "<$gpsUri> a geo:SpatialThing;\n";
+        $ttl .= "    geo:lat \"" . $formData['latitude'] . "\"^^xsd:decimal;\n";
+        $ttl .= "    geo:long \"" . $formData['longitude'] . "\"^^xsd:decimal;\n";
+        $ttl .= "    .\n\n";
+    }
+    
+    return $ttl;
+}
 
     public function uploadAction()
     {
@@ -43,8 +136,9 @@ class IndexController extends AbstractActionController
         
         // Check if this is a continuous arrowhead upload
         $uploadType = $this->params()->fromQuery('upload_type') ?: $this->params()->fromPost('upload_type');
-        $itemSetId = $this->params()->fromQuery('item_set_id') ?: $this->params()->fromPost('item_set_id');
-        $mode = $this->params()->fromQuery('mode', $this->params()->fromPost('mode', 'upload'));
+    $itemSetId = $this->params()->fromQuery('item_set_id') ?: $this->params()->fromPost('item_set_id');
+    $mode = $this->params()->fromQuery('mode', $this->params()->fromPost('mode', 'upload'));
+    
         
         // Process arrowhead file upload
         if ($mode == 'file' && $uploadType == 'arrowhead' && $itemSetId) {
@@ -83,11 +177,28 @@ class IndexController extends AbstractActionController
             return $view;
         }
 
-        if($uploadType == 'arrowhead' && $itemSetId && $mode != 'file') {
-            // develop
-          
-
+        if ($mode == 'form' && $uploadType == 'arrowhead') {
+            // Process form data and convert to TTL
+            $formData = $this->params()->fromPost();
+            $ttlData = $this->processArrowheadFormData($formData, $itemSetId);
+            
+            // Upload TTL data to triplestore
+            $result = $this->uploadTtlData($ttlData, $itemSetId);
+            
+            // Redirect back to the arrowhead form with result
+            $url = $this->url()->fromRoute('site/add-triplestore/upload', [
+                'site-slug' => $this->currentSite()->slug(),
+            ], [
+                'query' => [
+                    'upload_type' => 'arrowhead',
+                    'item_set_id' => $itemSetId,
+                    'mode' => 'form',
+                    'result' => $result
+                ]
+            ]);
+            return $this->redirect()->toUrl($url);
         }
+        
         // Process the excavation form submission
         if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
             $excavationData = [];
@@ -508,12 +619,24 @@ private function processEntitySelection($existingUri, array $newData, $entityTyp
     ];
 }
 
+/**
+ * Get standard TTL prefixes for archaeological data
+ */
 private function getTtlPrefixes()
 {
     return "@prefix ah: <http://www.purl.com/ah/ms/ahMS#>.\n" .
            "@prefix ah-vocab: <http://www.purl.com/ah/kos#>.\n" .
+           "@prefix ah-shape: <http://www.purl.com/ah/kos/ah-shape/>.\n" .
+           "@prefix ah-variant: <http://www.purl.com/ah/kos/ah-variant/>.\n" .
+           "@prefix ah-base: <http://www.purl.com/ah/kos/ah-base/>.\n" .
+           "@prefix ah-chippingMode: <http://www.purl.com/ah/kos/ah-chippingMode/>.\n" .
+           "@prefix ah-chippingDirection: <http://www.purl.com/ah/kos/ah-chippingDirection/>.\n" .
+           "@prefix ah-chippingDelineation: <http://www.purl.com/ah/kos/ah-chippingDelineation/>.\n" .
+           "@prefix ah-chippingLocation: <http://www.purl.com/ah/kos/ah-chippingLocation/>.\n" .
+           "@prefix ah-chippingShape: <http://www.purl.com/ah/kos/ah-chippingShape/>.\n" .
            "@prefix excav: <https://purl.org/ah/ms/excavationMS#>.\n" .
            "@prefix dct: <http://purl.org/dc/terms/>.\n" .
+           "@prefix dcterms: <http://purl.org/dc/terms/>.\n" . // Added this line to fix the error
            "@prefix foaf: <http://xmlns.com/foaf/0.1/>.\n" .
            "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.\n" .
            "@prefix schema: <http://schema.org/>.\n" .
