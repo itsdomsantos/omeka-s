@@ -1,0 +1,229 @@
+@prefix ah: <http://www.purl.com/ah/ms/ahMS#>.
+@prefix ah-shape: <http://www.purl.com/ah/kos/ah-shape/>.
+@prefix ah-variant: <http://www.purl.com/ah/kos/ah-variant/>.
+@prefix ah-base: <http://www.purl.com/ah/kos/ah-base/>.
+@prefix ah-chippingMode: <http://www.purl.com/ah/kos/ah-chippingMode/>.
+@prefix ah-chippingDirection: <http://www.purl.com/ah/kos/ah-chippingDirection/>.
+@prefix ah-chippingDelineation: <http://www.purl.com/ah/kos/ah-chippingDelineation/>.
+@prefix ah-chippingLocation: <http://www.purl.com/ah/kos/ah-chippingLocation/>.
+@prefix ah-chippingShape: <http://www.purl.com/ah/kos/ah-chippingShape/>.
+
+@prefix excav: <https://purl.org/ah/ms/excavationMS#>.
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/>.
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/>.
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.
+@prefix dcterms: <http://purl.org/dc/terms/>.
+@prefix edm: <http://www.europeana.eu/schemas/edm#>.
+@prefix dbo: <http://dbpedia.org/ontology/>.
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>.
+@prefix aat: <http://vocab.getty.edu/aat/>. # Getty Vocab AAT for material
+@prefix owl: <http://www.w3.org/2002/07/owl#>.
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+
+# Material Instance (Intermediate Resource)
+<http://www.arch-project.com/data/material/flint-instance> a crm:E57_Material ;
+  rdfs:label "Flint" ;
+  owl:sameAs <http://vocab.getty.edu/aat/300010351> .
+
+# Arrowhead Instance 1
+<http://www.arch-project.com/data/arrowhead699> a crm:E24_Physical_Man-Made_Thing ;
+  dcterms:identifier "AH-0699"^^xsd:string ;
+  edm:Webresource <http://example.com/image1.jpg>, <http://example.com/3dmodel1.obj> ;
+  ah:shape ah-shape:triangle ;
+  crm:P45_consists_of <http://www.arch-project.com/data/material/flint-instance> ;
+  dbo:Annotation "Slight damage on the tip."^^xsd:string, "Found in layer 3."^^xsd:string ;
+  crm:E3_Condition_State "true"^^xsd:boolean ;
+  crm:E55_Type "true"^^xsd:boolean ;
+  ah:variant ah-variant:flat ;
+  ah:foundInCoordinates <http://www.arch-project.com/data/gps1> ;
+  ah:hasMorphology <http://www.arch-project.com/data/morph1> ;
+  ah:hasTypometry <http://www.arch-project.com/data/type1> .
+
+# Morphology Instance 1
+<http://www.arch-project.com/data/morph1> a ah:Morphology ;
+  ah:point "true"^^xsd:boolean ;
+  ah:body "true"^^xsd:boolean ;
+  ah:base ah-base:straight .
+
+# Typometry Instance 1
+<http://www.arch-project.com/data/type1> a ah:Typometry ;
+  crm:E54_Dimension "50"^^xsd:decimal, "25"^^xsd:decimal, "5"^^xsd:decimal, "40"^^xsd:decimal, "15"^^xsd:decimal ;
+  ah:hasChipping <http://www.arch-project.com/data/chip1> .
+
+# Chipping Instance 1
+<http://www.arch-project.com/data/chip1> a ah:Chipping ;
+  ah:mode ah-chippingMode:plane ;
+  ah:amplitude "false"^^xsd:boolean ;
+  ah:direction ah-chippingDirection:direct ;
+  ah:orientation "true"^^xsd:boolean ;
+  ah:delineation ah-chippingDelineation:continuous ;
+  ah:chippinglocation-Lateral ah-chippingLocation:distal, ah-chippingLocation:median ;
+  ah:chippingLocation-Transversal ah-chippingLocation:distal ;
+  ah:chippingShape ah-chippingShape:convex .
+
+# Encounter Instance 1 (You might have one per excavation/context, so reusing for simplicity)
+<http://www.arch-project.com/data/encounter1> a crmsci:S19_Encounter_Event .
+
+# GPS Instance 1 (Assuming a single GPS coordinate for this example)
+<http://www.arch-project.com/data/gps1> a geo:SpatialThing ;
+  geo:lat "34.0522"^^xsd:decimal ;
+  geo:long "-118.2437"^^xsd:decimal .
+
+# --- Added Arrowheads Below ---
+
+# Material Instance (Reusing the flint instance)
+
+# Arrowhead Instance 2
+<http://www.arch-project.com/data/arrowhead700> a crm:E24_Physical_Man-Made_Thing ;
+  dcterms:identifier "AH-0700"^^xsd:string ;
+  edm:Webresource <http://example.com/image2.jpg> ;
+  ah:shape ah-shape:losangular ;
+  crm:P45_consists_of <http://www.arch-project.com/data/material/flint-instance> ;
+  dbo:Annotation "No visible damage."^^xsd:string ;
+  crm:E3_Condition_State "true"^^xsd:boolean ;
+  crm:E55_Type "true"^^xsd:boolean ;
+  ah:variant ah-variant:raised ;
+  ah:foundInCoordinates <http://www.arch-project.com/data/gps2> ;
+  ah:hasMorphology <http://www.arch-project.com/data/morph2> ;
+  ah:hasTypometry <http://www.arch-project.com/data/type2> .
+
+# Morphology Instance 2
+<http://www.arch-project.com/data/morph2> a ah:Morphology ;
+  ah:point "true"^^xsd:boolean ;
+  ah:body "true"^^xsd:boolean ;
+  ah:base ah-base:convex .
+
+# Typometry Instance 2
+<http://www.arch-project.com/data/type2> a ah:Typometry ;
+  crm:E54_Dimension "45"^^xsd:decimal, "20"^^xsd:decimal, "4"^^xsd:decimal ;
+  ah:hasChipping <http://www.arch-project.com/data/chip2> .
+
+# Chipping Instance 2
+<http://www.arch-project.com/data/chip2> a ah:Chipping ;
+  ah:mode ah-chippingMode:parallel ;
+  ah:amplitude "true"^^xsd:boolean ;
+  ah:direction ah-chippingDirection:bifacial ;
+  ah:delineation ah-chippingDelineation:composite ;
+  ah:chippinglocation-Lateral ah-chippingLocation:proximal ;
+  ah:chippingShape ah-chippingShape:concave .
+
+# GPS Instance 2
+<http://www.arch-project.com/data/gps2> a geo:SpatialThing ;
+  geo:lat "34.1000"^^xsd:decimal ;
+  geo:long "-118.3000"^^xsd:decimal .
+
+# Arrowhead Instance 3
+<http://www.arch-project.com/data/arrowhead701> a crm:E24_Physical_Man-Made_Thing ;
+  dcterms:identifier "AH-0701"^^xsd:string ;
+  edm:Webresource <http://example.com/image3.jpg> ;
+  ah:shape ah-shape:pedunculated ;
+  crm:P45_consists_of <http://www.arch-project.com/data/material/flint-instance> ;
+  crm:E3_Condition_State "true"^^xsd:boolean ;
+  crm:E55_Type "true"^^xsd:boolean ;
+  ah:variant ah-variant:thick ;
+  ah:foundInCoordinates <http://www.arch-project.com/data/gps3> ;
+  ah:hasMorphology <http://www.arch-project.com/data/morph3> ;
+  ah:hasTypometry <http://www.arch-project.com/data/type3> .
+
+# Morphology Instance 3
+<http://www.arch-project.com/data/morph3> a ah:Morphology ;
+  ah:point "true"^^xsd:boolean ;
+  ah:body "true"^^xsd:boolean ;
+  ah:base ah-base:pedunculated .
+
+# Typometry Instance 3
+<http://www.arch-project.com/data/type3> a ah:Typometry ;
+  crm:E54_Dimension "60"^^xsd:decimal, "22"^^xsd:decimal, "6"^^xsd:decimal ;
+  ah:hasChipping <http://www.arch-project.com/data/chip3> .
+
+# Chipping Instance 3
+<http://www.arch-project.com/data/chip3> a ah:Chipping ;
+  ah:mode ah-chippingMode:sub-parallel ;
+  ah:amplitude "false"^^xsd:boolean ;
+  ah:direction ah-chippingDirection:direct ;
+  ah:delineation ah-chippingDelineation:denticulated ;
+  ah:chippinglocation-Lateral ah-chippingLocation:median ;
+  ah:chippingLocation-Transversal ah-chippingLocation:median ;
+  ah:chippingShape ah-chippingShape:sinuous .
+
+# GPS Instance 3
+<http://www.arch-project.com/data/gps3> a geo:SpatialThing ;
+  geo:lat "34.1500"^^xsd:decimal ;
+  geo:long "-118.3500"^^xsd:decimal .
+
+# Arrowhead Instance 4
+<http://www.arch-project.com/data/arrowhead702> a crm:E24_Physical_Man-Made_Thing ;
+  dcterms:identifier "AH-0702"^^xsd:string ;
+  edm:Webresource <http://example.com/image4.jpg> ;
+  ah:shape ah-shape:triangle ;
+  crm:P45_consists_of <http://www.arch-project.com/data/material/flint-instance> ;
+  crm:E3_Condition_State "true"^^xsd:boolean ;
+  crm:E55_Type "true"^^xsd:boolean ;
+  ah:variant ah-variant:flat ;
+  ah:foundInCoordinates <http://www.arch-project.com/data/gps4> ;
+  ah:hasMorphology <http://www.arch-project.com/data/morph4> ;
+  ah:hasTypometry <http://www.arch-project.com/data/type4> .
+
+# Morphology Instance 4
+<http://www.arch-project.com/data/morph4> a ah:Morphology ;
+  ah:point "true"^^xsd:boolean ;
+  ah:body "true"^^xsd:boolean ;
+  ah:base ah-base:concave .
+
+# Typometry Instance 4
+<http://www.arch-project.com/data/type4> a ah:Typometry ;
+  crm:E54_Dimension "55"^^xsd:decimal, "28"^^xsd:decimal, "5"^^xsd:decimal ;
+  ah:hasChipping <http://www.arch-project.com/data/chip4> .
+
+# Chipping Instance 4
+<http://www.arch-project.com/data/chip4> a ah:Chipping ;
+  ah:mode ah-chippingMode:plane ;
+  ah:amplitude "true"^^xsd:boolean ;
+  ah:direction ah-chippingDirection:reverse ;
+  ah:delineation ah-chippingDelineation:continuous ;
+  ah:chippinglocation-Transversal ah-chippingLocation:proximal, ah-chippingLocation:median ;
+  ah:chippingShape ah-chippingShape:straight .
+
+# GPS Instance 4
+<http://www.arch-project.com/data/gps4> a geo:SpatialThing ;
+  geo:lat "34.2000"^^xsd:decimal ;
+  geo:long "-118.4000"^^xsd:decimal .
+
+# Arrowhead Instance 5
+<http://www.arch-project.com/data/arrowhead703> a crm:E24_Physical_Man-Made_Thing ;
+  dcterms:identifier "AH-0703"^^xsd:string ;
+  edm:Webresource <http://example.com/image5.jpg> ;
+  ah:shape ah-shape:losangular ;
+  crm:P45_consists_of <http://www.arch-project.com/data/material/flint-instance> ;
+  crm:E3_Condition_State "true"^^xsd:boolean ;
+  crm:E55_Type "true"^^xsd:boolean ;
+  ah:variant ah-variant:raised ;
+  ah:foundInCoordinates <http://www.arch-project.com/data/gps5> ;
+  ah:hasMorphology <http://www.arch-project.com/data/morph5> ;
+  ah:hasTypometry <http://www.arch-project.com/data/type5> .
+
+# Morphology Instance 5
+<http://www.arch-project.com/data/morph5> a ah:Morphology ;
+  ah:point "true"^^xsd:boolean ;
+  ah:body "true"^^xsd:boolean ;
+  ah:base ah-base:triangular .
+
+# Typometry Instance 5
+<http://www.arch-project.com/data/type5> a ah:Typometry ;
+  crm:E54_Dimension "48"^^xsd:decimal, "23"^^xsd:decimal, "4"^^xsd:decimal ;
+  ah:hasChipping <http://www.arch-project.com/data/chip5> .
+
+# Chipping Instance 5
+<http://www.arch-project.com/data/chip5> a ah:Chipping ;
+  ah:mode ah-chippingMode:parallel ;
+  ah:amplitude "false"^^xsd:boolean ;
+  ah:direction ah-chippingDirection:bifacial ;
+  ah:delineation ah-chippingDelineation:composite ;
+  ah:chippinglocation-Lateral ah-chippingLocation:distal ;
+  ah:chippingLocation-Transversal ah-chippingLocation:proximal ;
+  ah:chippingShape ah-chippingShape:convex .
+
+# GPS Instance 5
+<http://www.arch-project.com/data/gps5> a geo:SpatialThing ;
+  geo:lat "34.2500"^^xsd:decimal ;
+  geo:long "-118.4500"^^xsd:decimal .
