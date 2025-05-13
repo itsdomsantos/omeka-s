@@ -27,24 +27,42 @@ class IndexController extends AbstractActionController
         $this->mediaTypeManager = $mediaTypeManager;
     }
 
-    public function uploadArrowheadFormAction()
-    {
-        $formId = $this->params('form-id');
-        $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
-        $form = $cForm->getForm(); // Get the Laminas Form object
-        
-        // Get the item set ID from query parameters if present
-        $itemSetId = $this->params()->fromQuery('item_set_id');
-        $result = $this->params()->fromQuery('result', '');
-        
-        $view = new ViewModel([
-            'form' => $form,
-            'formType' => 'arrowhead', 
-            'itemSetId' => $itemSetId,
-            'result' => $result
-        ]);
-        return $view;
+// This code should be added to modules/Collecting/src/Controller/Site/IndexController.php
+// in the uploadArrowheadFormAction() method
+
+public function uploadArrowheadFormAction()
+{
+    $formId = $this->params('form-id');
+    $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
+    $form = $cForm->getForm(); // Get the Laminas Form object
+    
+    // Get the item set ID from query parameters if present
+    $itemSetId = $this->params()->fromQuery('item_set_id');
+    $uploadType = $this->params()->fromQuery('upload_type', 'arrowhead');
+    $returnUrl = $this->params()->fromQuery('return_url');
+    
+    // If returnUrl is provided, override the form action to use our processCollectingForm endpoint
+    if ($returnUrl) {
+        $form->setAttribute('action', $this->url()->fromRoute('site/add-triplestore/process-collecting', [
+            'site-slug' => $this->currentSite()->slug(),
+        ], [
+            'query' => [
+                'item_set_id' => $itemSetId,
+                'upload_type' => $uploadType
+            ]
+        ]));
     }
+    
+    $result = $this->params()->fromQuery('result', '');
+    
+    $view = new ViewModel([
+        'form' => $form,
+        'formType' => 'arrowhead', 
+        'itemSetId' => $itemSetId,
+        'result' => $result
+    ]);
+    return $view;
+}
 
     public function uploadExcavationFormAction()
     {

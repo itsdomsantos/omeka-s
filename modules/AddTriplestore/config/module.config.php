@@ -31,6 +31,16 @@ return [
                                 ],
                             ],
                         ],
+                        'process-collecting' => [
+                            'type' => 'Segment',
+                            'options' => [
+                                'route' => '/process-collecting',
+                                'defaults' => [
+                                    'controller' => 'AddTriplestore\Controller\Site\Index',
+                                    'action' => 'processCollectingForm',
+                                ],
+                            ],
+                        ],
                     ],
                 ],
             ],

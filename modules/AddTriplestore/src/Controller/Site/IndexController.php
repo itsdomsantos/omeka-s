@@ -460,6 +460,94 @@ if ($mode == 'form' && $uploadType == 'arrowhead') {
         }
     }
 
+    // Add this method to your AddTriplestore's IndexController.php
+
+/**
+ * Handle submission from Collecting module forms
+ * This method receives data from the Collecting module and processes it for the triplestore
+ */
+public function processCollectingFormAction()
+{
+    // Get the item set ID and upload type from query parameters
+    $itemSetId = $this->params()->fromQuery('item_set_id');
+    $uploadType = $this->params()->fromQuery('upload_type', 'arrowhead');
+    
+    // Get all POST data from the collecting form
+    $formData = $this->params()->fromPost();
+    
+    error_log('Received collecting form data: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/collecting-form.log');
+    
+    // Transform collecting form data to format expected by processArrowheadFormData
+    $arrowheadData = $this->transformCollectingFormToArrowheadData($formData);
+    
+    // Process the transformed data
+    if (!empty($arrowheadData)) {
+        $ttlData = $this->processArrowheadFormData($arrowheadData, $itemSetId);
+        $result = $this->uploadTtlData($ttlData, $itemSetId);
+        
+        error_log('Processed collecting form data: ' . $result, 3, OMEKA_PATH . '/logs/collecting-form.log');
+        
+        // Redirect back to excavation context with success message
+        return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/upload', [
+            'site-slug' => $this->currentSite()->slug(),
+        ], [
+            'query' => [
+                'upload_type' => 'arrowhead',
+                'item_set_id' => $itemSetId,
+                'mode' => 'form',
+                'result' => $result,
+                'success' => '1'
+            ]
+        ]));
+    }
+    
+    // If transformation failed, redirect with error
+    return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/upload', [
+        'site-slug' => $this->currentSite()->slug(),
+    ], [
+        'query' => [
+            'upload_type' => 'arrowhead',
+            'item_set_id' => $itemSetId,
+            'mode' => 'form',
+            'result' => 'Error: Could not process form data'
+        ]
+    ]));
+}
+
+/**
+ * Transform data from Collecting module format to format needed for triplestore
+ */
+private function transformCollectingFormToArrowheadData($formData)
+{
+    $arrowheadData = [];
+    
+    // Map collecting form fields to arrowhead fields
+    // You'll need to adjust these mappings based on your actual form configuration
+    // The keys should match the input names in your collecting form
+    $fieldMappings = [
+        'prompt_1' => 'arrowhead_identifier',   // ID field
+        'prompt_2' => 'arrowhead_shape',        // Shape field
+        'prompt_3' => 'arrowhead_variant',      // Variant field
+        'prompt_4' => 'arrowhead_base',         // Base field
+        'prompt_5' => 'arrowhead_material',     // Material field
+        'prompt_6' => 'arrowhead_annotation',   // Annotation field
+        'prompt_7' => 'latitude',               // Latitude field
+        'prompt_8' => 'longitude'               // Longitude field
+    ];
+    
+    // Map the fields from collecting form to arrowhead data format
+    foreach ($fieldMappings as $collectingField => $arrowheadField) {
+        if (isset($formData[$collectingField])) {
+            $arrowheadData[$arrowheadField] = $formData[$collectingField];
+        }
+    }
+    
+    // Log the transformed data
+    error_log('Transformed arrowhead data: ' . print_r($arrowheadData, true), 3, OMEKA_PATH . '/logs/collecting-form.log');
+    
+    return $arrowheadData;
+}
+
     private function prepareTtlFromExcavationData($excavationId, $excavationData, $contextData, $svuData, $encounterData)
     {
         // Ensure we have a valid excavation ID with proper prefix

@@ -33,6 +33,26 @@
         <div class="button-group" style="margin-bottom: 20px;">
             <button id="showFileUpload" class="button">Upload File</button>
             <button id="showForm" class="button">Add by Form</button>
+            <a href="<?php echo $this->url('site/collecting', [
+                'site-slug' => $this->currentSite()->slug(),
+                'form-id' => 1, // Use the collecting form with ID 1
+                'action' => 'uploadArrowheadForm'
+            ], [
+                'query' => [
+                    'item_set_id' => $itemSetId,
+                    'upload_type' => 'arrowhead',
+                    'return_url' => $this->url('site/add-triplestore/upload', [
+                        'site-slug' => $this->currentSite()->slug()
+                    ], [
+                        'query' => [
+                            'upload_type' => 'arrowhead',
+                            'item_set_id' => $itemSetId,
+                            'mode' => 'collecting',
+                            'action' => 'processCollectingForm'
+                        ]
+                    ], true)
+                ]
+            ], true); ?>" class="button">Use Collecting Form</a>
         </div>
 
         <!-- File Upload Form -->
