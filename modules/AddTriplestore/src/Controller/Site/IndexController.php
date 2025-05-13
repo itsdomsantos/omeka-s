@@ -36,101 +36,241 @@ class IndexController extends AbstractActionController
     }
 
     private function processArrowheadFormData($formData, $itemSetId)
-{
-    // Generate a base URI for resources
-    $baseUri = "http://www.arch-project.com/data";
-    
-    // Generate a unique ID for the arrowhead if not provided
-    $arrowheadId = !empty($formData['arrowhead_identifier']) 
-        ? $formData['arrowhead_identifier'] 
-        : 'AH-' . uniqid();
-    
-    // Create resource URIs
-    $arrowheadUri = "$baseUri/arrowhead/$arrowheadId";
-    $morphologyUri = "$baseUri/morphology/" . substr($arrowheadId, 3); // Remove "AH-" prefix
-    $typometryUri = "$baseUri/typometry/" . substr($arrowheadId, 3);
-    $gpsUri = "$baseUri/gps/" . substr($arrowheadId, 3);
-    
-    // Get excavation ID if available
-    $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
-    
-    // Build TTL data
-    $ttl = $this->getTtlPrefixes();
-    
-    // Add material instance if specified
-    if (!empty($formData['arrowhead_material'])) {
-        $materialUri = "$baseUri/material/" . strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $formData['arrowhead_material']));
+    {
+        // Generate a base URI for resources
+        $baseUri = "http://www.arch-project.com/data";
+        
+        // Generate a unique ID for the arrowhead if not provided
+        $arrowheadId = !empty($formData['arrowhead_identifier']) 
+            ? $formData['arrowhead_identifier'] 
+            : 'AH-' . uniqid();
+        
+        // Create resource URIs
+        $arrowheadUri = "$baseUri/arrowhead/$arrowheadId";
+        $morphologyUri = "$baseUri/morphology/" . substr($arrowheadId, 3); // Remove "AH-" prefix
+        $typometryUri = "$baseUri/typometry/" . substr($arrowheadId, 3);
+        $chippingUri = "$baseUri/chipping/" . substr($arrowheadId, 3);
+        $gpsUri = "$baseUri/gps/" . substr($arrowheadId, 3);
+        
+        // Build TTL data
+        $ttl = $this->getTtlPrefixes();
+        
+        // Process material - sanitize and create URI-friendly value
+        $materialLabel = !empty($formData['arrowhead_material']) ? $formData['arrowhead_material'] : "Unknown";
+        $materialUriSafe = $this->sanitizeForUri($materialLabel);
+        $materialUri = "$baseUri/material/$materialUriSafe";
+        
+        // Add material instance
         $ttl .= "<$materialUri> a crm:E57_Material;\n";
-        $ttl .= "    rdfs:label \"" . $formData['arrowhead_material'] . "\";\n";
+        $ttl .= "    rdfs:label \"" . $materialLabel . "\";\n";
         $ttl .= "    .\n\n";
-    }
-    
-    // Add arrowhead
-    $ttl .= "<$arrowheadUri> a crm:E24_Physical_Man-Made_Thing;\n";
-    $ttl .= "    dcterms:identifier \"$arrowheadId\"^^xsd:string;\n";
-    
-    // Add shape if selected
-    if (!empty($formData['arrowhead_shape'])) {
-        $ttl .= "    ah:shape ah-shape:" . $formData['arrowhead_shape'] . ";\n";
-    }
-    
-    // Add variant if selected
-    if (!empty($formData['arrowhead_variant'])) {
-        $ttl .= "    ah:variant ah-variant:" . $formData['arrowhead_variant'] . ";\n";
-    }
-    
-    // Add material reference if specified
-    if (!empty($formData['arrowhead_material'])) {
+        
+        // Add arrowhead
+        $ttl .= "<$arrowheadUri> a crm:E24_Physical_Man-Made_Thing;\n";
+        $ttl .= "    dcterms:identifier \"$arrowheadId\"^^xsd:string;\n";
+        
+        // Add shape if selected
+        if (!empty($formData['arrowhead_shape'])) {
+            $shapeSafe = $this->sanitizeForUri($formData['arrowhead_shape']);
+            $ttl .= "    ah:shape ah-shape:" . $shapeSafe . ";\n";
+        }
+        
+        // Add variant if selected
+        if (!empty($formData['arrowhead_variant'])) {
+            $variantSafe = $this->sanitizeForUri($formData['arrowhead_variant']);
+            $ttl .= "    ah:variant ah-variant:" . $variantSafe . ";\n";
+        }
+        
+        // Add material reference
         $ttl .= "    crm:P45_consists_of <$materialUri>;\n";
-    }
-    
-    // Add annotation if provided
-    if (!empty($formData['arrowhead_annotation'])) {
-        $ttl .= "    dbo:Annotation \"" . $formData['arrowhead_annotation'] . "\"^^xsd:string;\n";
-    }
-    
-    // Add morphology and typometry references
-    $ttl .= "    ah:hasMorphology <$morphologyUri>;\n";
-    $ttl .= "    ah:hasTypometry <$typometryUri>;\n";
-    
-    // Add GPS coordinates if provided
-    if (!empty($formData['latitude']) && !empty($formData['longitude'])) {
-        $ttl .= "    ah:foundInCoordinates <$gpsUri>;\n";
-    }
-    
-    $ttl .= "    .\n\n";
-    
-    // Add morphology
-    $ttl .= "<$morphologyUri> a ah:Morphology;\n";
-    
-    // Add base if selected
-    if (!empty($formData['arrowhead_base'])) {
-        $ttl .= "    ah:base ah-base:" . $formData['arrowhead_base'] . ";\n";
-    }
-    
-    // Default values for other morphology properties
-    $ttl .= "    ah:point \"true\"^^xsd:boolean;\n";
-    $ttl .= "    ah:body \"true\"^^xsd:boolean;\n";
-    $ttl .= "    .\n\n";
-    
-    // Add typometry with placeholder values
-    $ttl .= "<$typometryUri> a ah:Typometry;\n";
-    $ttl .= "    crm:E54_Dimension \"50\"^^xsd:decimal, \"25\"^^xsd:decimal, \"5\"^^xsd:decimal;\n";
-    $ttl .= "    .\n\n";
-    
-    // Add GPS coordinates if provided
-    if (!empty($formData['latitude']) && !empty($formData['longitude'])) {
-        $ttl .= "<$gpsUri> a geo:SpatialThing;\n";
-        $ttl .= "    geo:lat \"" . $formData['latitude'] . "\"^^xsd:decimal;\n";
-        $ttl .= "    geo:long \"" . $formData['longitude'] . "\"^^xsd:decimal;\n";
+        
+        // Add annotation if provided
+        if (!empty($formData['arrowhead_annotation'])) {
+            $ttl .= "    dbo:Annotation \"" . $formData['arrowhead_annotation'] . "\"^^xsd:string;\n";
+        }
+        
+        // Add condition state
+        if (!empty($formData['condition_state'])) {
+            $value = stripos($formData['condition_state'], 'true') !== false ? "\"true\"" : "\"false\"";
+            $ttl .= "    crm:E3_Condition_State " . $value . "^^xsd:boolean;\n";
+        }
+        
+        // Add type
+        if (!empty($formData['arrowhead_type'])) {
+            $value = stripos($formData['arrowhead_type'], 'true') !== false ? "\"true\"" : "\"false\"";
+            $ttl .= "    crm:E55_Type " . $value . "^^xsd:boolean;\n";
+        }
+        
+        // Add GPS coordinates if both latitude and longitude are provided
+        if (!empty($formData['latitude']) && !empty($formData['longitude'])) {
+            $ttl .= "    ah:foundInCoordinates <$gpsUri>;\n";
+        }
+        
+        // Add morphology and typometry references
+        $ttl .= "    ah:hasMorphology <$morphologyUri>;\n";
+        $ttl .= "    ah:hasTypometry <$typometryUri>;\n";
         $ttl .= "    .\n\n";
+        
+        // Add morphology
+        $ttl .= "<$morphologyUri> a ah:Morphology;\n";
+        
+        // Add base if selected
+        if (!empty($formData['arrowhead_base'])) {
+            $baseSafe = $this->sanitizeForUri($formData['arrowhead_base']);
+            $ttl .= "    ah:base ah-base:" . $baseSafe . ";\n";
+        }
+        
+        // Add point definition
+        if (!empty($formData['point_definition'])) {
+            $value = stripos($formData['point_definition'], 'true') !== false ? "\"true\"" : "\"false\"";
+            $ttl .= "    ah:point " . $value . "^^xsd:boolean;\n";
+        } else {
+            $ttl .= "    ah:point \"true\"^^xsd:boolean;\n";
+        }
+        
+        // Add body symmetry
+        if (!empty($formData['body_symmetry'])) {
+            $value = stripos($formData['body_symmetry'], 'true') !== false ? "\"true\"" : "\"false\"";
+            $ttl .= "    ah:body " . $value . "^^xsd:boolean;\n";
+        } else {
+            $ttl .= "    ah:body \"true\"^^xsd:boolean;\n";
+        }
+        
+        $ttl .= "    .\n\n";
+        
+        // Add typometry with measurements
+        $ttl .= "<$typometryUri> a ah:Typometry;\n";
+        
+        // Add dimensions
+        $dimensions = [];
+        if (!empty($formData['height'])) $dimensions[] = $formData['height'];
+        if (!empty($formData['width'])) $dimensions[] = $formData['width'];
+        if (!empty($formData['thickness'])) $dimensions[] = $formData['thickness'];
+        if (!empty($formData['body_length'])) $dimensions[] = $formData['body_length'];
+        if (!empty($formData['base_length'])) $dimensions[] = $formData['base_length'];
+        
+        if (empty($dimensions)) {
+            // Add default dimensions if none provided
+            $ttl .= "    crm:E54_Dimension \"50\"^^xsd:decimal, \"25\"^^xsd:decimal, \"5\"^^xsd:decimal;\n";
+        } else {
+            $dimensionsStr = implode(", ", array_map(function($dim) {
+                return "\"$dim\"^^xsd:decimal";
+            }, $dimensions));
+            $ttl .= "    crm:E54_Dimension $dimensionsStr;\n";
+        }
+        
+        // Add chipping information if available
+        if (!empty($formData['chipping_mode']) || 
+            !empty($formData['chipping_amplitude']) || 
+            !empty($formData['chipping_direction'])) {
+            $ttl .= "    ah:hasChipping <$chippingUri>;\n";
+        }
+        
+        $ttl .= "    .\n\n";
+        
+        // Add chipping details if necessary
+        if (!empty($formData['chipping_mode']) || 
+            !empty($formData['chipping_amplitude']) || 
+            !empty($formData['chipping_direction'])) {
+            
+            $ttl .= "<$chippingUri> a ah:Chipping;\n";
+            
+            // Add chipping mode
+            if (!empty($formData['chipping_mode'])) {
+                $modeSafe = $this->sanitizeForUri($formData['chipping_mode']);
+                $ttl .= "    ah:mode ah-chippingMode:" . $modeSafe . ";\n";
+            }
+            
+            // Add chipping amplitude
+            if (!empty($formData['chipping_amplitude'])) {
+                $value = stripos($formData['chipping_amplitude'], 'true') !== false ? "\"true\"" : "\"false\"";
+                $ttl .= "    ah:amplitude " . $value . "^^xsd:boolean;\n";
+            }
+            
+            // Add chipping direction
+            if (!empty($formData['chipping_direction'])) {
+                $directionSafe = $this->sanitizeForUri($formData['chipping_direction']);
+                $ttl .= "    ah:direction ah-chippingDirection:" . $directionSafe . ";\n";
+            }
+            
+            // Add chipping orientation
+            if (!empty($formData['chipping_orientation'])) {
+                $value = stripos($formData['chipping_orientation'], 'true') !== false ? "\"true\"" : "\"false\"";
+                $ttl .= "    ah:orientation " . $value . "^^xsd:boolean;\n";
+            }
+            
+            // Add chipping delineation
+            if (!empty($formData['chipping_delineation'])) {
+                $delineationSafe = $this->sanitizeForUri($formData['chipping_delineation']);
+                $ttl .= "    ah:delineation ah-chippingDelineation:" . $delineationSafe . ";\n";
+            }
+            
+            // Add lateral chipping locations
+            $lateralLocations = [];
+            if (!empty($formData['chipping_location_lateral_1'])) 
+                $lateralLocations[] = $this->sanitizeForUri($formData['chipping_location_lateral_1']);
+            if (!empty($formData['chipping_location_lateral_2'])) 
+                $lateralLocations[] = $this->sanitizeForUri($formData['chipping_location_lateral_2']);
+            if (!empty($formData['chipping_location_lateral_3'])) 
+                $lateralLocations[] = $this->sanitizeForUri($formData['chipping_location_lateral_3']);
+            
+            if (!empty($lateralLocations)) {
+                foreach ($lateralLocations as $location) {
+                    $ttl .= "    ah:chippinglocation-Lateral ah-chippingLocation:" . $location . ";\n";
+                }
+            }
+            
+            // Add transversal chipping locations
+            $transversalLocations = [];
+            if (!empty($formData['chipping_location_transversal_1'])) 
+                $transversalLocations[] = $this->sanitizeForUri($formData['chipping_location_transversal_1']);
+            if (!empty($formData['chipping_location_transversal_2'])) 
+                $transversalLocations[] = $this->sanitizeForUri($formData['chipping_location_transversal_2']);
+            if (!empty($formData['chipping_location_transversal_3'])) 
+                $transversalLocations[] = $this->sanitizeForUri($formData['chipping_location_transversal_3']);
+            
+            if (!empty($transversalLocations)) {
+                foreach ($transversalLocations as $location) {
+                    $ttl .= "    ah:chippingLocation-Transversal ah-chippingLocation:" . $location . ";\n";
+                }
+            }
+            
+            // Add chipping shape
+            if (!empty($formData['chipping_shape'])) {
+                $shapeSafe = $this->sanitizeForUri($formData['chipping_shape']);
+                $ttl .= "    ah:chippingShape ah-chippingShape:" . $shapeSafe . ";\n";
+            }
+            
+            $ttl .= "    .\n\n";
+        }
+        
+        // Add GPS coordinates if provided
+        if (!empty($formData['latitude']) && !empty($formData['longitude'])) {
+            $ttl .= "<$gpsUri> a geo:SpatialThing;\n";
+            $ttl .= "    geo:lat \"" . $formData['latitude'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    geo:long \"" . $formData['longitude'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        return $ttl;
     }
-
-    error_log('TTL data: ' . $ttl, 3, OMEKA_PATH . '/logs/new-aux-ttl.log');
-
     
-    return $ttl;
-}
+    /**
+     * Helper function to sanitize values for use in URIs
+     * Removes spaces, parentheses, and converts to lowercase
+     */
+    private function sanitizeForUri($value) {
+        // Extract text before parentheses if present
+        if (preg_match('/^([^(]+)/', $value, $matches)) {
+            $value = trim($matches[1]);
+        }
+        
+        // Convert to lowercase and remove spaces and special characters
+        $value = strtolower($value);
+        $value = preg_replace('/[\s()]+/', '', $value);
+        
+        return $value;
+    }
 
     public function uploadAction()
     {
@@ -525,29 +665,45 @@ private function transformCollectingFormToArrowheadData($formData)
 {
     $arrowheadData = [];
     
-    // Map collecting form fields to arrowhead fields
-    // You'll need to adjust these mappings based on your actual form configuration
-    // The keys should match the input names in your collecting form
+    // Correct mapping based on the actual form structure
     $fieldMappings = [
-        'prompt_1' => 'arrowhead_identifier',   // ID field
-        'prompt_2' => 'arrowhead_shape',        // Shape field
-        'prompt_3' => 'arrowhead_variant',      // Variant field
-        'prompt_4' => 'arrowhead_base',         // Base field
-        'prompt_5' => 'arrowhead_material',     // Material field
-        'prompt_6' => 'arrowhead_annotation',   // Annotation field
-        'prompt_7' => 'latitude',               // Latitude field
-        'prompt_8' => 'longitude'               // Longitude field
+        'prompt_1' => 'arrowhead_identifier',    // ID field 
+        'prompt_3' => 'arrowhead_annotation',    // OK testing (observations)
+        'prompt_4' => 'condition_state',         // True (Complete)
+        'prompt_5' => 'arrowhead_type',          // True (Elongate)
+        'prompt_6' => 'arrowhead_variant',       // Raised
+        'prompt_7' => 'arrowhead_shape',         // Losangular
+        'prompt_8' => 'latitude',                // Latitude
+        'prompt_9' => 'longitude',               // Longitude
+        'prompt_10' => 'point_definition',       // True (Sharp)
+        'prompt_11' => 'body_symmetry',          // True (Symmetrical)
+        'prompt_12' => 'arrowhead_base',         // Convex
+        'prompt_13' => 'height',                 // Height
+        'prompt_14' => 'width',                  // Width
+        'prompt_15' => 'thickness',              // Thickness
+        'prompt_16' => 'body_length',            // Body length
+        'prompt_17' => 'base_length',            // Base length
+        'prompt_18' => 'chipping_mode',          // Parallel
+        'prompt_19' => 'chipping_amplitude',     // True (Marginal)
+        'prompt_20' => 'chipping_direction',     // Reverse
+        'prompt_21' => 'chipping_orientation',   // Orientation
+        'prompt_22' => 'chipping_delineation',   // Delineation
+        'prompt_23' => 'chipping_location_lateral_1', // Distal
+        'prompt_24' => 'chipping_location_lateral_2', // Median
+        'prompt_25' => 'chipping_location_lateral_3', // Distal
+        'prompt_26' => 'chipping_location_transversal_1', // Median
+        'prompt_27' => 'chipping_location_transversal_2', // Distal
+        'prompt_28' => 'chipping_location_transversal_3', // Median
+        'prompt_29' => 'chipping_shape',         // Straight
+        'prompt_30' => 'arrowhead_material',     // Flint
     ];
     
-    // Map the fields from collecting form to arrowhead data format
+    // Process the mapping
     foreach ($fieldMappings as $collectingField => $arrowheadField) {
         if (isset($formData[$collectingField])) {
             $arrowheadData[$arrowheadField] = $formData[$collectingField];
         }
     }
-    
-    // Log the transformed data
-    error_log('Transformed arrowhead data: ' . print_r($arrowheadData, true), 3, OMEKA_PATH . '/logs/collecting-form.log');
     
     return $arrowheadData;
 }
@@ -752,7 +908,7 @@ private function getTtlPrefixes()
            "@prefix ah-chippingShape: <http://www.purl.com/ah/kos/ah-chippingShape/>.\n" .
            "@prefix excav: <https://purl.org/ah/ms/excavationMS#>.\n" .
            "@prefix dct: <http://purl.org/dc/terms/>.\n" .
-           "@prefix dcterms: <http://purl.org/dc/terms/>.\n" . // Added this line to fix the error
+           "@prefix dcterms: <http://purl.org/dc/terms/>.\n" . 
            "@prefix foaf: <http://xmlns.com/foaf/0.1/>.\n" .
            "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.\n" .
            "@prefix schema: <http://schema.org/>.\n" .
