@@ -26614,3 +26614,9 @@ _:2679847c-5c45-4a78-9445-fcce32b65950-18 <http://www.w3.org/ns/shacl#maxCount> 
 Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found 'i' [line 35]2025-05-13T13:08:59+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found 'i' [line 35]
 2025-05-13T13:09:34+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '(' [line 43]
 Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '(' [line 43]2025-05-13T13:09:34+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '(' [line 43]
+2025-05-13T16:37:35+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-13T16:39:26+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '(' [line 44]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '(' [line 44]2025-05-13T16:39:26+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '(' [line 44]
+2025-05-13T16:43:24+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-13T16:44:29+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found 't' [line 35]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found 't' [line 35]2025-05-13T16:44:29+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found 't' [line 35]

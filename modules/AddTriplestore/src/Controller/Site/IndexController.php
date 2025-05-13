@@ -125,6 +125,9 @@ class IndexController extends AbstractActionController
         $ttl .= "    geo:long \"" . $formData['longitude'] . "\"^^xsd:decimal;\n";
         $ttl .= "    .\n\n";
     }
+
+    error_log('TTL data: ' . $ttl, 3, OMEKA_PATH . '/logs/new-aux-ttl.log');
+
     
     return $ttl;
 }
@@ -189,7 +192,8 @@ if ($mode == 'form' && $uploadType == 'arrowhead') {
         // This is a real form submission, process it
         $ttlData = $this->processArrowheadFormData($formData, $itemSetId);
         error_log('Creating arrowhead with id: ' . $formData['arrowhead_identifier'], 3, OMEKA_PATH . '/logs/new-aux.log');
-        
+        // log ttl data for debugging
+        error_log('TTL data: ' . $ttlData, 3, OMEKA_PATH . '/logs/new-aux-ttl.log');
         // Upload TTL data to triplestore
         $result = $this->uploadTtlData($ttlData, $itemSetId);
         error_log('Arrowhead upload result: ' . $result, 3, OMEKA_PATH . '/logs/new-aux.log');
@@ -1122,6 +1126,8 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
     // Now proceed with the regular upload process
     // First, upload to GraphDB with the excavation identifier if available
     $graphDbResult = $this->sendToGraphDB($ttlData, $itemSetId);
+    // log ttl data
+    error_log('GraphDB upload result: ' . $ttlData, 3, OMEKA_PATH . '/logs/aux-ttl.log');
     
     if (strpos($graphDbResult, 'successfully') !== false) {
         // If GraphDB upload is successful, then process in Omeka S
