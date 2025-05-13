@@ -73,48 +73,44 @@ class IndexController extends AbstractActionController
     }
 
     public function submitArrowheadAction()
-    {
-        $formId = $this->params('form-id');
-        $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
-        $form = $cForm->getForm();
-        $form->setData($this->params()->fromPost());
+{
+    $formId = $this->params('form-id');
+    $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
+    $form = $cForm->getForm();
+    $form->setData($this->params()->fromPost());
+    
+    // Get the item set ID from the query parameters
+    $itemSetId = $this->params()->fromQuery('item_set_id');
+    
+    if ($form->isValid()) {
+        $arrowheadData = $this->getFormData($cForm);
         
-        // Get the item set ID from the query parameters
-        $itemSetId = $this->params()->fromQuery('item_set_id');
+        // Process and save the arrowhead data
+        $ttlData = $this->processArrowheadFormData($arrowheadData, $itemSetId);
+        $result = $this->uploadTtlData($ttlData, $itemSetId);
         
-        if ($form->isValid()) {
-            $arrowheadData = $this->getFormData($cForm);
-            
-            // If an item set ID is provided, include it in the redirection
-            $query = [
-                'upload_type' => 'arrowhead',
-                'form_data' => $arrowheadData
-            ];
-            
-            if ($itemSetId) {
-                $query['item_set_id'] = $itemSetId;
-                
-                // Add excavation identifier to the arrowhead data if we can find it
-                $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
-                if ($excavationId) {
-                    $arrowheadData['excavation_id'] = $excavationId;
-                }
-            }
-            
-            $url = $this->url('site/collecting', [
-                'site-slug' => $this->currentSite()->slug(),
-                'form-id' => $formId,
-                'action' => 'uploadArrowheadForm'
-            ], [
-                'query' => $query
-            ]);
-            
-            $this->redirect()->toUrl($url);
-        } else {
-            $this->messenger()->addErrors($form->getMessages());
-            return $this->redirect()->toRoute('site/collecting', ['form-id' => $formId, 'action' => 'uploadArrowheadForm']);
-        }
+        // Redirect to a success page with minimal data in the URL
+        $url = $this->url('site/collecting', [
+            'site-slug' => $this->currentSite()->slug(),
+            'form-id' => $formId,
+            'action' => 'uploadArrowheadForm'
+        ], [
+            'query' => [
+                'result' => $result,
+                'item_set_id' => $itemSetId,
+                'success' => '1' // Add a success flag
+            ]
+        ]);
+        
+        return $this->redirect()->toUrl($url);
+    } else {
+        $this->messenger()->addErrors($form->getMessages());
+        return $this->redirect()->toRoute('site/collecting', [
+            'form-id' => $formId, 
+            'action' => 'uploadArrowheadForm'
+        ]);
     }
+}
     
     private function getExcavationIdentifierFromItemSet($itemSetId)
     {
