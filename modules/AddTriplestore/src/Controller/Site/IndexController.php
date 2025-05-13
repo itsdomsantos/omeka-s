@@ -181,10 +181,10 @@ class IndexController extends AbstractActionController
             // Process form data and convert to TTL
             $formData = $this->params()->fromPost();
             $ttlData = $this->processArrowheadFormData($formData, $itemSetId);
-            error_log('Creating item set with title: Arrowhead ' . $formData['arrowhead_identifier'], 3, OMEKA_PATH . '/logs/title-llll.log');
+            error_log('Creating item set with title: Arrowhead ' . $formData['arrowhead_identifier'], 3, OMEKA_PATH . '/logs/new-aux.log');
             // Upload TTL data to triplestore
             $result = $this->uploadTtlData($ttlData, $itemSetId);
-            error_log('Arrowhead upload result: ' . $result, 3, OMEKA_PATH . '/logs/title-llll.log');
+            error_log('Arrowhead upload result: ' . $result, 3, OMEKA_PATH . '/logs/new-aux.log');
             // Redirect back to the arrowhead form with result
             $url = $this->url()->fromRoute('site/add-triplestore/upload', [
                 'site-slug' => $this->currentSite()->slug(),
@@ -197,7 +197,7 @@ class IndexController extends AbstractActionController
                 ]
             ]);
             // Log the redirect URL
-            error_log('Redirecting to URL: ' . $url, 3, OMEKA_PATH . '/logs/title-llll.log');
+            error_log('Redirecting to URL: ' . $url, 3, OMEKA_PATH . '/logs/new-aux.log');
             return $this->redirect()->toUrl($url);
         }
         
