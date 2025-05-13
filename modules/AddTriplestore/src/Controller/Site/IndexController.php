@@ -177,29 +177,51 @@ class IndexController extends AbstractActionController
             return $view;
         }
 
-        if ($mode == 'form' && $uploadType == 'arrowhead') {
-            // Process form data and convert to TTL
-            $formData = $this->params()->fromPost();
-            $ttlData = $this->processArrowheadFormData($formData, $itemSetId);
-            error_log('Creating item set with title: Arrowhead ' . $formData['arrowhead_identifier'], 3, OMEKA_PATH . '/logs/new-aux.log');
-            // Upload TTL data to triplestore
-            $result = $this->uploadTtlData($ttlData, $itemSetId);
-            error_log('Arrowhead upload result: ' . $result, 3, OMEKA_PATH . '/logs/new-aux.log');
-            // Redirect back to the arrowhead form with result
-            $url = $this->url()->fromRoute('site/add-triplestore/upload', [
-                'site-slug' => $this->currentSite()->slug(),
-            ], [
-                'query' => [
-                    'upload_type' => 'arrowhead',
-                    'item_set_id' => $itemSetId,
-                    'mode' => 'form',
-                    'result' => $result
-                ]
-            ]);
-            // Log the redirect URL
-            error_log('Redirecting to URL: ' . $url, 3, OMEKA_PATH . '/logs/new-aux.log');
-            return $this->redirect()->toUrl($url);
-        }
+        // Revised fix for the arrowhead form processing
+if ($mode == 'form' && $uploadType == 'arrowhead') {
+    // Check if we have POST data (a form submission)
+    $formData = $this->params()->fromPost();
+    
+    // Only process if there's actual form data and no success flag in the query
+    $success = $this->params()->fromQuery('success', false);
+    
+    if (!empty($formData) && empty($success)) {
+        // This is a real form submission, process it
+        $ttlData = $this->processArrowheadFormData($formData, $itemSetId);
+        error_log('Creating arrowhead with id: ' . $formData['arrowhead_identifier'], 3, OMEKA_PATH . '/logs/new-aux.log');
+        
+        // Upload TTL data to triplestore
+        $result = $this->uploadTtlData($ttlData, $itemSetId);
+        error_log('Arrowhead upload result: ' . $result, 3, OMEKA_PATH . '/logs/new-aux.log');
+        
+        // Redirect to success page
+        $url = $this->url()->fromRoute('site/add-triplestore/upload', [
+            'site-slug' => $this->currentSite()->slug(),
+        ], [
+            'query' => [
+                'upload_type' => 'arrowhead',
+                'item_set_id' => $itemSetId,
+                'mode' => 'form',
+                'result' => $result,
+                'success' => '1'
+            ]
+        ]);
+        
+        error_log('Redirecting to URL: ' . $url, 3, OMEKA_PATH . '/logs/new-aux.log');
+        return $this->redirect()->toUrl($url);
+    } else {
+        // Either this is just a page view, or we're viewing after a success
+        // Simply render the template with proper variables
+        $view = new ViewModel([
+            'itemSetId' => $itemSetId,
+            'uploadType' => $uploadType,
+            'result' => $this->params()->fromQuery('result', ''),
+            'success' => $success
+        ]);
+        $view->setTemplate('add-triplestore/site/index/upload-arrowhead');
+        return $view;
+    }
+}
         
         // Process the excavation form submission
         if ($uploadType == 'excavation' && !isset($_FILES['file'])) {

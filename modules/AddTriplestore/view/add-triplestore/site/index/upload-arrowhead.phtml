@@ -10,111 +10,132 @@
     
     <p>This arrowhead will be added to the excavation with Item Set ID: <?php echo $this->escapeHtml($itemSetId); ?></p>
     
-    <div class="button-group" style="margin-bottom: 20px;">
-        <button id="showFileUpload" class="button">Upload File</button>
-        <button id="showForm" class="button">Add by Form</button>
-    </div>
-
-    <!-- File Upload Form -->
-    <form id="fileUploadForm" action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $this->currentSite()->slug()], true); ?>" method="post" enctype="multipart/form-data">
-        <div class="form-group">
-            <label for="file">Select arrowhead file to upload (.ttl or .xml):</label>
-            <input type="file" name="file" id="file" required>
-        </div>
-        <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($uploadType); ?>">
-        <input type="hidden" name="item_set_id" value="<?php echo $this->escapeHtml($itemSetId); ?>">
-        <input type="hidden" name="mode" value="file">
-        
-        <div class="button-group">
-            <button type="submit" class="button">Upload</button>
+    <?php $success = $this->params()->fromQuery('success', false); ?>
+    
+    <?php if ($success): ?>
+        <!-- Show success view with options to add another or exit -->
+        <div class="button-group" style="margin-bottom: 20px;">
+            <a href="<?php echo $this->url('site/add-triplestore/upload', [
+                'site-slug' => $this->currentSite()->slug(),
+            ], [
+                'query' => [
+                    'upload_type' => 'arrowhead',
+                    'item_set_id' => $itemSetId,
+                    'mode' => 'form'
+                    // No success parameter here to avoid redirect loop
+                ]
+            ], true); ?>" class="button">Add Another Arrowhead</a>
+            
             <a href="<?php echo $this->url('site', [], true); ?>" class="button">Exit</a>
         </div>
-    </form>
+    <?php else: ?>
+        <!-- Show form selection buttons -->
+        <div class="button-group" style="margin-bottom: 20px;">
+            <button id="showFileUpload" class="button">Upload File</button>
+            <button id="showForm" class="button">Add by Form</button>
+        </div>
 
-    <!-- Manual Arrowhead Entry Form -->
-    <form id="manualForm" action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $this->currentSite()->slug()], true); ?>" method="post" style="display: none;">
-        <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($uploadType); ?>">
-        <input type="hidden" name="item_set_id" value="<?php echo $this->escapeHtml($itemSetId); ?>">
-        <input type="hidden" name="mode" value="form">
-        
-        <!-- Add arrowhead form fields -->
-        <div class="form-group">
-            <label for="identifier">Arrowhead Identifier</label>
-            <input type="text" id="identifier" name="arrowhead_identifier" required class="form-control" placeholder="e.g., AH-001">
-        </div>
-        
-        <div class="form-group">
-            <label for="arrowhead_shape">Shape</label>
-            <select id="arrowhead_shape" name="arrowhead_shape" class="form-control">
-                <option value="">Select a shape...</option>
-                <option value="triangle">Triangle</option>
-                <option value="losangular">Losangular</option>
-                <option value="pedunculated">Pedunculated</option>
-            </select>
-        </div>
-        
-        <div class="form-group">
-            <label for="arrowhead_variant">Variant</label>
-            <select id="arrowhead_variant" name="arrowhead_variant" class="form-control">
-                <option value="">Select a variant...</option>
-                <option value="flat">Flat</option>
-                <option value="raised">Raised</option>
-                <option value="thick">Thick</option>
-            </select>
-        </div>
-        
-        <div class="form-group">
-            <label for="arrowhead_base">Base</label>
-            <select id="arrowhead_base" name="arrowhead_base" class="form-control">
-                <option value="">Select a base type...</option>
-                <option value="straight">Straight</option>
-                <option value="convex">Convex</option>
-                <option value="concave">Concave</option>
-                <option value="pedunculated">Pedunculated</option>
-                <option value="triangular">Triangular</option>
-            </select>
-        </div>
-        
-        <div class="form-group">
-            <label for="arrowhead_material">Material</label>
-            <input type="text" id="arrowhead_material" name="arrowhead_material" class="form-control" placeholder="e.g., Flint">
-        </div>
-        
-        <div class="form-group">
-            <label for="arrowhead_annotation">Notes/Annotations</label>
-            <textarea id="arrowhead_annotation" name="arrowhead_annotation" class="form-control" rows="3" placeholder="Additional information about the arrowhead"></textarea>
-        </div>
-        
-        <div class="form-group">
-            <label>GPS Coordinates</label>
-            <div class="row">
-                <div class="form-group">
-                    <label for="latitude">Latitude</label>
-                    <input type="text" id="latitude" name="latitude" class="form-control" placeholder="e.g., 41.1234">
-                </div>
-                <div class="form-group">
-                    <label for="longitude">Longitude</label>
-                    <input type="text" id="longitude" name="longitude" class="form-control" placeholder="e.g., -8.5678">
+        <!-- File Upload Form -->
+        <form id="fileUploadForm" action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $this->currentSite()->slug()], true); ?>" method="post" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="file">Select arrowhead file to upload (.ttl or .xml):</label>
+                <input type="file" name="file" id="file" required>
+            </div>
+            <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($uploadType); ?>">
+            <input type="hidden" name="item_set_id" value="<?php echo $this->escapeHtml($itemSetId); ?>">
+            <input type="hidden" name="mode" value="file">
+            
+            <div class="button-group">
+                <button type="submit" class="button">Upload</button>
+                <a href="<?php echo $this->url('site', [], true); ?>" class="button">Exit</a>
+            </div>
+        </form>
+
+        <!-- Manual Arrowhead Entry Form -->
+        <form id="manualForm" action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $this->currentSite()->slug()], true); ?>" method="post" style="display: none;">
+            <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($uploadType); ?>">
+            <input type="hidden" name="item_set_id" value="<?php echo $this->escapeHtml($itemSetId); ?>">
+            <input type="hidden" name="mode" value="form">
+            
+            <!-- Add arrowhead form fields -->
+            <div class="form-group">
+                <label for="identifier">Arrowhead Identifier</label>
+                <input type="text" id="identifier" name="arrowhead_identifier" required class="form-control" placeholder="e.g., AH-001">
+            </div>
+            
+            <div class="form-group">
+                <label for="arrowhead_shape">Shape</label>
+                <select id="arrowhead_shape" name="arrowhead_shape" class="form-control">
+                    <option value="">Select a shape...</option>
+                    <option value="triangle">Triangle</option>
+                    <option value="losangular">Losangular</option>
+                    <option value="pedunculated">Pedunculated</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="arrowhead_variant">Variant</label>
+                <select id="arrowhead_variant" name="arrowhead_variant" class="form-control">
+                    <option value="">Select a variant...</option>
+                    <option value="flat">Flat</option>
+                    <option value="raised">Raised</option>
+                    <option value="thick">Thick</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="arrowhead_base">Base</label>
+                <select id="arrowhead_base" name="arrowhead_base" class="form-control">
+                    <option value="">Select a base type...</option>
+                    <option value="straight">Straight</option>
+                    <option value="convex">Convex</option>
+                    <option value="concave">Concave</option>
+                    <option value="pedunculated">Pedunculated</option>
+                    <option value="triangular">Triangular</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label for="arrowhead_material">Material</label>
+                <input type="text" id="arrowhead_material" name="arrowhead_material" class="form-control" placeholder="e.g., Flint">
+            </div>
+            
+            <div class="form-group">
+                <label for="arrowhead_annotation">Notes/Annotations</label>
+                <textarea id="arrowhead_annotation" name="arrowhead_annotation" class="form-control" rows="3" placeholder="Additional information about the arrowhead"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>GPS Coordinates</label>
+                <div class="row">
+                    <div class="form-group">
+                        <label for="latitude">Latitude</label>
+                        <input type="text" id="latitude" name="latitude" class="form-control" placeholder="e.g., 41.1234">
+                    </div>
+                    <div class="form-group">
+                        <label for="longitude">Longitude</label>
+                        <input type="text" id="longitude" name="longitude" class="form-control" placeholder="e.g., -8.5678">
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <div class="button-group">
-            <button type="submit" class="button">Submit</button>
-            <a href="<?php echo $this->url('site', [], true); ?>" class="button">Exit</a>
-        </div>
-    </form>
+            
+            <div class="button-group">
+                <button type="submit" class="button">Submit</button>
+                <a href="<?php echo $this->url('site', [], true); ?>" class="button">Exit</a>
+            </div>
+        </form>
 
-    <script>
-        document.getElementById('showFileUpload').onclick = function() {
-            document.getElementById('fileUploadForm').style.display = 'block';
-            document.getElementById('manualForm').style.display = 'none';
-        }
-        document.getElementById('showForm').onclick = function() {
-            document.getElementById('fileUploadForm').style.display = 'none';
-            document.getElementById('manualForm').style.display = 'block';
-        }
-    </script>
+        <script>
+            document.getElementById('showFileUpload').onclick = function() {
+                document.getElementById('fileUploadForm').style.display = 'block';
+                document.getElementById('manualForm').style.display = 'none';
+            }
+            document.getElementById('showForm').onclick = function() {
+                document.getElementById('fileUploadForm').style.display = 'none';
+                document.getElementById('manualForm').style.display = 'block';
+            }
+        </script>
+    <?php endif; ?>
 </div>
 
 <style>
