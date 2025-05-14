@@ -1,0 +1,674 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <https://cidoc-crm.org/extensions/crmsci/> .
+@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excav/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+# Shapes developed for the Megalod project
+
+<https://purl.org/megalod/shapes/MegaLOD-Shapes> a sh:NodeShape ;
+    sh:targetClass excav:Excavation, excav:Location, excav:GPSCoordinates, 
+                   excav:Archaeologist, excav:Context, excav:StratigraphicVolumeUnit,
+                   excav:TimeLine, excav:Instant, excav:Square, excav:EncounterEvent,
+                   excav:Item, excav:Coordinates, excav:Depth, excav:TypometryValue,
+                   excav:Weight, ah:Arrowhead, ah:Morphology, ah:Chipping ;
+    rdfs:label "MegaLOD SHACL Shapes"@en ;
+    dct:creator "Developed by the MegaLOD project team" ;
+    dct:date "2025-05-14"^^xsd:date .
+
+# =========== Excavation Shape ===========
+
+<https://purl.org/megalod/shapes/ExcavationShape> a sh:NodeShape ;
+    sh:targetClass excav:Excavation ;
+    sh:property [
+        sh:path dct:identifier ;
+        sh:name "Acronym" ;
+        sh:datatype xsd:literal ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path dul:hasLocation ;
+        sh:name "Has Location" ;
+        sh:class excav:Location ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path excav:hasSquare ;
+        sh:name "Has Square" ;
+        sh:class excav:Square ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path excav:hasPersonInCharge ;
+        sh:name "Has person in charge" ;
+        sh:class excav:Archaeologist ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path excav:hasContext ;
+        sh:name "Has context" ;
+        sh:class excav:Context ;
+        sh:minCount 0 ;
+    ] .
+
+# =========== Location Shape ===========
+
+<https://purl.org/megalod/shapes/LocationShape> a sh:NodeShape ;
+    sh:targetClass excav:Location ;
+    sh:property [
+        sh:path dbo:district ;
+        sh:name "Has District" ;
+        sh:class dbo:District ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path dbo:parish ;
+        sh:name "Has Parish" ;
+        sh:class dbo:Parish ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path dbo:informationName ;
+        sh:name "Name of the Location" ;
+        sh:datatype xsd:literal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path dbo:country ;
+        sh:name "Country" ;
+        sh:nodeKind sh:IRI ;
+    ] ;
+    sh:property [
+        sh:path excav:hasGPSCoordinates ;
+        sh:name "Location GPS Coordinates" ;
+        sh:class excav:GPSCoordinates ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== GPSCoordinates Shape ===========
+
+<https://purl.org/megalod/shapes/GPSCoordinatesShape> a sh:NodeShape ;
+    sh:targetClass excav:GPSCoordinates ;
+    sh:property [
+        sh:path geo:lat ;
+        sh:name "Latitude" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path geo:long ;
+        sh:name "Longitude" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== Archaeologist Shape ===========
+
+<https://purl.org/megalod/shapes/ArchaeologistShape> a sh:NodeShape ;
+    sh:targetClass excav:Archaeologist ;
+    sh:property [
+        sh:path foaf:account ;
+        sh:name "ORCID" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path foaf:name ;
+        sh:name "Name" ;
+        sh:datatype xsd:literal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path foaf:mbox ;
+        sh:name "Email" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+    ] .
+
+# =========== Context Shape ===========
+
+<https://purl.org/megalod/shapes/ContextShape> a sh:NodeShape ;
+    sh:targetClass excav:Context ;
+    sh:property [
+        sh:path dct:identifier ;
+        sh:name "ID" ;
+        sh:datatype xsd:literal ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path excav:hasSVU ;
+        sh:name "Has Stratigraphic Unit" ;
+        sh:class excav:StratigraphicVolumeUnit ;
+        sh:minCount 0 ;
+    ] .
+
+# =========== StratigraphicVolumeUnit Shape ===========
+
+<https://purl.org/megalod/shapes/StratigraphicVolumeUnitShape> a sh:NodeShape ;
+    sh:targetClass excav:StratigraphicVolumeUnit ;
+    sh:property [
+        sh:path dct:identifier ;
+        sh:name "ID" ;
+        sh:datatype xsd:literal ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path dct:description ;
+        sh:name "Description" ;
+        sh:datatype xsd:literal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path excav:hasTimeline ;
+        sh:name "Has TimeLine" ;
+        sh:class excav:TimeLine ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== TimeLine Shape ===========
+
+<https://purl.org/megalod/shapes/TimeLineShape> a sh:NodeShape ;
+    sh:targetClass excav:TimeLine ;
+    sh:property [
+        sh:path time:hasBeginning ;
+        sh:name "The TimeLine has a Lower Bound (Year)" ;
+        sh:class excav:Instant ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path time:hasEnd ;
+        sh:name "The TimeLine Upper Bound (Year)" ;
+        sh:class excav:Instant ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== Instant Shape ===========
+
+<https://purl.org/megalod/shapes/InstantShape> a sh:NodeShape ;
+    sh:targetClass excav:Instant ;
+    sh:property [
+        sh:path excav:bcac ;
+        sh:name "Before or After Christ" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:in (
+            <https://purl.org/megalod/kos/MegaLOD-BCAC/BC>
+            <https://purl.org/megalod/kos/MegaLOD-BCAC/AC>
+        ) ;
+    ] ;
+    sh:property [
+        sh:path time:inXSDgYear ;
+        sh:name "Year" ;
+        sh:datatype xsd:gYear ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== Square Shape ===========
+
+<https://purl.org/megalod/shapes/SquareShape> a sh:NodeShape ;
+    sh:targetClass excav:Square ;
+    sh:property [
+        sh:path dct:identifier ;
+        sh:name "ID" ;
+        sh:datatype xsd:literal ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path geo:long ;
+        sh:name "The North-South quota" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path geo:lat ;
+        sh:name "The East-West quota" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== EncounterEvent Shape ===========
+
+<https://purl.org/megalod/shapes/EncounterEventShape> a sh:NodeShape ;
+    sh:targetClass excav:EncounterEvent ;
+    sh:property [
+        sh:path dct:date ;
+        sh:name "Date" ;
+        sh:datatype xsd:literal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path crmsci:O19_encountered_object ;
+        sh:name "The finding" ;
+        sh:class excav:Item ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path excav:foundInSVU ;
+        sh:name "Item found in a StratigraphicVolumeUnit" ;
+        sh:class excav:StratigraphicVolumeUnit ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path excav:foundInContext ;
+        sh:name "Item found in a Context" ;
+        sh:class excav:Context ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path excav:foundInExcavation ;
+        sh:name "Item found in a Excavation" ;
+        sh:class excav:Excavation ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== Item Shape ===========
+
+<https://purl.org/megalod/shapes/ItemShape> a sh:NodeShape ;
+    sh:targetClass excav:Item ;
+    sh:property [
+        sh:path dct:identifier ;
+        sh:name "InventoryID" ;
+        sh:datatype xsd:literal ;
+        sh:minCount 1 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path edm:Webresource ;
+        sh:name "Images or 3d Models of the Item" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path dbo:Annotation ;
+        sh:name "Observation details of the Item" ;
+        sh:datatype xsd:literal ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path crm:E3_Condition_State ;
+        sh:name "The Condition State of the Item (Complete=True; Broken=False)" ;
+        sh:datatype xsd:boolean ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path crm:E57_Material ;
+        sh:name "Material (made of)" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+    ] ;
+    sh:property [
+        sh:path excav:hasCoordinatesInSquare ;
+        sh:name "Item found in the Coordinates (within the square)" ;
+        sh:class excav:Coordinates ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path schema:height ;
+        sh:name "Height of the Item" ;
+        sh:class excav:TypometryValue ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path schema:width ;
+        sh:name "Width of the Item" ;
+        sh:class excav:TypometryValue ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path schema:depth ;
+        sh:name "Thickness of the Item" ;
+        sh:class excav:TypometryValue ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path schema:weight ;
+        sh:name "Weight" ;
+        sh:class excav:Weight ;
+    ] ;
+    sh:property [
+        sh:path excav:elongationIndex ;
+        sh:name "Elongation Index" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:in (
+            <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated>
+            <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Medium>
+            <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Short>
+        ) ;
+    ] ;
+    sh:property [
+        sh:path excav:thicknessIndex ;
+        sh:name "Thickness Index" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:in (
+            <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin>
+            <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Medium>
+            <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thick>
+        ) ;
+    ] ;
+    sh:property [
+        sh:path dul:hasLocation ;
+        sh:name "Has Location" ;
+        sh:class excav:Location ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== Coordinates Shape ===========
+
+<https://purl.org/megalod/shapes/CoordinatesShape> a sh:NodeShape ;
+    sh:targetClass excav:Coordinates ;
+    sh:property [
+        sh:path geo:longitude ;
+        sh:name "X coordinate" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path geo:latitude ;
+        sh:name "Y Coordinate" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path schema:depth ;
+        sh:name "Depth" ;
+        sh:class excav:Depth ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== Depth Shape ===========
+
+<https://purl.org/megalod/shapes/DepthShape> a sh:NodeShape ;
+    sh:targetClass excav:Depth ;
+    sh:property [
+        sh:path schema:value ;
+        sh:name "Value" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path schema:UnitCode ;
+        sh:name "Unit" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== TypometryValue Shape ===========
+
+<https://purl.org/megalod/shapes/TypometryValueShape> a sh:NodeShape ;
+    sh:targetClass excav:TypometryValue ;
+    sh:property [
+        sh:path schema:value ;
+        sh:name "Value" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path schema:UnitCode ;
+        sh:name "Unit" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== Weight Shape ===========
+
+<https://purl.org/megalod/shapes/WeightShape> a sh:NodeShape ;
+    sh:targetClass excav:Weight ;
+    sh:property [
+        sh:path schema:value ;
+        sh:name "Value" ;
+        sh:datatype xsd:decimal ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path schema:UnitCode ;
+        sh:name "Unit" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== Arrowhead Shape ===========
+
+<https://purl.org/megalod/shapes/ArrowheadShape> a sh:NodeShape ;
+    sh:targetClass ah:Arrowhead ;
+    sh:property [
+        sh:path ah:shape ;
+        sh:name "Shape of the arrowhead" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:in (
+            <https://purl.org/megalod/kos/ah-shape/triangle>
+            <https://purl.org/megalod/kos/ah-shape/lozenge-shaped>
+            <https://purl.org/megalod/kos/ah-shape/stemmed>
+        ) ;
+    ] ;
+    sh:property [
+        sh:path crm:E55_Type ;
+        sh:name "Type of the arrowhead (Elongate=True;Short=False)" ;
+        sh:datatype xsd:boolean ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path ah:variant ;
+        sh:name "Variant of the arrowhead" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:in (
+            <https://purl.org/megalod/kos/ah-variant/flat>
+            <https://purl.org/megalod/kos/ah-variant/raised>
+            <https://purl.org/megalod/kos/ah-variant/thick>
+        ) ;
+    ] ;
+    sh:property [
+        sh:path ah:hasMorphology ;
+        sh:name "Morphology of the Arrowhead" ;
+        sh:class ah:Morphology ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path ah:bodyLength ;
+        sh:name "BodyLenght of the arrowhead" ;
+        sh:class excav:TypometryValue ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path ah:baseLength ;
+        sh:name "BaseLenght of the arrowhead" ;
+        sh:class excav:TypometryValue ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path ah:hasChipping ;
+        sh:name "The arrowhead has Chipping" ;
+        sh:class ah:Chipping ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] .
+
+# =========== Morphology Shape ===========
+
+<https://purl.org/megalod/shapes/MorphologyShape> a sh:NodeShape ;
+    sh:targetClass ah:Morphology ;
+    sh:property [
+        sh:path ah:point ;
+        sh:name "Definition of the tip of the arrowhead (Sharp=True;Fractured=False)" ;
+        sh:datatype xsd:boolean ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path ah:body ;
+        sh:name "Body symmetry (Symmetrical=True; Non-symmetrical=False)" ;
+        sh:datatype xsd:boolean ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path ah:base ;
+        sh:name "Base of the arrowhead" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:in (
+            <https://purl.org/megalod/kos/ah-base/straight>
+            <https://purl.org/megalod/kos/ah-base/convex>
+            <https://purl.org/megalod/kos/ah-base/concave>
+            <https://purl.org/megalod/kos/ah-base/stemmed>
+            <https://purl.org/megalod/kos/ah-base/triangular>
+        ) ;
+    ] .
+
+# =========== Chipping Shape ===========
+
+<https://purl.org/megalod/shapes/ChippingShape> a sh:NodeShape ;
+    sh:targetClass ah:Chipping ;
+    sh:property [
+        sh:path ah:chippingMode ;
+        sh:name "Chipping-mode" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:in (
+            <https://purl.org/megalod/kos/ah-chippingMode/plane>
+            <https://purl.org/megalod/kos/ah-chippingMode/parallel>
+            <https://purl.org/megalod/kos/ah-chippingMode/sub-parallel>
+        ) ;
+    ] ;
+    sh:property [
+        sh:path ah:chippingAmplitude ;
+        sh:name "Chipping-amplitude (Marginal=True, Deep=False)" ;
+        sh:datatype xsd:boolean ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path ah:chippingDirection ;
+        sh:name "Chipping-direction" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:in (
+            <https://purl.org/megalod/kos/ah-chippingDirection/direct>
+            <https://purl.org/megalod/kos/ah-chippingDirection/reverse>
+            <https://purl.org/megalod/kos/ah-chippingDirection/bifacial>
+        ) ;
+    ] ;
+    sh:property [
+        sh:path ah:chippingOrientation ;
+        sh:name "Chipping-orientation (Lateral=True, Transverse=False)" ;
+        sh:datatype xsd:boolean ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path ah:chippingDelineation ;
+        sh:name "Chipping-delineation" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:in (
+            <https://purl.org/megalod/kos/ah-chippingDelineation/continuous>
+            <https://purl.org/megalod/kos/ah-chippingDelineation/composite>
+            <https://purl.org/megalod/kos/ah-chippingDelineation/denticulated>
+        ) ;
+    ] ;
+    sh:property [
+        sh:path ah:chippingLocationSide ;
+        sh:name "Chipping-location-Lateral" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 3 ;
+        sh:in (
+            <https://purl.org/megalod/kos/ah-chippingLocation/distal>
+            <https://purl.org/megalod/kos/ah-chippingLocation/median>
+            <https://purl.org/megalod/kos/ah-chippingLocation/proximal>
+        ) ;
+    ] ;
+    sh:property [
+        sh:path ah:chippingLocationTransversal ;
+        sh:name "Chipping-Location-Transversal" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 3 ;
+        sh:in (
+            <https://purl.org/megalod/kos/ah-chippingLocation/distal>
+            <https://purl.org/megalod/kos/ah-chippingLocation/median>
+            <https://purl.org/megalod/kos/ah-chippingLocation/proximal>
+        ) ;
+    ] ;
+    sh:property [
+        sh:path ah:chippingShape ;
+        sh:name "Chipping-Shape" ;
+        sh:nodeKind sh:IRI ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:in (
+            <https://purl.org/megalod/kos/ah-chippingShape/straight>
+            <https://purl.org/megalod/kos/ah-chippingShape/convex>
+            <https://purl.org/megalod/kos/ah-chippingShape/concave>
+            <https://purl.org/megalod/kos/ah-chippingShape/sinuous>
+        ) ;
+    ] .
