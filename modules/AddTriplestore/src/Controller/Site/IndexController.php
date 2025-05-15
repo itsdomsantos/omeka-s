@@ -15,9 +15,9 @@ use Laminas\Router\RouteStackInterface;
 
 class IndexController extends AbstractActionController
 {
-    private $graphdbEndpoint = "http://localhost:7200/repositories/arch-project-shacl/rdf-graphs/service";
-    private $graphdbQueryEndpoint = "http://localhost:7200/repositories/arch-project-shacl";
-    private $baseDataGraphUri = "http://www.arch-project.com/";
+    private $graphdbEndpoint = "http://localhost:7200/repositories/megalod/rdf-graphs/service";
+    private $graphdbQueryEndpoint = "http://localhost:7200/repositories/megalod";
+    private $baseDataGraphUri = "https://purl.org/megalod/";
     private $router;
     private $httpClient;
     private $excavationIdentifier = "0"; // Default to the "0" graph
@@ -1094,6 +1094,8 @@ private function getTtlPrefixes()
         if (!in_array($fileType, ['application/x-turtle', 'application/xml', 'text/xml'])) {
             return 'Invalid file type. Please upload a valid .ttl or .xml file.';
         }
+
+        error_log('File type: ' . $fileType, 3, OMEKA_PATH . '/logs/file-upload.log');
     
         try {
             if ($fileType === 'application/xml' || $fileType === 'text/xml') {
@@ -1117,6 +1119,8 @@ private function getTtlPrefixes()
                     error_log('Upload type validation warning: ' . $e->getMessage());
                 }
             }
+            error_log('TTL data: ' . $ttlData, 3, OMEKA_PATH . '/logs/file-upload.log');
+            error_log('sending to uploadTtlData', 3, OMEKA_PATH . '/logs/file-upload.log');
     
             $result = $this->uploadTtlData($ttlData, $itemSetId);
             return $result;
@@ -1193,8 +1197,12 @@ private function transformCollectingFormDataToTTL(array $formData, ?string $uplo
 
 private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string {
     // Check if this is excavation data
+    error_log('Checking if this is excavation data', 3, OMEKA_PATH . '/logs/file-upload.log');
     $isExcavation = false;
     $excavationIdentifier = "0"; // Default to "0" graph
+
+    // log ttl data
+    error_log('TTL data preview: ' . substr($ttlData, 0, 1000), 3, OMEKA_PATH . '/logs/file-upload.log');
     
     try {
         $this->validateUploadType($ttlData, 'excavation');
