@@ -279,8 +279,8 @@ class IndexController extends AbstractActionController
         
         // Check if this is a continuous arrowhead upload
         $uploadType = $this->params()->fromQuery('upload_type') ?: $this->params()->fromPost('upload_type');
-    $itemSetId = $this->params()->fromQuery('item_set_id') ?: $this->params()->fromPost('item_set_id');
-    $mode = $this->params()->fromQuery('mode', $this->params()->fromPost('mode', 'upload'));
+        $itemSetId = $this->params()->fromQuery('item_set_id') ?: $this->params()->fromPost('item_set_id');
+        $mode = $this->params()->fromQuery('mode', $this->params()->fromPost('mode', 'upload'));
     
         
         // Process arrowhead file upload
@@ -321,51 +321,51 @@ class IndexController extends AbstractActionController
         }
 
         // Revised fix for the arrowhead form processing
-if ($mode == 'form' && $uploadType == 'arrowhead') {
-    // Check if we have POST data (a form submission)
-    $formData = $this->params()->fromPost();
-    
-    // Only process if there's actual form data and no success flag in the query
-    $success = $this->params()->fromQuery('success', false);
-    
-    if (!empty($formData) && empty($success)) {
-        // This is a real form submission, process it
-        $ttlData = $this->processArrowheadFormData($formData, $itemSetId);
-        error_log('Creating arrowhead with id: ' . $formData['arrowhead_identifier'], 3, OMEKA_PATH . '/logs/new-aux.log');
-        // log ttl data for debugging
-        error_log('TTL data: ' . $ttlData, 3, OMEKA_PATH . '/logs/new-aux-ttl.log');
-        // Upload TTL data to triplestore
-        $result = $this->uploadTtlData($ttlData, $itemSetId);
-        error_log('Arrowhead upload result: ' . $result, 3, OMEKA_PATH . '/logs/new-aux.log');
-        
-        // Redirect to success page
-        $url = $this->url()->fromRoute('site/add-triplestore/upload', [
-            'site-slug' => $this->currentSite()->slug(),
-        ], [
-            'query' => [
-                'upload_type' => 'arrowhead',
-                'item_set_id' => $itemSetId,
-                'mode' => 'form',
-                'result' => $result,
-                'success' => '1'
-            ]
-        ]);
-        
-        error_log('Redirecting to URL: ' . $url, 3, OMEKA_PATH . '/logs/new-aux.log');
-        return $this->redirect()->toUrl($url);
-    } else {
-        // Either this is just a page view, or we're viewing after a success
-        // Simply render the template with proper variables
-        $view = new ViewModel([
-            'itemSetId' => $itemSetId,
-            'uploadType' => $uploadType,
-            'result' => $this->params()->fromQuery('result', ''),
-            'success' => $success
-        ]);
-        $view->setTemplate('add-triplestore/site/index/upload-arrowhead');
-        return $view;
-    }
-}
+        if ($mode == 'form' && $uploadType == 'arrowhead') {
+            // Check if we have POST data (a form submission)
+            $formData = $this->params()->fromPost();
+            
+            // Only process if there's actual form data and no success flag in the query
+            $success = $this->params()->fromQuery('success', false);
+            
+            if (!empty($formData) && empty($success)) {
+                // This is a real form submission, process it
+                $ttlData = $this->processArrowheadFormData($formData, $itemSetId);
+                error_log('Creating arrowhead with id: ' . $formData['arrowhead_identifier'], 3, OMEKA_PATH . '/logs/new-aux.log');
+                // log ttl data for debugging
+                error_log('TTL data: ' . $ttlData, 3, OMEKA_PATH . '/logs/new-aux-ttl.log');
+                // Upload TTL data to triplestore
+                $result = $this->uploadTtlData($ttlData, $itemSetId);
+                error_log('Arrowhead upload result: ' . $result, 3, OMEKA_PATH . '/logs/new-aux.log');
+                
+                // Redirect to success page
+                $url = $this->url()->fromRoute('site/add-triplestore/upload', [
+                    'site-slug' => $this->currentSite()->slug(),
+                ], [
+                    'query' => [
+                        'upload_type' => 'arrowhead',
+                        'item_set_id' => $itemSetId,
+                        'mode' => 'form',
+                        'result' => $result,
+                        'success' => '1'
+                    ]
+                ]);
+                
+                error_log('Redirecting to URL: ' . $url, 3, OMEKA_PATH . '/logs/new-aux.log');
+                return $this->redirect()->toUrl($url);
+            } else {
+                // Either this is just a page view, or we're viewing after a success
+                // Simply render the template with proper variables
+                $view = new ViewModel([
+                    'itemSetId' => $itemSetId,
+                    'uploadType' => $uploadType,
+                    'result' => $this->params()->fromQuery('result', ''),
+                    'success' => $success
+                ]);
+                $view->setTemplate('add-triplestore/site/index/upload-arrowhead');
+                return $view;
+            }
+        }
         
         // Process the excavation form submission
         if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
@@ -507,6 +507,7 @@ if ($mode == 'form' && $uploadType == 'arrowhead') {
             if ($uploadType == 'excavation') {
                 error_log('Processing excavation file upload', 3, OMEKA_PATH . '/logs/a.log');
                 // Extract excavation identifier from the upload result
+                error_log('Upload result: ' . $result, 3, OMEKA_PATH . '/logs/a.log');
                 preg_match('/Excavation ([A-Za-z0-9-]+)/', $result, $matches);                $excavationIdentifier = isset($matches[1]) ? $matches[1] : null;
                 error_log('Excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/a.log');
                 if ($excavationIdentifier) {
@@ -1206,9 +1207,10 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
 
     // log ttl data
     error_log('TTL data preview: ' . substr($ttlData, 0, 1000), 3, OMEKA_PATH . '/logs/file-upload.log');
-    
+    error_log('going to try ' , 3, OMEKA_PATH . '/logs/a.log');
     try {
         $this->validateUploadType($ttlData, 'excavation');
+        error_log('Upload excav validation passed', 3, OMEKA_PATH . '/logs/a.log');
         $isExcavation = true;
         // Extract excavation identifier for graph organization
         $extractedId = $this->extractExcavationIdentifier($ttlData);
@@ -1368,10 +1370,11 @@ private function extractExcavationIdentifier(string $ttlData): ?string
 {
     error_log('Attempting to extract excavation identifier');
     error_log('Full TTL data: ' . $ttlData);
-
+    error_log('finding identifier', 3, OMEKA_PATH . '/logs/a.log');
     // First try to find dcterms:identifier
-    if (preg_match('/dct:identifier\s+"([^"]+)"\^\^xsd:string\s*;/', $ttlData, $matches)) {
+    if (preg_match('/dct:identifier\s+"([^"]+)"\^\^xsd:literal\s*;/', $ttlData, $matches)) {
         error_log('Found identifier through first regex: ' . $matches[1]);
+        error_log('found identifier: ' . $matches[1], 3, OMEKA_PATH . '/logs/a.log');
         return $matches[1];
     }
 
@@ -1398,15 +1401,17 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
         return; // No upload type specified, skip validation
     }
 
+    error_log('ttlData: ' . $ttlData, 3, OMEKA_PATH . '/logs/a.log');
+
     // Check for both prefixed and full URI forms
-    $isExcavation = (strpos($ttlData, 'crmarchaeo:A9_Archaeological_Excavation') !== false) || 
-                    (strpos($ttlData, '<http://www.cidoc-crm.org/extensions/crmarchaeo/A9_Archaeological_Excavation>') !== false);
+    $isExcavation = (strpos($ttlData, 'a excav:Excavation') !== false);
     
     if ($uploadType === 'excavation' && !$isExcavation) {
         throw new \Exception('Invalid data type for excavation upload.');
     } elseif ($uploadType === 'arrowhead' && $isExcavation) {
         throw new \Exception('Invalid data type for Arrowhead upload.');
     }
+    error_log('is excavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/a.log');
 }
 
     public function xmlParser($file)
