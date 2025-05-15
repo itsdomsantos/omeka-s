@@ -919,7 +919,7 @@ private function getTtlPrefixes()
 /**
  * Generate TTL for a context
  */
-private function generateContextTtl($contextUri, $contextData, $svuUri = null)
+/*private function generateContextTtl($contextUri, $contextData, $svuUri = null)
 {
     $ttl = "<$contextUri> a crmarchaeo:A1_Excavation_Processing_Unit;\n";
     $ttl .= "    dct:identifier \"" . $contextData['id'] . "\"^^xsd:string;\n";
@@ -934,12 +934,12 @@ private function generateContextTtl($contextUri, $contextData, $svuUri = null)
     
     $ttl .= "    .\n\n";
     return $ttl;
-}
+}*/
 
 /**
  * Generate TTL for a Stratigraphic Volume Unit (SVU)
  */
-private function generateSvuTtl($svuUri, $svuData)
+/*private function generateSvuTtl($svuUri, $svuData)
 {
     $ttl = "<$svuUri> a crmarchaeo:A2_Stratigraphic_Volume_Unit;\n";
     $ttl .= "    dct:identifier \"" . $svuData['id'] . "\"^^xsd:string;\n";
@@ -988,12 +988,12 @@ private function generateSvuTtl($svuUri, $svuData)
     }
     
     return $ttl;
-}
+}*/
 
 /**
  * Generate TTL for an encounter event
  */
-private function generateEncounterTtl($encounterUri, $encounterData, $excavationUri, $contextUri = null, $svuUri = null)
+/*private function generateEncounterTtl($encounterUri, $encounterData, $excavationUri, $contextUri = null, $svuUri = null)
 {
     $ttl = "<$encounterUri> a crmsci:S19_Encounter_Event;\n";
     
@@ -1019,12 +1019,12 @@ private function generateEncounterTtl($encounterUri, $encounterData, $excavation
     
     $ttl .= "    .\n\n";
     return $ttl;
-}
+}*/
 
 /**
  * Generate TTL for a location
  */
-private function generateLocationTtl($locationUri, $locationName)
+/*private function generateLocationTtl($locationUri, $locationName)
 {
     $ttl = "";
     $ttl .= "<$locationUri> a dbo:Place;\n";
@@ -1059,7 +1059,7 @@ private function generateLocationTtl($locationUri, $locationName)
     $ttl .= "    .\n\n";
     
     return $ttl;
-}
+}*/
 
     private function getCollectingFormRepresentation(int $formId)
     {
@@ -1925,7 +1925,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
     return $omekaData;
 }
 
-    
+    // TO CHANGE
     private function processSubjectProperties($rdfData, $subject, &$itemData) {
         if (!isset($rdfData[$subject])) {
             return;
@@ -2022,7 +2022,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
         }
     }
 
-
+    // TO CHANGE
     private function getOmekaPropertyId($omekaProperty) {
         $propertyIds = [
             'http://purl.org/dc/terms/identifier' => 10,  // dcterms:identifier
