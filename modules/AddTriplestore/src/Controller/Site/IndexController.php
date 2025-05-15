@@ -896,33 +896,24 @@ private function processEntitySelection($existingUri, array $newData, $entityTyp
  */
 private function getTtlPrefixes()
 {
-    return "@prefix ah: <http://www.purl.com/ah/ms/ahMS#>.\n" .
-           "@prefix ah-vocab: <http://www.purl.com/ah/kos#>.\n" .
-           "@prefix ah-shape: <http://www.purl.com/ah/kos/ah-shape/>.\n" .
-           "@prefix ah-variant: <http://www.purl.com/ah/kos/ah-variant/>.\n" .
-           "@prefix ah-base: <http://www.purl.com/ah/kos/ah-base/>.\n" .
-           "@prefix ah-chippingMode: <http://www.purl.com/ah/kos/ah-chippingMode/>.\n" .
-           "@prefix ah-chippingDirection: <http://www.purl.com/ah/kos/ah-chippingDirection/>.\n" .
-           "@prefix ah-chippingDelineation: <http://www.purl.com/ah/kos/ah-chippingDelineation/>.\n" .
-           "@prefix ah-chippingLocation: <http://www.purl.com/ah/kos/ah-chippingLocation/>.\n" .
-           "@prefix ah-chippingShape: <http://www.purl.com/ah/kos/ah-chippingShape/>.\n" .
-           "@prefix excav: <https://purl.org/ah/ms/excavationMS#>.\n" .
-           "@prefix dct: <http://purl.org/dc/terms/>.\n" .
-           "@prefix dcterms: <http://purl.org/dc/terms/>.\n" . 
-           "@prefix foaf: <http://xmlns.com/foaf/0.1/>.\n" .
-           "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.\n" .
-           "@prefix schema: <http://schema.org/>.\n" .
-           "@prefix skos: <http://www.w3.org/2004/02/skos/core#>.\n" .
-           "@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.\n" .
-           "@prefix dbo: <http://dbpedia.org/ontology/>.\n" .
-           "@prefix time: <http://www.w3.org/2006/time#>.\n" .
-           "@prefix edm: <http://www.europeana.eu/schemas/edm#>.\n" .
-           "@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>.\n" .
-           "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/>.\n" .
-           "@prefix crmsci: <https://cidoc-crm.org/extensions/crmsci/>.\n" .
-           "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/>.\n" .
-           "@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>.\n" .
-           "@prefix sh: <http://www.w3.org/ns/shacl#>.\n\n";
+    return "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n" .
+           "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n" .
+           "@prefix sh: <http://www.w3.org/ns/shacl#> .\n" .
+           "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n" .
+           "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n" .
+           "@prefix dct: <http://purl.org/dc/terms/> .\n" .
+           "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n" .
+           "@prefix dbo: <http://dbpedia.org/ontology/> .\n" .
+           "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .\n" .
+           "@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .\n" .
+           "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .\n" .
+           "@prefix edm: <http://www.europeana.eu/schemas/edm/> .\n" .
+           "@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .\n" .
+           "@prefix time: <http://www.w3.org/2006/time#> .\n" .
+           "@prefix schema: <http://schema.org/> .\n" .
+           "@prefix ah: <https://purl.org/megalod/ms/ah/> .\n" .
+           "@prefix excav: <https://purl.org/megalod/ms/excavation/> .\n" .
+           "@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .\n\n";
 }
 
 /**
