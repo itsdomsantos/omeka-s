@@ -1,0 +1,37 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix schema: <http://schema.org/> .
+
+# Valid Arrowhead
+<https://purl.org/megalod/example/arrowhead/ValidArrowhead> a ah:Arrowhead, excav:Item ;
+    dct:identifier "VALID-AH-001"^^xsd:literal ;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
+    crm:E55_Type "true"^^xsd:boolean ;
+    ah:variant <https://purl.org/megalod/kos/ah-variant/flat> ;
+    ah:hasMorphology <https://purl.org/megalod/example/morphology/ValidArrowhead> ;
+    ah:hasChipping <https://purl.org/megalod/example/chipping/ValidArrowhead> ;
+    crm:E3_Condition_State "true"^^xsd:boolean ;
+    crm:E57_Material <http://collection.britishmuseum.org/id/thesaurus/material/flint> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin> .
+
+<https://purl.org/megalod/example/morphology/ValidArrowhead> a ah:Morphology ;
+    ah:point "true"^^xsd:boolean ;
+    ah:body "true"^^xsd:boolean ;
+    ah:base <https://purl.org/megalod/kos/ah-base/convex> .
+
+<https://purl.org/megalod/example/chipping/ValidArrowhead> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/parallel> ;
+    ah:chippingAmplitude "false"^^xsd:boolean ;
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/bifacial> ;
+    ah:chippingOrientation "true"^^xsd:boolean ;
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/continuous> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/distal>,
+                           <https://purl.org/megalod/kos/ah-chippingLocation/median>,
+                           <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex> .

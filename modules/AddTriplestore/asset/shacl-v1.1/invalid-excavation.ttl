@@ -1,0 +1,25 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+
+# Invalid Excavation - Missing required identifier and has invalid archaeologist reference
+<https://purl.org/megalod/example/excavation/InvalidSite> a excav:Excavation ;
+    # Missing the required dct:identifier
+    # Invalid reference to archaeologist (missing ORCID)
+    excav:hasPersonInCharge <https://purl.org/megalod/example/archaeologist/InvalidPerson> ;
+    dul:hasLocation <https://purl.org/megalod/example/location/InvalidSite> .
+
+# Invalid archaeologist - missing required ORCID
+<https://purl.org/megalod/example/archaeologist/InvalidPerson> a excav:Archaeologist ;
+    foaf:name "Invalid Person"^^xsd:literal ;
+    # Missing required foaf:account (ORCID)
+    foaf:mbox <mailto:invalid@example.org> .
+
+# Location with missing required GPS coordinates
+<https://purl.org/megalod/example/location/InvalidSite> a excav:Location ;
+    dbo:informationName "Invalid Site"^^xsd:literal .
+    # Missing country and coordinates

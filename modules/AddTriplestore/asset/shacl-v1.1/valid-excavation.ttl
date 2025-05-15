@@ -1,0 +1,38 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+
+# Define necessary types for referenced resources
+<http://dbpedia.org/resource/Alentejo_District> a dbo:District .
+<http://dbpedia.org/resource/Evora> a dbo:Parish .
+<http://dbpedia.org/resource/Portugal> a dbo:Country .
+
+# Simple excavation with minimal required data
+<https://purl.org/megalod/example/excavation/MonteDoVal> a excav:Excavation ;
+    dct:identifier "MV2025"^^xsd:literal ;
+    excav:hasPersonInCharge <https://purl.org/megalod/example/archaeologist/MariaOliveira> ;
+    dul:hasLocation <https://purl.org/megalod/example/location/MonteDoVal> .
+
+# Archaeologist in charge
+<https://purl.org/megalod/example/archaeologist/MariaOliveira> a excav:Archaeologist ;
+    foaf:name "Maria Oliveira"^^xsd:literal ;
+    foaf:account <https://orcid.org/0000-0003-5678-9012> ;
+    foaf:mbox <mailto:maria.oliveira@example.org> .
+
+# Location information
+<https://purl.org/megalod/example/location/MonteDoVal> a excav:Location ;
+    dbo:informationName "Monte do Val"^^xsd:literal ;
+    dbo:district <http://dbpedia.org/resource/Alentejo_District> ;
+    dbo:parish <http://dbpedia.org/resource/Evora> ;
+    dbo:country <http://dbpedia.org/resource/Portugal> ;
+    excav:hasGPSCoordinates <https://purl.org/megalod/example/gps/MonteDoVal> .
+
+<https://purl.org/megalod/example/gps/MonteDoVal> a excav:GPSCoordinates ;
+    geo:lat 38.5704 ;
+    geo:long -7.9092 .

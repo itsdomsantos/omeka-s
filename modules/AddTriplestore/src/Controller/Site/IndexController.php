@@ -1108,6 +1108,9 @@ private function getTtlPrefixes()
             } else {
                 $ttlData = file_get_contents($file['tmp_name']);
             }
+
+            error_log('File tmp_name: ' . $file['tmp_name'], 3, OMEKA_PATH . '/logs/file-upload.log');
+            error_log('File exists check: ' . (file_exists($file['tmp_name']) ? 'exists' : 'does not exist'), 3, OMEKA_PATH . '/logs/file-upload.log');
     
             // Skip validation if not explicitly required - for continuous uploads
             // to avoid unnecessary error messages
