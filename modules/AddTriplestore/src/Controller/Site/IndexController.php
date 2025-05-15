@@ -505,10 +505,10 @@ if ($mode == 'form' && $uploadType == 'arrowhead') {
             
             // If this is an excavation file upload, create an item set if needed and redirect to arrowhead upload
             if ($uploadType == 'excavation') {
+                error_log('Processing excavation file upload', 3, OMEKA_PATH . '/logs/a.log');
                 // Extract excavation identifier from the upload result
-                preg_match('/Excavation ([A-Z0-9-]+)/', $result, $matches);
-                $excavationIdentifier = isset($matches[1]) ? $matches[1] : null;
-                
+                preg_match('/Excavation ([A-Za-z0-9-]+)/', $result, $matches);                $excavationIdentifier = isset($matches[1]) ? $matches[1] : null;
+                error_log('Excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/a.log');
                 if ($excavationIdentifier) {
                     // Get the item set ID either from the upload result or from the mapping
                     if (strpos($result, 'Item Set #') !== false) {
