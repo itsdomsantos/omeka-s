@@ -2118,8 +2118,8 @@ private function extractCommonProperties($rdfData, $subject, &$itemData) {
     // Map common predicates to Omeka S properties
     $commonPropertyMap = [
         'http://dbpedia.org/ontology/Annotation' => ['dcterms:description', 4],
-        'http://www.cidoc-crm.org/cidoc-crm/E3_Condition_State' => ['dcterms:extent', 9],
-        'http://www.cidoc-crm.org/cidoc-crm/E55_Type' => ['dcterms:type', 7]
+        'http://www.cidoc-crm.org/cidoc-crm/E3_Condition_State' => ['crm:P44_has_condition', 476],
+        'http://www.cidoc-crm.org/cidoc-crm/E55_Type' => ['crm:P2_has_type', 399]
     ];
     
     foreach ($commonPropertyMap as $predicate => $mapping) {
@@ -2171,12 +2171,13 @@ private function extractCommonProperties($rdfData, $subject, &$itemData) {
  */
 private function processArrowheadData($rdfData, $subject, &$itemData) {
     // Basic properties - direct mapping
+    error_log('Subject predicates: ' . print_r(array_keys($rdfData[$subject]), true), 3, OMEKA_PATH . '/logs/predicates.log');
     $propertyMap = [
         'https://purl.org/megalod/ms/ah/shape' => ['ah:shape', 7651],
         'https://purl.org/megalod/ms/ah/variant' => ['ah:variant', 7652],
         'http://www.cidoc-crm.org/cidoc-crm/P45_consists_of' => ['dcterms:medium', 13],
-        'https://purl.org/megalod/ms/excav/elongationIndex' => ['excav:elongationIndex', 7676],
-        'https://purl.org/megalod/ms/excav/thicknessIndex' => ['excav:thicknessIndex', 7677]
+        'https://purl.org/megalod/ms/excavation/elongationIndex' => ['excav:elongationIndex', 7676],
+        'https://purl.org/megalod/ms/excavation/thicknessIndex' => ['excav:thicknessIndex', 7677]
     ];
     
     // Extract basic properties
@@ -2325,55 +2326,48 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     }
     
     // Extract typometry values (measurements)
-    $typometryMap = [
-        'https://purl.org/megalod/ms/ah/bodyLength' => ['ah:bodyLength', 7649],
-        'https://purl.org/megalod/ms/ah/baseLength' => ['ah:baseLength', 7650],
-        'http://schema.org/height' => ['schema:height', 5616],
-        'http://schema.org/width' => ['schema:width', 5688],
-        'http://schema.org/depth' => ['schema:depth', 7244]
-    ];
-    
-    foreach ($typometryMap as $predicate => $mapping) {
-        if (isset($rdfData[$subject][$predicate])) {
-            $term = $mapping[0];
-            $propertyId = $mapping[1];
-            
-            foreach ($rdfData[$subject][$predicate] as $obj) {
-                if ($obj['type'] === 'uri') {
-                    $typometryUri = $obj['value'];
-                    
-                    // Get the value
-                    $value = $this->extractMeasurementValue($rdfData, $typometryUri);
-                    $unit = $this->extractMeasurementUnit($rdfData, $typometryUri);
-                    
-                    if ($value) {
-                        if (!isset($itemData[$term . '-value'])) {
-                            $itemData[$term . '-value'] = [];
-                        }
-                        $itemData[$term . '-value'][] = [
-                            'type' => 'literal',
-                            'property_id' => $propertyId,
-                            '@value' => $value
-                        ];
+    // Extract typometry values (measurements) - with combined value and unit
+$typometryMap = [
+    'https://purl.org/megalod/ms/ah/bodyLength' => ['ah:bodyLength', 7649],
+    'https://purl.org/megalod/ms/ah/baseLength' => ['ah:baseLength', 7650],
+    'http://schema.org/height' => ['height', 5616],    // Changed the property name to match display
+    'http://schema.org/width' => ['width', 5688],      // Changed the property name to match display
+    'http://schema.org/depth' => ['depth', 7244]       // Changed the property name to match display
+];
+
+foreach ($typometryMap as $predicate => $mapping) {
+    if (isset($rdfData[$subject][$predicate])) {
+        $term = $mapping[0];
+        $propertyId = $mapping[1];
+        
+        foreach ($rdfData[$subject][$predicate] as $obj) {
+            if ($obj['type'] === 'uri') {
+                $typometryUri = $obj['value'];
+                
+                // Get the value and unit
+                $value = $this->extractMeasurementValue($rdfData, $typometryUri);
+                $unit = $this->extractMeasurementUnit($rdfData, $typometryUri);
+                
+                // Combine value and unit into a single property
+                if ($value) {
+                    if (!isset($itemData[$term])) {
+                        $itemData[$term] = [];
                     }
+                    $itemData[$term][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $value . ' ' . ($unit ?: '')
+                    ];
                     
-                    if ($unit) {
-                        if (!isset($itemData[$term . '-unit'])) {
-                            $itemData[$term . '-unit'] = [];
-                        }
-                        $itemData[$term . '-unit'][] = [
-                            'type' => 'literal',
-                            'property_id' => $propertyId,
-                            '@value' => $unit
-                        ];
-                    }
+                    error_log('Added measurement: ' . $term . ' = ' . $value . ' ' . ($unit ?: ''), 3, OMEKA_PATH . '/logs/measurements.log');
                 }
             }
         }
     }
+}
     
-    // Special handling for weight
-    if (isset($rdfData[$subject]['http://schema.org/weight'])) {
+        // Updated weight handling using a proper weight property ID
+        if (isset($rdfData[$subject]['http://schema.org/weight'])) {
         foreach ($rdfData[$subject]['http://schema.org/weight'] as $obj) {
             if ($obj['type'] === 'uri') {
                 $weightUri = $obj['value'];
@@ -2383,27 +2377,18 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
                 $value = $this->extractMeasurementValue($rdfData, $weightUri);
                 $unit = $this->extractMeasurementUnit($rdfData, $weightUri);
                 
-                // Make sure weight uses schema:weight-value and schema:weight-unit properties
+                // Use one of your specific weight property IDs
                 if ($value) {
-                    if (!isset($itemData['weight-value'])) {
-                        $itemData['weight-value'] = [];
+                    if (!isset($itemData['weight'])) {
+                        $itemData['weight'] = [];
                     }
-                    $itemData['weight-value'][] = [
+                    $itemData['weight'][] = [
                         'type' => 'literal',
-                        'property_id' => 7206, // Your weight property ID
-                        '@value' => $value
+                        'property_id' => 7403, // Using one of your weight property IDs
+                        '@value' => $value . ' ' . ($unit ?: 'g')
                     ];
-                }
-
-                if ($unit) {
-                    if (!isset($itemData['weight-unit'])) {
-                        $itemData['weight-unit'] = [];
-                    }
-                    $itemData['weight-unit'][] = [
-                        'type' => 'literal',
-                        'property_id' => 7206, // Your weight property ID
-                        '@value' => $unit
-                    ];
+                    
+                    error_log('Added weight value with unit: ' . $value . ' ' . ($unit ?: 'g'), 3, OMEKA_PATH . '/logs/measurements.log');
                 }
             }
         }
