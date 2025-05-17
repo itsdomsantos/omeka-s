@@ -1846,10 +1846,109 @@ private function getExcavationIdentifierFromItemSet($itemSetId)
     return null;
 }
 
+
+
 /**
- * Transform TTL data to Omeka S format
- * This improved method extracts more properties from the TTL data
+ * Process all properties of a subject
  */
+private function processAllProperties($rdfData, $subject, &$itemData, $propertyMapping) {
+    if (!isset($rdfData[$subject])) {
+        return;
+    }
+    
+    foreach ($rdfData[$subject] as $predicate => $objects) {
+        if (isset($propertyMapping[$predicate])) {
+            $mapping = $propertyMapping[$predicate];
+            $term = $mapping['term'];
+            $property_id = $mapping['property_id'];
+            
+            if (!isset($itemData[$term])) {
+                $itemData[$term] = [];
+            }
+            
+            foreach ($objects as $object) {
+                $value = $this->createValueFromObject($object, $property_id, $predicate);
+                if ($value !== null) {
+                    $itemData[$term][] = $value;
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Recursively process all related subjects (morphology, chipping, coordinates, etc.)
+ */
+private function processAllRelatedSubjects($rdfData, $subject, &$itemData, $propertyMapping) {
+    if (!isset($rdfData[$subject])) {
+        return;
+    }
+    
+    // Find all subjects related to this subject
+    $relatedSubjects = [];
+    foreach ($rdfData[$subject] as $predicate => $objects) {
+        foreach ($objects as $object) {
+            if ($object['type'] === 'uri' && isset($rdfData[$object['value']])) {
+                $relatedSubjects[$object['value']] = $predicate;
+            }
+        }
+    }
+    
+    // Process each related subject
+    foreach ($relatedSubjects as $relatedSubject => $linkPredicate) {
+        // Process direct properties of the related subject
+        $this->processAllProperties($rdfData, $relatedSubject, $itemData, $propertyMapping);
+        
+        // Recursively process related subjects of the related subject
+        $this->processAllRelatedSubjects($rdfData, $relatedSubject, $itemData, $propertyMapping);
+    }
+}
+
+/**
+ * Create a value array from an RDF object
+ */
+private function createValueFromObject($object, $property_id, $predicate) {
+    if ($object['type'] === 'literal') {
+        // Handle boolean values
+        if ($object['value'] === 'true' || $object['value'] === 'false') {
+            return [
+                'type' => 'literal',
+                'property_id' => $property_id,
+                '@value' => $object['value'] === 'true' ? 'True' : 'False',
+            ];
+        } else {
+            $value = [
+                'type' => 'literal',
+                'property_id' => $property_id,
+                '@value' => $object['value'],
+            ];
+            if (isset($object['datatype'])) {
+                $value['@type'] = $object['datatype'];
+            }
+            return $value;
+        }
+    } elseif ($object['type'] === 'uri') {
+        // Extract the term from the URI for controlled vocabularies
+        if (strpos($object['value'], '/kos/') !== false) {
+            $parts = explode('/', $object['value']);
+            $term = end($parts);
+            return [
+                'type' => 'literal',
+                'property_id' => $property_id,
+                '@value' => $term,
+            ];
+        } else {
+            return [
+                'type' => 'uri',
+                'property_id' => $property_id,
+                '@id' => $object['value'],
+                '@value' => $object['value'],
+            ];
+        }
+    }
+    
+    return null;
+}
 private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
     error_log('Transforming TTL to Omeka S data', 3, OMEKA_PATH . '/logs/transform.log');
     $graph = new \EasyRdf\Graph();
@@ -1860,7 +1959,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
 
     error_log('RDF Data: ' . print_r($rdfData, true), 3, OMEKA_PATH . '/logs/transform.log');
     
-    // Find subjects (arrowheads, excavation components, etc.)
+    // Find main subjects (arrowheads, excavation components, etc.)
     $subjects = [];
     foreach ($rdfData as $subject => $predicates) {
         foreach ($predicates as $predicate => $objects) {
@@ -1869,25 +1968,26 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
                 if ($predicate === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' && $object['type'] === 'uri') {
                     // Arrowhead
                     if ($object['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' || 
-                        strpos($object['value'], 'Arrowhead') !== false) {
-                        $subjects[] = $subject;
+                        strpos($object['value'], 'Arrowhead') !== false ||
+                        $object['value'] === 'http://www.cidoc-crm.org/cidoc-crm/E24_Physical_Man-Made_Thing') {
+                        $subjects[$subject] = 'arrowhead';
                     }
                     // Excavation
                     else if ($object['value'] === 'http://www.cidoc-crm.org/extensions/crmarchaeo/A9_Archaeological_Excavation' || 
                              strpos($object['value'], 'Excavation') !== false) {
-                        $subjects[] = $subject;
+                        $subjects[$subject] = 'excavation';
                     }
                     // Context
                     else if (strpos($object['value'], 'Context') !== false) {
-                        $subjects[] = $subject;
+                        $subjects[$subject] = 'context';
                     }
                     // SVU
                     else if (strpos($object['value'], 'StratigraphicVolumeUnit') !== false) {
-                        $subjects[] = $subject;
+                        $subjects[$subject] = 'svu';
                     }
-                    // Physical object (e.g., arrowhead)
-                    else if ($object['value'] === 'http://www.cidoc-crm.org/cidoc-crm/E24_Physical_Man-Made_Thing') {
-                        $subjects[] = $subject;
+                    // Item
+                    else if ($object['value'] === 'https://purl.org/megalod/ms/excavation/Item') {
+                        $subjects[$subject] = 'item';
                     }
                 }
             }
@@ -1898,7 +1998,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
     if (empty($subjects)) {
         foreach ($rdfData as $subject => $predicates) {
             if (isset($predicates['http://purl.org/dc/terms/identifier'])) {
-                $subjects[] = $subject;
+                $subjects[$subject] = 'unknown';
             }
         }
     }
@@ -1915,8 +2015,8 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
         }
     }
     
-    // Process each subject as a single item
-    foreach ($subjects as $subject) {
+    // Process each main subject as a separate item
+    foreach ($subjects as $subject => $subjectType) {
         $itemData = [
             'o:resource_class' => ['o:id' => 1], // Default Item Resource Class ID
             'o:item_set' => [],                  // Will be populated if itemSetId exists
@@ -1927,136 +2027,53 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
             $itemData['o:item_set'][] = ['o:id' => $itemSetId];
         }
         
-        // Create a mapping of RDF properties to Omeka S properties
-        $propertyMapping = [
-            'http://purl.org/dc/terms/identifier' => [
-                'term' => 'dcterms:identifier', 
-                'property_id' => 10
-            ],
-            'http://www.cidoc-crm.org/cidoc-crm/E55_Type' => [
-                'term' => 'dcterms:type', 
-                'property_id' => 7
-            ],
-            'http://www.cidoc-crm.org/cidoc-crm/E3_Condition_State' => [
-                'term' => 'dcterms:extent', 
-                'property_id' => 4
-            ],
-            'https://purl.org/megalod/ms/ah/shape' => [
-                'term' => 'dcterms:format', 
-                'property_id' => 6
-            ],
-            'https://purl.org/megalod/ms/ah/variant' => [
-                'term' => 'dcterms:modified', 
-                'property_id' => 41
-            ],
-            'https://purl.org/megalod/ms/ah/base' => [
-                'term' => 'dcterms:isReferencedBy', 
-                'property_id' => 35
-            ],
-            'http://www.cidoc-crm.org/cidoc-crm/P45_consists_of' => [
-                'term' => 'dcterms:medium', 
-                'property_id' => 13
-            ],
-            'http://dbpedia.org/ontology/Annotation' => [
-                'term' => 'dcterms:description', 
-                'property_id' => 4
-            ],
-            'https://purl.org/megalod/ms/excav/elongationIndex' => [
-                'term' => 'dcterms:isPartOf', 
-                'property_id' => 40
-            ],
-            'https://purl.org/megalod/ms/excav/thicknessIndex' => [
-                'term' => 'dcterms:relation', 
-                'property_id' => 39
-            ],
-            'http://www.w3.org/2003/01/geo/wgs84_pos#lat' => [
-                'term' => 'dcterms:spatial', 
-                'property_id' => 18
-            ],
-            'http://www.w3.org/2003/01/geo/wgs84_pos#long' => [
-                'term' => 'dcterms:spatial', 
-                'property_id' => 18
-            ],
-            'http://schema.org/height' => [
-                'term' => 'dcterms:extent', 
-                'property_id' => 4
-            ],
-            'http://schema.org/width' => [
-                'term' => 'dcterms:extent', 
-                'property_id' => 4
-            ],
-            'http://schema.org/depth' => [
-                'term' => 'dcterms:extent', 
-                'property_id' => 4
+        // Extract basic properties - start with the identifier
+        $identifier = $this->extractIdentifier($rdfData, $subject);
+        if ($identifier) {
+            $itemData['dcterms:identifier'] = [
+                [
+                    'type' => 'literal',
+                    'property_id' => 10, // dcterms:identifier property ID
+                    '@value' => $identifier
+                ]
+            ];
+        }
+        
+        // Set a proper title
+        $itemType = $this->determineItemType($subjectType);
+        $title = $itemType;
+        if ($identifier) {
+            $title .= " " . $identifier;
+            if ($excavationId != "0") {
+                $title .= " (Excavation $excavationId)";
+            }
+        } else {
+            // Extract subject ID as fallback
+            $parts = explode('/', $subject);
+            $lastPart = end($parts);
+            $title .= " " . $lastPart;
+        }
+        
+        $itemData['dcterms:title'] = [
+            [
+                'type' => 'literal',
+                'property_id' => 1, // dcterms:title property ID
+                '@value' => $title
             ]
         ];
         
-        // Extract data from main subject
-        if (isset($rdfData[$subject])) {
-            foreach ($rdfData[$subject] as $predicate => $objects) {
-                // Check if this predicate is in our mapping
-                if (isset($propertyMapping[$predicate])) {
-                    $mapping = $propertyMapping[$predicate];
-                    $term = $mapping['term'];
-                    $property_id = $mapping['property_id'];
-                    
-                    if (!isset($itemData[$term])) {
-                        $itemData[$term] = [];
-                    }
-                    
-                    foreach ($objects as $object) {
-                        $value = null;
-                        
-                        if ($object['type'] === 'literal') {
-                            // Handle boolean values
-                            if ($object['value'] === 'true' || $object['value'] === 'false') {
-                                $value = [
-                                    'type' => 'literal',
-                                    'property_id' => $property_id,
-                                    '@value' => $object['value'] === 'true' ? 'True' : 'False',
-                                ];
-                            } else {
-                                $value = [
-                                    'type' => 'literal',
-                                    'property_id' => $property_id,
-                                    '@value' => $object['value'],
-                                ];
-                                if (isset($object['datatype'])) {
-                                    $value['@type'] = $object['datatype'];
-                                }
-                            }
-                        } elseif ($object['type'] === 'uri') {
-                            // Extract the term from the URI for controlled vocabularies
-                            if (strpos($object['value'], '/kos/') !== false) {
-                                $parts = explode('/', $object['value']);
-                                $term = end($parts);
-                                $value = [
-                                    'type' => 'literal',
-                                    'property_id' => $property_id,
-                                    '@value' => $term,
-                                ];
-                            } else {
-                                $value = [
-                                    'type' => 'uri',
-                                    'property_id' => $property_id,
-                                    '@id' => $object['value'],
-                                    '@value' => $object['value'],
-                                ];
-                            }
-                        }
-                        
-                        if ($value !== null) {
-                            $itemData[$term][] = $value;
-                        }
-                    }
-                }
-                
-                // Special handling for related objects (morphology, chipping, etc.)
-                if ($object['type'] === 'uri' && isset($rdfData[$object['value']])) {
-                    $relatedSubject = $object['value'];
-                    $this->processRelatedSubject($rdfData, $relatedSubject, $itemData, $propertyMapping);
-                }
-            }
+        // Extract common properties
+        $this->extractCommonProperties($rdfData, $subject, $itemData);
+        
+        // Handle specific subject types
+        if ($subjectType == 'arrowhead' || $subjectType == 'item') {
+            $this->processArrowheadData($rdfData, $subject, $itemData);
+        } else if ($subjectType == 'excavation') {
+            $this->processExcavationData($rdfData, $subject, $itemData);
+        } else if ($subjectType == 'context') {
+            $this->processContextData($rdfData, $subject, $itemData);
+        } else if ($subjectType == 'svu') {
+            $this->processSVUData($rdfData, $subject, $itemData);
         }
         
         // Add excavation context as spatial coverage
@@ -2067,49 +2084,8 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
             
             $itemData['dcterms:spatial'][] = [
                 'type' => 'literal',
-                'property_id' => 18, // spatial property ID in Omeka S
+                'property_id' => 18, // spatial property ID 
                 '@value' => "Excavation $excavationId"
-            ];
-        }
-        
-        // Extract identifier for the title
-        $identifier = null;
-        if (isset($itemData['dcterms:identifier'])) {
-            foreach ($itemData['dcterms:identifier'] as $identifierValue) {
-                if (isset($identifierValue['@value'])) {
-                    $identifier = $identifierValue['@value'];
-                    break;
-                }
-            }
-        }
-        
-        // Set a proper title in Dublin Core terms
-        if ($identifier) {
-            $itemType = $this->determineItemType($rdfData, $subject);
-            
-            $title = $itemType . " " . $identifier;
-            if ($excavationId != "0") {
-                $title .= " (Excavation $excavationId)";
-            }
-            
-            $itemData['dcterms:title'] = [
-                [
-                    'type' => 'literal',
-                    'property_id' => 1, // dcterms:title property ID in Omeka
-                    '@value' => $title
-                ]
-            ];
-        } else {
-            // Extract subject ID as fallback
-            $parts = explode('/', $subject);
-            $lastPart = end($parts);
-            
-            $itemData['dcterms:title'] = [
-                [
-                    'type' => 'literal',
-                    'property_id' => 1, // dcterms:title property ID in Omeka
-                    '@value' => "Archaeological Item $lastPart"
-                ]
             ];
         }
         
@@ -2120,6 +2096,523 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
     
     return $omekaData;
 }
+
+/**
+ * Extract the identifier from a subject
+ */
+private function extractIdentifier($rdfData, $subject) {
+    if (isset($rdfData[$subject]['http://purl.org/dc/terms/identifier'])) {
+        foreach ($rdfData[$subject]['http://purl.org/dc/terms/identifier'] as $object) {
+            if ($object['type'] === 'literal') {
+                return $object['value'];
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Extract common properties that apply to all subject types
+ */
+private function extractCommonProperties($rdfData, $subject, &$itemData) {
+    // Map common predicates to Omeka S properties
+    $commonPropertyMap = [
+        'http://dbpedia.org/ontology/Annotation' => ['dcterms:description', 4],
+        'http://www.cidoc-crm.org/cidoc-crm/E3_Condition_State' => ['dcterms:extent', 9],
+        'http://www.cidoc-crm.org/cidoc-crm/E55_Type' => ['dcterms:type', 7]
+    ];
+    
+    foreach ($commonPropertyMap as $predicate => $mapping) {
+        if (isset($rdfData[$subject][$predicate])) {
+            $term = $mapping[0];
+            $propertyId = $mapping[1];
+            
+            if (!isset($itemData[$term])) {
+                $itemData[$term] = [];
+            }
+            
+            foreach ($rdfData[$subject][$predicate] as $object) {
+                if ($object['type'] === 'literal') {
+                    // Handle boolean values
+                    if ($object['value'] === 'true' || $object['value'] === 'false') {
+                        $itemData[$term][] = [
+                            'type' => 'literal',
+                            'property_id' => $propertyId,
+                            '@value' => $object['value'] === 'true' ? 'True' : 'False'
+                        ];
+                    } else {
+                        $itemData[$term][] = [
+                            'type' => 'literal',
+                            'property_id' => $propertyId,
+                            '@value' => $object['value']
+                        ];
+                    }
+                } elseif ($object['type'] === 'uri') {
+                    // Extract the term from the URI
+                    $parts = explode('/', $object['value']);
+                    $term = end($parts);
+                    
+                    $itemData[$term][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $term
+                    ];
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Process arrowhead specific data
+ */
+/**
+ * Process arrowhead specific data
+ */
+private function processArrowheadData($rdfData, $subject, &$itemData) {
+    // Basic properties - direct mapping
+    $propertyMap = [
+        'https://purl.org/megalod/ms/ah/shape' => ['ah:shape', 7651],
+        'https://purl.org/megalod/ms/ah/variant' => ['ah:variant', 7652],
+        'http://www.cidoc-crm.org/cidoc-crm/P45_consists_of' => ['dcterms:medium', 13],
+        'https://purl.org/megalod/ms/excav/elongationIndex' => ['excav:elongationIndex', 7676],
+        'https://purl.org/megalod/ms/excav/thicknessIndex' => ['excav:thicknessIndex', 7677]
+    ];
+    
+    // Extract basic properties
+    foreach ($propertyMap as $predicate => $mapping) {
+        if (isset($rdfData[$subject][$predicate])) {
+            $term = $mapping[0];
+            $propertyId = $mapping[1];
+            
+            if (!isset($itemData[$term])) {
+                $itemData[$term] = [];
+            }
+            
+            foreach ($rdfData[$subject][$predicate] as $object) {
+                if ($object['type'] === 'uri') {
+                    // Extract the term from the URI
+                    $parts = explode('/', $object['value']);
+                    $value = end($parts);
+                    
+                    $itemData[$term][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $value
+                    ];
+                } else {
+                    $itemData[$term][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $object['value']
+                    ];
+                }
+            }
+        }
+    }
+    
+    // Extract morphology data
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/ah/hasMorphology'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/ah/hasMorphology'] as $morphObj) {
+            if ($morphObj['type'] === 'uri' && isset($rdfData[$morphObj['value']])) {
+                $morphUri = $morphObj['value'];
+                
+                // Extract point property
+                if (isset($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/point'])) {
+                    foreach ($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/point'] as $pointObj) {
+                        if ($pointObj['type'] === 'literal') {
+                            if (!isset($itemData['ah:point'])) {
+                                $itemData['ah:point'] = [];
+                            }
+                            $itemData['ah:point'][] = [
+                                'type' => 'literal',
+                                'property_id' => 7653,
+                                '@value' => $pointObj['value'] === 'true' ? 'True' : 'False'
+                            ];
+                        }
+                    }
+                }
+                
+                // Extract body property
+                if (isset($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/body'])) {
+                    foreach ($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/body'] as $bodyObj) {
+                        if ($bodyObj['type'] === 'literal') {
+                            if (!isset($itemData['ah:body'])) {
+                                $itemData['ah:body'] = [];
+                            }
+                            $itemData['ah:body'][] = [
+                                'type' => 'literal',
+                                'property_id' => 7654,
+                                '@value' => $bodyObj['value'] === 'true' ? 'True' : 'False'
+                            ];
+                        }
+                    }
+                }
+                
+                // Extract base property
+                if (isset($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/base'])) {
+                    foreach ($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/base'] as $baseObj) {
+                        if ($baseObj['type'] === 'uri') {
+                            if (!isset($itemData['ah:base'])) {
+                                $itemData['ah:base'] = [];
+                            }
+                            $parts = explode('/', $baseObj['value']);
+                            $value = end($parts);
+                            $itemData['ah:base'][] = [
+                                'type' => 'literal',
+                                'property_id' => 7655,
+                                '@value' => $value
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Extract chipping data
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/ah/hasChipping'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/ah/hasChipping'] as $chipObj) {
+            if ($chipObj['type'] === 'uri' && isset($rdfData[$chipObj['value']])) {
+                $chipUri = $chipObj['value'];
+                
+                // Map of chipping properties
+                $chippingMap = [
+                    'https://purl.org/megalod/ms/ah/chippingMode' => ['ah:chippingMode', 7656],
+                    'https://purl.org/megalod/ms/ah/chippingAmplitude' => ['ah:chippingAmplitude', 7657],
+                    'https://purl.org/megalod/ms/ah/chippingDirection' => ['ah:chippingDirection', 7658],
+                    'https://purl.org/megalod/ms/ah/chippingOrientation' => ['ah:chippingOrientation', 7659],
+                    'https://purl.org/megalod/ms/ah/chippingDelineation' => ['ah:chippingDelineation', 7660],
+                    'https://purl.org/megalod/ms/ah/chippingShape' => ['ah:chippingShape', 7661],
+                    'https://purl.org/megalod/ms/ah/chippingLocationSide' => ['ah:chippingLocationSide', 7662],
+                    'https://purl.org/megalod/ms/ah/chippingLocationTransversal' => ['ah:chippingLocationTransversal', 7663]
+                ];
+                
+                foreach ($chippingMap as $predicate => $mapping) {
+                    $term = $mapping[0];
+                    $propertyId = $mapping[1];
+                    
+                    if (isset($rdfData[$chipUri][$predicate])) {
+                        if (!isset($itemData[$term])) {
+                            $itemData[$term] = [];
+                        }
+                        
+                        foreach ($rdfData[$chipUri][$predicate] as $obj) {
+                            if ($obj['type'] === 'uri') {
+                                $parts = explode('/', $obj['value']);
+                                $value = end($parts);
+                                $itemData[$term][] = [
+                                    'type' => 'literal',
+                                    'property_id' => $propertyId,
+                                    '@value' => $value
+                                ];
+                            } else if ($obj['type'] === 'literal') {
+                                $value = $obj['value'];
+                                if ($value === 'true' || $value === 'false') {
+                                    $value = $value === 'true' ? 'True' : 'False';
+                                }
+                                $itemData[$term][] = [
+                                    'type' => 'literal',
+                                    'property_id' => $propertyId,
+                                    '@value' => $value
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Extract typometry values (measurements)
+    $typometryMap = [
+        'https://purl.org/megalod/ms/ah/bodyLength' => ['ah:bodyLength', 7649],
+        'https://purl.org/megalod/ms/ah/baseLength' => ['ah:baseLength', 7650],
+        'http://schema.org/height' => ['schema:height', 5616],
+        'http://schema.org/width' => ['schema:width', 5688],
+        'http://schema.org/depth' => ['schema:depth', 7244]
+    ];
+    
+    foreach ($typometryMap as $predicate => $mapping) {
+        if (isset($rdfData[$subject][$predicate])) {
+            $term = $mapping[0];
+            $propertyId = $mapping[1];
+            
+            foreach ($rdfData[$subject][$predicate] as $obj) {
+                if ($obj['type'] === 'uri') {
+                    $typometryUri = $obj['value'];
+                    
+                    // Get the value
+                    $value = $this->extractMeasurementValue($rdfData, $typometryUri);
+                    $unit = $this->extractMeasurementUnit($rdfData, $typometryUri);
+                    
+                    if ($value) {
+                        if (!isset($itemData[$term . '-value'])) {
+                            $itemData[$term . '-value'] = [];
+                        }
+                        $itemData[$term . '-value'][] = [
+                            'type' => 'literal',
+                            'property_id' => $propertyId,
+                            '@value' => $value
+                        ];
+                    }
+                    
+                    if ($unit) {
+                        if (!isset($itemData[$term . '-unit'])) {
+                            $itemData[$term . '-unit'] = [];
+                        }
+                        $itemData[$term . '-unit'][] = [
+                            'type' => 'literal',
+                            'property_id' => $propertyId,
+                            '@value' => $unit
+                        ];
+                    }
+                }
+            }
+        }
+    }
+    
+    // Special handling for weight
+    if (isset($rdfData[$subject]['http://schema.org/weight'])) {
+        foreach ($rdfData[$subject]['http://schema.org/weight'] as $obj) {
+            if ($obj['type'] === 'uri') {
+                $weightUri = $obj['value'];
+                error_log('Processing weight: ' . $weightUri, 3, OMEKA_PATH . '/logs/measurements.log');
+                
+                // Get the value and unit
+                $value = $this->extractMeasurementValue($rdfData, $weightUri);
+                $unit = $this->extractMeasurementUnit($rdfData, $weightUri);
+                
+                // Make sure weight uses schema:weight-value and schema:weight-unit properties
+                if ($value) {
+                    if (!isset($itemData['weight-value'])) {
+                        $itemData['weight-value'] = [];
+                    }
+                    $itemData['weight-value'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7206, // Your weight property ID
+                        '@value' => $value
+                    ];
+                }
+
+                if ($unit) {
+                    if (!isset($itemData['weight-unit'])) {
+                        $itemData['weight-unit'] = [];
+                    }
+                    $itemData['weight-unit'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7206, // Your weight property ID
+                        '@value' => $unit
+                    ];
+                }
+            }
+        }
+    }
+    
+    // Extract coordinates
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excav/hasCoordinatesInSquare'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excav/hasCoordinatesInSquare'] as $coordObj) {
+            if ($coordObj['type'] === 'uri' && isset($rdfData[$coordObj['value']])) {
+                $coordUri = $coordObj['value'];
+                
+                // Extract latitude and longitude
+                $lat = null;
+                $long = null;
+                $depth = null;
+                
+                if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'])) {
+                    foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'] as $latObj) {
+                        if ($latObj['type'] === 'literal') {
+                            $lat = $latObj['value'];
+                        }
+                    }
+                }
+                
+                if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'])) {
+                    foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'] as $longObj) {
+                        if ($longObj['type'] === 'literal') {
+                            $long = $longObj['value'];
+                        }
+                    }
+                }
+                
+                // Extract depth if present
+                if (isset($rdfData[$coordUri]['http://schema.org/depth'])) {
+                    foreach ($rdfData[$coordUri]['http://schema.org/depth'] as $depthObj) {
+                        if ($depthObj['type'] === 'uri') {
+                            $depthUri = $depthObj['value'];
+                            $depth = $this->extractMeasurementValue($rdfData, $depthUri);
+                        }
+                    }
+                }
+                
+                // Add coordinates to spatial information
+                if ($lat && $long) {
+                    if (!isset($itemData['dcterms:spatial'])) {
+                        $itemData['dcterms:spatial'] = [];
+                    }
+                    
+                    $coordText = "Latitude: $lat, Longitude: $long";
+                    if ($depth) {
+                        $coordText .= ", Depth: $depth";
+                    }
+                    
+                    $itemData['dcterms:spatial'][] = [
+                        'type' => 'literal',
+                        'property_id' => 18,
+                        '@value' => $coordText
+                    ];
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Extract the measurement value from a typometry URI
+ */
+private function extractMeasurementValue($rdfData, $typometryUri) {
+    // Add logging to help debug
+    error_log('Extracting measurement value from: ' . $typometryUri, 3, OMEKA_PATH . '/logs/measurements.log');
+    
+    // Check what type this resource is
+    if (isset($rdfData[$typometryUri]['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
+        foreach ($rdfData[$typometryUri]['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
+            error_log('Resource type: ' . $typeObj['value'], 3, OMEKA_PATH . '/logs/measurements.log');
+        }
+    }
+    
+    // Standard schema:value property for most measurements
+    if (isset($rdfData[$typometryUri]['http://schema.org/value'])) {
+        foreach ($rdfData[$typometryUri]['http://schema.org/value'] as $valueObj) {
+            if ($valueObj['type'] === 'literal') {
+                error_log('Found value: ' . $valueObj['value'], 3, OMEKA_PATH . '/logs/measurements.log');
+                return $valueObj['value'];
+            }
+        }
+    }
+    
+    // Backup - try to find any value-like property if schema:value isn't present
+    $valueProperties = [
+        'http://schema.org/value',
+        'http://www.w3.org/1999/02/22-rdf-syntax-ns#value',
+        'http://purl.org/dc/terms/extent'
+    ];
+    
+    foreach ($valueProperties as $valueProp) {
+        if (isset($rdfData[$typometryUri][$valueProp])) {
+            foreach ($rdfData[$typometryUri][$valueProp] as $valueObj) {
+                if ($valueObj['type'] === 'literal') {
+                    error_log('Found alternate value via ' . $valueProp . ': ' . $valueObj['value'], 3, OMEKA_PATH . '/logs/measurements.log');
+                    return $valueObj['value'];
+                }
+            }
+        }
+    }
+    
+    // If we can't find a value, log all properties
+    error_log('All properties for ' . $typometryUri . ': ' . print_r(array_keys($rdfData[$typometryUri]), true), 3, OMEKA_PATH . '/logs/measurements.log');
+    
+    return null;
+}
+
+/**
+ * Extract the measurement unit from a typometry URI
+ */
+private function extractMeasurementUnit($rdfData, $typometryUri) {
+    // Add logging to help debug
+    error_log('Extracting measurement unit from: ' . $typometryUri, 3, OMEKA_PATH . '/logs/measurements.log');
+    
+    // Check for schema:UnitCode (standard property)
+    if (isset($rdfData[$typometryUri]['http://schema.org/UnitCode'])) {
+        foreach ($rdfData[$typometryUri]['http://schema.org/UnitCode'] as $unitObj) {
+            if ($unitObj['type'] === 'uri') {
+                $parts = explode('/', $unitObj['value']);
+                $unit = end($parts);
+                error_log('Found unit: ' . $unit, 3, OMEKA_PATH . '/logs/measurements.log');
+                return $unit;
+            }
+        }
+    }
+    
+    // Try to find any unit-like property if schema:UnitCode isn't present
+    $unitProperties = [
+        'http://schema.org/UnitCode',
+        'http://schema.org/unitCode',
+        'http://purl.org/dc/terms/format',
+        'http://qudt.org/schema/qudt#unit'
+    ];
+    
+    foreach ($unitProperties as $unitProp) {
+        if (isset($rdfData[$typometryUri][$unitProp])) {
+            foreach ($rdfData[$typometryUri][$unitProp] as $unitObj) {
+                if ($unitObj['type'] === 'uri') {
+                    $parts = explode('/', $unitObj['value']);
+                    $unit = end($parts);
+                    error_log('Found alternate unit via ' . $unitProp . ': ' . $unit, 3, OMEKA_PATH . '/logs/measurements.log');
+                    return $unit;
+                }
+            }
+        }
+    }
+    
+    // If we can't find a unit, check if there's a standard unit we can infer from the type
+    if (isset($rdfData[$typometryUri]['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
+        foreach ($rdfData[$typometryUri]['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
+            if ($typeObj['value'] === 'https://purl.org/megalod/ms/excavation/Weight') {
+                error_log('Inferred unit GM from Weight type', 3, OMEKA_PATH . '/logs/measurements.log');
+                return 'GM'; // Default unit for Weight
+            }
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Process excavation specific data
+ */
+private function processExcavationData($rdfData, $subject, &$itemData) {
+    // Implementation would be similar to processArrowheadData but with excavation-specific properties
+    // Not fully implemented in this example as the focus is on arrowheads
+}
+
+/**
+ * Process context specific data
+ */
+private function processContextData($rdfData, $subject, &$itemData) {
+    // Implementation would be similar to processArrowheadData but with context-specific properties
+    // Not fully implemented in this example as the focus is on arrowheads
+}
+
+/**
+ * Process SVU specific data
+ */
+private function processSVUData($rdfData, $subject, &$itemData) {
+    // Implementation would be similar to processArrowheadData but with SVU-specific properties
+    // Not fully implemented in this example as the focus is on arrowheads
+}
+
+/**
+ * Determine the item type label based on the subject type
+ */
+private function determineItemType($subjectType) {
+    switch ($subjectType) {
+        case 'arrowhead':
+            return 'Arrowhead';
+        case 'excavation':
+            return 'Excavation';
+        case 'context':
+            return 'Context';
+        case 'svu':
+            return 'Stratigraphic Unit';
+        case 'item':
+            return 'Archaeological Item';
+        default:
+            return 'Archaeological Object';
+    }
+}
+
 
 /**
  * Process a related subject (morphology, chipping, coordinates, etc.)
@@ -2196,34 +2689,6 @@ private function processRelatedSubject($rdfData, $subject, &$itemData, $property
     }
 }
 
-/**
- * Determine the item type based on RDF type information
- */
-private function determineItemType($rdfData, $subject) {
-    if (!isset($rdfData[$subject])) {
-        return 'Archaeological Item';
-    }
-    
-    if (isset($rdfData[$subject]['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
-        foreach ($rdfData[$subject]['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $type) {
-            if ($type['type'] === 'uri') {
-                if (strpos($type['value'], 'Arrowhead') !== false) {
-                    return 'Arrowhead';
-                } else if (strpos($type['value'], 'Excavation') !== false) {
-                    return 'Excavation';
-                } else if (strpos($type['value'], 'Context') !== false) {
-                    return 'Context';
-                } else if (strpos($type['value'], 'StratigraphicVolumeUnit') !== false) {
-                    return 'Stratigraphic Unit';
-                } else if ($type['value'] === 'http://www.cidoc-crm.org/cidoc-crm/E24_Physical_Man-Made_Thing') {
-                    return 'Arrowhead';
-                }
-            }
-        }
-    }
-    
-    return 'Archaeological Item';
-}
 
     // TO CHANGE
     private function processSubjectProperties($rdfData, $subject, &$itemData) {
