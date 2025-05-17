@@ -2616,25 +2616,645 @@ private function extractMeasurementUnit($rdfData, $typometryUri) {
  * Process excavation specific data
  */
 private function processExcavationData($rdfData, $subject, &$itemData) {
-    // Implementation would be similar to processArrowheadData but with excavation-specific properties
-    // Not fully implemented in this example as the focus is on arrowheads
+    // Basic properties - direct mapping
+    $propertyMap = [
+        'http://purl.org/dc/terms/identifier' => ['Excavation ID', 10],
+        'https://purl.org/megalod/ms/excavation/hasPersonInCharge' => ['Person in Charge', 7665],
+        'http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation' => ['Location', 7664],
+        'https://purl.org/megalod/ms/excavation/hasSquare' => ['Squares', 7668],
+        'https://purl.org/megalod/ms/excavation/hasContext' => ['Contexts', 7666]
+    ];
+    
+    // Extract basic properties
+    foreach ($propertyMap as $predicate => $mapping) {
+        if (isset($rdfData[$subject][$predicate])) {
+            $term = $mapping[0];
+            $propertyId = $mapping[1];
+            
+            if (!isset($itemData[$term])) {
+                $itemData[$term] = [];
+            }
+            
+            foreach ($rdfData[$subject][$predicate] as $object) {
+                if ($object['type'] === 'uri') {
+                    // Extract meaningful info from related resources
+                    if ($predicate === 'https://purl.org/megalod/ms/excavation/hasPersonInCharge') {
+                        // Extract archaeologist name if available
+                        $archaeologistUri = $object['value'];
+                        $archaeologistName = $this->extractArchaeologistName($rdfData, $archaeologistUri);
+                        
+                        if ($archaeologistName) {
+                            $itemData[$term][] = [
+                                'type' => 'literal',
+                                'property_id' => $propertyId,
+                                '@value' => $archaeologistName
+                            ];
+                        } else {
+                            // Fall back to URI ID if name not found
+                            $parts = explode('/', $object['value']);
+                            $value = end($parts);
+                            
+                            $itemData[$term][] = [
+                                'type' => 'literal',
+                                'property_id' => $propertyId,
+                                '@value' => $value
+                            ];
+                        }
+                    } else if ($predicate === 'http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation') {
+                        // Extract location name if available
+                        $locationUri = $object['value'];
+                        $locationName = $this->extractLocationName($rdfData, $locationUri);
+                        
+                        if ($locationName) {
+                            $itemData[$term][] = [
+                                'type' => 'literal',
+                                'property_id' => $propertyId,
+                                '@value' => $locationName
+                            ];
+                        } else {
+                            // Fall back to URI ID if name not found
+                            $parts = explode('/', $object['value']);
+                            $value = end($parts);
+                            
+                            $itemData[$term][] = [
+                                'type' => 'literal',
+                                'property_id' => $propertyId,
+                                '@value' => $value
+                            ];
+                        }
+                    } else {
+                        // For other properties, extract the ID part from the URI
+                        $parts = explode('/', $object['value']);
+                        $value = end($parts);
+                        
+                        $itemData[$term][] = [
+                            'type' => 'literal',
+                            'property_id' => $propertyId,
+                            '@value' => $value
+                        ];
+                    }
+                } else if ($object['type'] === 'literal') {
+                    $itemData[$term][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $object['value']
+                    ];
+                }
+            }
+        }
+    }
+    
+    // Extract location GPS coordinates
+    if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
+        foreach ($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'] as $locObj) {
+            if ($locObj['type'] === 'uri' && isset($rdfData[$locObj['value']])) {
+                $locationUri = $locObj['value'];
+                
+                // Check if location has GPS coordinates
+                if (isset($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates'])) {
+                    foreach ($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates'] as $gpsObj) {
+                        if ($gpsObj['type'] === 'uri' && isset($rdfData[$gpsObj['value']])) {
+                            $gpsUri = $gpsObj['value'];
+                            
+                            // Extract latitude and longitude
+                            $lat = null;
+                            $long = null;
+                            
+                            if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'])) {
+                                foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'] as $latObj) {
+                                    if ($latObj['type'] === 'literal') {
+                                        $lat = $latObj['value'];
+                                    }
+                                }
+                            }
+                            
+                            if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'])) {
+                                foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'] as $longObj) {
+                                    if ($longObj['type'] === 'literal') {
+                                        $long = $longObj['value'];
+                                    }
+                                }
+                            }
+                            
+                            // Add GPS coordinates as a single field
+                            if ($lat && $long) {
+                                if (!isset($itemData['GPS Coordinates'])) {
+                                    $itemData['GPS Coordinates'] = [];
+                                }
+                                
+                                $itemData['GPS Coordinates'][] = [
+                                    'type' => 'literal',
+                                    'property_id' => 7664, // Use appropriate property ID
+                                    '@value' => "Latitude: $lat, Longitude: $long"
+                                ];
+                            }
+                        }
+                    }
+                }
+                
+                // Extract location details like district, parish, country
+                $locationDetails = [];
+                
+                // District
+                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/district'])) {
+                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/district'] as $distObj) {
+                        if ($distObj['type'] === 'uri') {
+                            $distUri = $distObj['value'];
+                            if (isset($rdfData[$distUri])) {
+                                $parts = explode('/', $distUri);
+                                $locationDetails[] = "District: " . end($parts);
+                            }
+                        }
+                    }
+                }
+                
+                // Parish
+                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/parish'])) {
+                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/parish'] as $parishObj) {
+                        if ($parishObj['type'] === 'uri') {
+                            $parishUri = $parishObj['value'];
+                            if (isset($rdfData[$parishUri])) {
+                                $parts = explode('/', $parishUri);
+                                $locationDetails[] = "Parish: " . end($parts);
+                            }
+                        }
+                    }
+                }
+                
+                // Country
+                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/country'])) {
+                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/country'] as $countryObj) {
+                        if ($countryObj['type'] === 'uri') {
+                            $countryUri = $countryObj['value'];
+                            if (isset($rdfData[$countryUri])) {
+                                $parts = explode('/', $countryUri);
+                                $locationDetails[] = "Country: " . end($parts);
+                            }
+                        }
+                    }
+                }
+                
+                // Add location details as a single field
+                if (!empty($locationDetails)) {
+                    if (!isset($itemData['Location Details'])) {
+                        $itemData['Location Details'] = [];
+                    }
+                    
+                    $itemData['Location Details'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7663, // Use appropriate property ID
+                        '@value' => implode(", ", $locationDetails)
+                    ];
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Extract archaeologist name from URI
+ */
+private function extractArchaeologistName($rdfData, $archaeologistUri) {
+    if (isset($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/name'])) {
+        foreach ($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/name'] as $nameObj) {
+            if ($nameObj['type'] === 'literal') {
+                return $nameObj['value'];
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Extract location name from URI
+ */
+private function extractLocationName($rdfData, $locationUri) {
+    if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/informationName'])) {
+        foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/informationName'] as $nameObj) {
+            if ($nameObj['type'] === 'literal') {
+                return $nameObj['value'];
+            }
+        }
+    }
+    return null;
 }
 
 /**
  * Process context specific data
  */
 private function processContextData($rdfData, $subject, &$itemData) {
-    // Implementation would be similar to processArrowheadData but with context-specific properties
-    // Not fully implemented in this example as the focus is on arrowheads
+    // Basic properties - direct mapping
+    $propertyMap = [
+        'http://purl.org/dc/terms/identifier' => ['Context ID', 10],
+        'https://purl.org/megalod/ms/excavation/hasSVU' => ['Stratigraphic Units', 7667]
+    ];
+    
+    // Extract basic properties
+    foreach ($propertyMap as $predicate => $mapping) {
+        if (isset($rdfData[$subject][$predicate])) {
+            $term = $mapping[0];
+            $propertyId = $mapping[1];
+            
+            if (!isset($itemData[$term])) {
+                $itemData[$term] = [];
+            }
+            
+            foreach ($rdfData[$subject][$predicate] as $object) {
+                if ($object['type'] === 'uri') {
+                    // For SVU references, extract the identifier if available
+                    if ($predicate === 'https://purl.org/megalod/ms/excavation/hasSVU') {
+                        $svuUri = $object['value'];
+                        $svuId = $this->extractSVUIdentifier($rdfData, $svuUri);
+                        
+                        if ($svuId) {
+                            $itemData[$term][] = [
+                                'type' => 'literal',
+                                'property_id' => $propertyId,
+                                '@value' => $svuId
+                            ];
+                        } else {
+                            // Fall back to URI ID if identifier not found
+                            $parts = explode('/', $object['value']);
+                            $value = end($parts);
+                            
+                            $itemData[$term][] = [
+                                'type' => 'literal',
+                                'property_id' => $propertyId,
+                                '@value' => $value
+                            ];
+                        }
+                    } else {
+                        // For other URI properties, extract the ID part
+                        $parts = explode('/', $object['value']);
+                        $value = end($parts);
+                        
+                        $itemData[$term][] = [
+                            'type' => 'literal',
+                            'property_id' => $propertyId,
+                            '@value' => $value
+                        ];
+                    }
+                } else if ($object['type'] === 'literal') {
+                    $itemData[$term][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $object['value']
+                    ];
+                }
+            }
+        }
+    }
+    
+    // Check for description
+    if (isset($rdfData[$subject]['http://purl.org/dc/terms/description'])) {
+        foreach ($rdfData[$subject]['http://purl.org/dc/terms/description'] as $descObj) {
+            if ($descObj['type'] === 'literal') {
+                if (!isset($itemData['Description'])) {
+                    $itemData['Description'] = [];
+                }
+                
+                $itemData['Description'][] = [
+                    'type' => 'literal',
+                    'property_id' => 4, // Description property ID
+                    '@value' => $descObj['value']
+                ];
+            }
+        }
+    }
+    
+    // Extract SVU summaries for better context understanding
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'])) {
+        $svuSummaries = [];
+        
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'] as $svuObj) {
+            if ($svuObj['type'] === 'uri' && isset($rdfData[$svuObj['value']])) {
+                $svuUri = $svuObj['value'];
+                $svuId = $this->extractSVUIdentifier($rdfData, $svuUri);
+                $svuDesc = $this->extractSVUDescription($rdfData, $svuUri);
+                
+                if ($svuId && $svuDesc) {
+                    $svuSummaries[] = "$svuId: $svuDesc";
+                }
+            }
+        }
+        
+        if (!empty($svuSummaries)) {
+            if (!isset($itemData['Stratigraphic Unit Summaries'])) {
+                $itemData['Stratigraphic Unit Summaries'] = [];
+            }
+            
+            $itemData['Stratigraphic Unit Summaries'][] = [
+                'type' => 'literal',
+                'property_id' => 7, // Use appropriate property ID
+                '@value' => implode(" | ", $svuSummaries)
+            ];
+        }
+    }
 }
 
 /**
- * Process SVU specific data
+ * Process SVU (Stratigraphic Volume Unit) specific data
  */
 private function processSVUData($rdfData, $subject, &$itemData) {
-    // Implementation would be similar to processArrowheadData but with SVU-specific properties
-    // Not fully implemented in this example as the focus is on arrowheads
+    // Basic properties - direct mapping
+    $propertyMap = [
+        'http://purl.org/dc/terms/identifier' => ['SVU ID', 10],
+        'http://purl.org/dc/terms/description' => ['Description', 4],
+        'https://purl.org/megalod/ms/excavation/hasTimeline' => ['Timeline', 7669]
+    ];
+    
+    // Extract basic properties
+    foreach ($propertyMap as $predicate => $mapping) {
+        if (isset($rdfData[$subject][$predicate])) {
+            $term = $mapping[0];
+            $propertyId = $mapping[1];
+            
+            if (!isset($itemData[$term])) {
+                $itemData[$term] = [];
+            }
+            
+            foreach ($rdfData[$subject][$predicate] as $object) {
+                if ($object['type'] === 'uri') {
+                    // For timeline references, try to extract meaningful time range
+                    if ($predicate === 'https://purl.org/megalod/ms/excavation/hasTimeline') {
+                        $timelineUri = $object['value'];
+                        $timeRange = $this->extractTimelineRange($rdfData, $timelineUri);
+                        
+                        if ($timeRange) {
+                            $itemData[$term][] = [
+                                'type' => 'literal',
+                                'property_id' => $propertyId,
+                                '@value' => $timeRange
+                            ];
+                        } else {
+                            // Fall back to URI ID if time range not found
+                            $parts = explode('/', $object['value']);
+                            $value = end($parts);
+                            
+                            $itemData[$term][] = [
+                                'type' => 'literal',
+                                'property_id' => $propertyId,
+                                '@value' => $value
+                            ];
+                        }
+                    } else {
+                        // For other URI properties, extract the ID part
+                        $parts = explode('/', $object['value']);
+                        $value = end($parts);
+                        
+                        $itemData[$term][] = [
+                            'type' => 'literal',
+                            'property_id' => $propertyId,
+                            '@value' => $value
+                        ];
+                    }
+                } else if ($object['type'] === 'literal') {
+                    $itemData[$term][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $object['value']
+                    ];
+                }
+            }
+        }
+    }
+    
+    // Extract timeline details
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'] as $timelineObj) {
+            if ($timelineObj['type'] === 'uri' && isset($rdfData[$timelineObj['value']])) {
+                $timelineUri = $timelineObj['value'];
+                
+                // Extract beginning and end points
+                $beginningYear = null;
+                $beginningBC = null;
+                $endYear = null;
+                $endBC = null;
+                
+                // Extract beginning
+                if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'])) {
+                    foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'] as $beginObj) {
+                        if ($beginObj['type'] === 'uri' && isset($rdfData[$beginObj['value']])) {
+                            $beginUri = $beginObj['value'];
+                            
+                            // Extract year
+                            if (isset($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
+                                foreach ($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
+                                    if ($yearObj['type'] === 'literal') {
+                                        $beginningYear = $yearObj['value'];
+                                    }
+                                }
+                            }
+                            
+                            // Extract BC/AC
+                            if (isset($rdfData[$beginUri]['https://purl.org/megalod/ms/excavation/bcac'])) {
+                                foreach ($rdfData[$beginUri]['https://purl.org/megalod/ms/excavation/bcac'] as $bcObj) {
+                                    if ($bcObj['type'] === 'uri') {
+                                        $parts = explode('/', $bcObj['value']);
+                                        $bcacValue = end($parts);
+                                        $beginningBC = ($bcacValue === 'BC');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Extract end
+                if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'])) {
+                    foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'] as $endObj) {
+                        if ($endObj['type'] === 'uri' && isset($rdfData[$endObj['value']])) {
+                            $endUri = $endObj['value'];
+                            
+                            // Extract year
+                            if (isset($rdfData[$endUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
+                                foreach ($rdfData[$endUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
+                                    if ($yearObj['type'] === 'literal') {
+                                        $endYear = $yearObj['value'];
+                                    }
+                                }
+                            }
+                            
+                            // Extract BC/AC
+                            if (isset($rdfData[$endUri]['https://purl.org/megalod/ms/excavation/bcac'])) {
+                                foreach ($rdfData[$endUri]['https://purl.org/megalod/ms/excavation/bcac'] as $bcObj) {
+                                    if ($bcObj['type'] === 'uri') {
+                                        $parts = explode('/', $bcObj['value']);
+                                        $bcacValue = end($parts);
+                                        $endBC = ($bcacValue === 'BC');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Add beginning and end as separate properties
+                if ($beginningYear) {
+                    if (!isset($itemData['Beginning'])) {
+                        $itemData['Beginning'] = [];
+                    }
+                    
+                    $beginText = $beginningYear;
+                    if ($beginningBC !== null) {
+                        $beginText .= ' ' . ($beginningBC ? 'BC' : 'AC');
+                    }
+                    
+                    $itemData['Beginning'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7, // Use appropriate property ID
+                        '@value' => $beginText
+                    ];
+                }
+                
+                if ($endYear) {
+                    if (!isset($itemData['End'])) {
+                        $itemData['End'] = [];
+                    }
+                    
+                    $endText = $endYear;
+                    if ($endBC !== null) {
+                        $endText .= ' ' . ($endBC ? 'BC' : 'AC');
+                    }
+                    
+                    $itemData['End'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7, // Use appropriate property ID
+                        '@value' => $endText
+                    ];
+                }
+            }
+        }
+    }
 }
+
+/**
+ * Extract SVU identifier
+ */
+private function extractSVUIdentifier($rdfData, $svuUri) {
+    if (isset($rdfData[$svuUri]['http://purl.org/dc/terms/identifier'])) {
+        foreach ($rdfData[$svuUri]['http://purl.org/dc/terms/identifier'] as $idObj) {
+            if ($idObj['type'] === 'literal') {
+                return $idObj['value'];
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Extract SVU description
+ */
+private function extractSVUDescription($rdfData, $svuUri) {
+    if (isset($rdfData[$svuUri]['http://purl.org/dc/terms/description'])) {
+        foreach ($rdfData[$svuUri]['http://purl.org/dc/terms/description'] as $descObj) {
+            if ($descObj['type'] === 'literal') {
+                return $descObj['value'];
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Extract timeline range as a formatted string
+ */
+private function extractTimelineRange($rdfData, $timelineUri) {
+    $beginYear = null;
+    $beginBC = null;
+    $endYear = null;
+    $endBC = null;
+    
+    // Extract beginning
+    if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'])) {
+        foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'] as $beginObj) {
+            if ($beginObj['type'] === 'uri' && isset($rdfData[$beginObj['value']])) {
+                $beginUri = $beginObj['value'];
+                
+                // Extract year
+                if (isset($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
+                    foreach ($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
+                        if ($yearObj['type'] === 'literal') {
+                            $beginYear = $yearObj['value'];
+                        }
+                    }
+                }
+                
+                // Extract BC/AC
+                if (isset($rdfData[$beginUri]['https://purl.org/megalod/ms/excavation/bcac'])) {
+                    foreach ($rdfData[$beginUri]['https://purl.org/megalod/ms/excavation/bcac'] as $bcObj) {
+                        if ($bcObj['type'] === 'uri') {
+                            $parts = explode('/', $bcObj['value']);
+                            $bcacValue = end($parts);
+                            $beginBC = ($bcacValue === 'BC');
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Extract end
+    if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'])) {
+        foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'] as $endObj) {
+            if ($endObj['type'] === 'uri' && isset($rdfData[$endObj['value']])) {
+                $endUri = $endObj['value'];
+                
+                // Extract year
+                if (isset($rdfData[$endUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
+                    foreach ($rdfData[$endUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
+                        if ($yearObj['type'] === 'literal') {
+                            $endYear = $yearObj['value'];
+                        }
+                    }
+                }
+                
+                // Extract BC/AC
+                if (isset($rdfData[$endUri]['https://purl.org/megalod/ms/excavation/bcac'])) {
+                    foreach ($rdfData[$endUri]['https://purl.org/megalod/ms/excavation/bcac'] as $bcObj) {
+                        if ($bcObj['type'] === 'uri') {
+                            $parts = explode('/', $bcObj['value']);
+                            $bcacValue = end($parts);
+                            $endBC = ($bcacValue === 'BC');
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Format timeline range
+    if ($beginYear && $endYear) {
+        $beginText = $beginYear;
+        if ($beginBC !== null) {
+            $beginText .= ' ' . ($beginBC ? 'BC' : 'AC');
+        }
+        
+        $endText = $endYear;
+        if ($endBC !== null) {
+            $endText .= ' ' . ($endBC ? 'BC' : 'AC');
+        }
+        
+        return "$beginText to $endText";
+    } else if ($beginYear) {
+        $beginText = $beginYear;
+        if ($beginBC !== null) {
+            $beginText .= ' ' . ($beginBC ? 'BC' : 'AC');
+        }
+        
+        return "From $beginText";
+    } else if ($endYear) {
+        $endText = $endYear;
+        if ($endBC !== null) {
+            $endText .= ' ' . ($endBC ? 'BC' : 'AC');
+        }
+        
+        return "Until $endText";
+    }
+    
+    return null;
+}
+
 
 /**
  * Determine the item type label based on the subject type
