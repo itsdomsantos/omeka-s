@@ -1962,6 +1962,8 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
         
         foreach ($rdfData[$subject] as $predicate => $objects) {
             $propertyId = $this->getOmekaPropertyId($predicate);
+            error_log('Processing predicate: ' . $predicate, 3, OMEKA_PATH . '/logs/extract.log');
+            error_log('Property ID: ' . $propertyId, 3, OMEKA_PATH . '/logs/extract.log');
             
             if ($propertyId) {
                 if (!isset($itemData[$predicate])) {
@@ -1983,6 +1985,11 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
                         if (isset($object['lang'])) {
                             $value['@language'] = $object['lang'];
                         }
+                        error_log('Literal value: ' . $object['value'], 3, OMEKA_PATH . '/logs/extract.log');
+                        error_log('Property ID: ' . $propertyId, 3, OMEKA_PATH . '/logs/extract.log');
+                        error_log('Predicate: ' . $predicate, 3, OMEKA_PATH . '/logs/extract.log');
+                        error_log('Object: ' . print_r($object, true), 3, OMEKA_PATH . '/logs/extract.log');
+
                     } elseif ($object['type'] === 'uri') {
                         // Don't include references to other subjects we'll process separately
                         if (isset($rdfData[$object['value']])) {
@@ -1990,11 +1997,11 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
                         }
                         
                         // Handle special cases for vocabulary terms
-                        if (strpos($object['value'], 'https://purl.org/megalod/ms/ah/') === 0) {
+                        if (strpos($object['value'], 'https://purl.org/megalod/kos/') === 0) {
                             // Extract the term from the URI
                             $parts = explode('/', $object['value']);
                             $term = end($parts);
-                            
+                            error_log('Term: ' . $term, 3, OMEKA_PATH . '/logs/extract.log');
                             $value = [
                                 'type' => 'literal',
                                 'property_id' => $propertyId,
@@ -2006,6 +2013,10 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
                                 'property_id' => $propertyId,
                                 '@id' => $object['value'],
                             ];
+                            error_log('Resource ID: ' . $object['value'], 3, OMEKA_PATH . '/logs/extract.log');
+                            error_log('Property ID: ' . $propertyId, 3, OMEKA_PATH . '/logs/extract.log');
+                            error_log('Predicate: ' . $predicate, 3, OMEKA_PATH . '/logs/extract.log');
+                            error_log('Object: ' . print_r($object, true), 3, OMEKA_PATH . '/logs/extract.log');
                         }
                     }
                     
