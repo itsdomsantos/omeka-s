@@ -2176,8 +2176,8 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         'https://purl.org/megalod/ms/ah/shape' => ['ah:shape', 7651],
         'https://purl.org/megalod/ms/ah/variant' => ['ah:variant', 7652],
         'http://www.cidoc-crm.org/cidoc-crm/P45_consists_of' => ['dcterms:medium', 13],
-        'https://purl.org/megalod/ms/excavation/elongationIndex' => ['excav:elongationIndex', 7676],
-        'https://purl.org/megalod/ms/excavation/thicknessIndex' => ['excav:thicknessIndex', 7677]
+        'https://purl.org/megalod/ms/excavation/elongationIndex' => ['Elongation Index', 7676],
+        'https://purl.org/megalod/ms/excavation/thicknessIndex' => ['Thickness Index', 7677]
     ];
     
     // Extract basic properties
@@ -2211,6 +2211,63 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
             }
         }
     }
+
+       
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare'] as $coordObj) {
+            if ($coordObj['type'] === 'uri' && isset($rdfData[$coordObj['value']])) {
+                $coordUri = $coordObj['value'];
+                
+                // Extract latitude, longitude and depth
+                $lat = null;
+                $long = null;
+                $depth = null;
+                
+                if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'])) {
+                    foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'] as $latObj) {
+                        if ($latObj['type'] === 'literal') {
+                            $lat = $latObj['value'];
+                        }
+                    }
+                }
+                
+                if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'])) {
+                    foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'] as $longObj) {
+                        if ($longObj['type'] === 'literal') {
+                            $long = $longObj['value'];
+                        }
+                    }
+                }
+                
+                if (isset($rdfData[$coordUri]['http://schema.org/depth'])) {
+                    foreach ($rdfData[$coordUri]['http://schema.org/depth'] as $depthObj) {
+                        if ($depthObj['type'] === 'uri') {
+                            $depthUri = $depthObj['value'];
+                            $depth = $this->extractMeasurementValue($rdfData, $depthUri);
+                        }
+                    }
+                }
+                
+                // ONLY add the combined coordinates representation
+                if ($lat && $long) {
+                    if (!isset($itemData['Coordinates'])) {
+                        $itemData['Coordinates'] = [];
+                    }
+                    
+                    $coordText = "Latitude: $lat, Longitude: $long";
+                    if ($depth) {
+                        $coordText .= ", Depth: $depth";
+                    }
+                    
+                    $itemData['Coordinates'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7674, // Use a unique property ID
+                        '@value' => $coordText
+                    ];
+                }
+            }
+        }
+    }
     
     // Extract morphology data
     if (isset($rdfData[$subject]['https://purl.org/megalod/ms/ah/hasMorphology'])) {
@@ -2222,10 +2279,10 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
                 if (isset($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/point'])) {
                     foreach ($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/point'] as $pointObj) {
                         if ($pointObj['type'] === 'literal') {
-                            if (!isset($itemData['ah:point'])) {
-                                $itemData['ah:point'] = [];
+                            if (!isset($itemData['Point'])) {
+                                $itemData['Point'] = [];
                             }
-                            $itemData['ah:point'][] = [
+                            $itemData['Point'][] = [
                                 'type' => 'literal',
                                 'property_id' => 7653,
                                 '@value' => $pointObj['value'] === 'true' ? 'True' : 'False'
@@ -2233,15 +2290,15 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
                         }
                     }
                 }
-                
+
                 // Extract body property
                 if (isset($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/body'])) {
                     foreach ($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/body'] as $bodyObj) {
                         if ($bodyObj['type'] === 'literal') {
-                            if (!isset($itemData['ah:body'])) {
-                                $itemData['ah:body'] = [];
+                            if (!isset($itemData['Body'])) {
+                                $itemData['Body'] = [];
                             }
-                            $itemData['ah:body'][] = [
+                            $itemData['Body'][] = [
                                 'type' => 'literal',
                                 'property_id' => 7654,
                                 '@value' => $bodyObj['value'] === 'true' ? 'True' : 'False'
@@ -2349,6 +2406,7 @@ foreach ($typometryMap as $predicate => $mapping) {
                 $unit = $this->extractMeasurementUnit($rdfData, $typometryUri);
                 
                 // Combine value and unit into a single property
+                // Combine value and unit into a single property for all measurements
                 if ($value) {
                     if (!isset($itemData[$term])) {
                         $itemData[$term] = [];
@@ -2377,14 +2435,14 @@ foreach ($typometryMap as $predicate => $mapping) {
                 $value = $this->extractMeasurementValue($rdfData, $weightUri);
                 $unit = $this->extractMeasurementUnit($rdfData, $weightUri);
                 
-                // Use one of your specific weight property IDs
+                // Use a clearer property name for weight
                 if ($value) {
-                    if (!isset($itemData['weight'])) {
-                        $itemData['weight'] = [];
+                    if (!isset($itemData['Weight'])) {
+                        $itemData['Weight'] = [];
                     }
-                    $itemData['weight'][] = [
+                    $itemData['Weight'][] = [
                         'type' => 'literal',
-                        'property_id' => 7403, // Using one of your weight property IDs
+                        'property_id' => 7403,
                         '@value' => $value . ' ' . ($unit ?: 'g')
                     ];
                     
