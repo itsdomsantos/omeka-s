@@ -1822,11 +1822,14 @@ private function getExcavationIdentifierFromItemSet($itemSetId)
  * This method transforms TTL data to Omeka S item data format
  */
 private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
+    error_log('Transforming TTL to Omeka S data', 3, OMEKA_PATH . '/logs/transform.log');
     $graph = new \EasyRdf\Graph();
     $graph->parse($ttlData, 'turtle');
     
     $omekaData = [];
     $rdfData = $graph->toRdfPhp();
+
+    error_log('RDF Data: ' . print_r($rdfData, true), 3, OMEKA_PATH . '/logs/transform.log');
     
     // Find subjects (arrowheads, excavation components, etc.)
     $subjects = [];
@@ -1836,30 +1839,30 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
                 // Look for various types of archaeological objects
                 if ($predicate === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' && $object['type'] === 'uri') {
                     // E24_Physical_Man-Made_Thing (arrowheads)
-                    if ($object['value'] === 'http://www.cidoc-crm.org/cidoc-crm/E24_Physical_Man-Made_Thing') {
+                    if ($object['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead') {
                         $subjects[] = $subject;
                     }
                     // A9_Archaeological_Excavation (excavations)
-                    else if ($object['value'] === 'http://www.cidoc-crm.org/extensions/crmarchaeo/A9_Archaeological_Excavation') {
+                    else if ($object['value'] === 'https://purl.org/megalod/ms/excavation/Excavation') {
                         $subjects[] = $subject;
                     }
                     // A1_Excavation_Processing_Unit (contexts)
-                    else if ($object['value'] === 'http://www.cidoc-crm.org/extensions/crmarchaeo/A1_Excavation_Processing_Unit') {
+                    else if ($object['value'] === 'excav:Context') {
                         $subjects[] = $subject;
                     }
                     // A2_Stratigraphic_Volume_Unit (SVUs)
-                    else if ($object['value'] === 'http://www.cidoc-crm.org/extensions/crmarchaeo/A2_Stratigraphic_Volume_Unit') {
+                    else if ($object['value'] === 'excav:StratigraphicVolumeUnit') {
                         $subjects[] = $subject;
                     }
                     // S19_Encounter_Event (encounter events)
-                    else if ($object['value'] === 'https://cidoc-crm.org/extensions/crmsci/S19_Encounter_Event') {
+                    else if ($object['value'] === 'excav:EncounterEvent') {
                         $subjects[] = $subject;
                     }
                 }
             }
         }
     }
-    
+    error_log('Found subjects: ' . print_r($subjects, true), 3, OMEKA_PATH . '/logs/transform.log');
     // Get excavation identifier for context - use either the default or from item set
     $excavationId = "0"; // Default
     if ($itemSetId) {
@@ -1944,12 +1947,15 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
         
         $omekaData[] = $itemData;
     }
+
+    error_log('Transformed TTL to Omeka S data: ' . print_r($omekaData, true), 3, OMEKA_PATH . '/logs/transform.log');
     
     return $omekaData;
 }
 
     // TO CHANGE
     private function processSubjectProperties($rdfData, $subject, &$itemData) {
+        error_log('Processing subject properties for: ' . $subject, 3, OMEKA_PATH . '/logs/transform.log');
         if (!isset($rdfData[$subject])) {
             return;
         }
@@ -1984,7 +1990,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
                         }
                         
                         // Handle special cases for vocabulary terms
-                        if (strpos($object['value'], 'http://www.purl.com/ah/kos/') === 0) {
+                        if (strpos($object['value'], 'https://purl.org/megalod/ms/ah/') === 0) {
                             // Extract the term from the URI
                             $parts = explode('/', $object['value']);
                             $term = end($parts);
@@ -2009,6 +2015,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
                 }
             }
         }
+        error_log('Processed properties for: ' . $subject, 3, OMEKA_PATH . '/logs/transform.log');
     }
     
     private function processRelatedSubjects($rdfData, $mainSubject, &$itemData) {
@@ -2031,6 +2038,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
         foreach ($relatedSubjects as $relation => $subject) {
             // Record the property connecting this subject to the main arrowhead
             $propertyId = $this->getOmekaPropertyId($relation);
+            error_log('Processing related subject: ' . $subject, 3, OMEKA_PATH . '/logs/transform.log');
             if ($propertyId) {
                 if (!isset($itemData[$relation])) {
                     $itemData[$relation] = [];
