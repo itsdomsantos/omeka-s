@@ -288,10 +288,12 @@ class IndexController extends AbstractActionController
             $file = $this->params()->fromFiles('file');
             if ($file && !empty($file['tmp_name'])) {
                 // Process the uploaded file
+                error_log('File upload detected: ' . $file['name'], 3, OMEKA_PATH . '/logs/aaaaaaaaaaa.log');
                 $result = $this->processFileUpload($this->getRequest(), $uploadType, $itemSetId);
-                
+                error_log('Arrowhead upload result: ' . $result, 3, OMEKA_PATH . '/logs/aaaaaaaaaaa.log');
                 // Check if excavation ID is available for a more specific message
                 $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+                error_log('Excavation ID: ' . $excavationId, 3, OMEKA_PATH . '/logs/aaaaaaaaaaa.log');
                 if ($excavationId && strpos($result, 'successfully') !== false) {
                     $result = "Arrowhead was successfully added to excavation $excavationId (Item Set #$itemSetId). You can upload another or click Exit when done.";
                 }
@@ -532,11 +534,12 @@ class IndexController extends AbstractActionController
                     }
                 }
             }
-            
             // Check if this is supposed to be a continuous arrowhead upload (fallback)
             if ($mode == 'file' && $uploadType == 'arrowhead' && $itemSetId) {
                 // Check if excavation ID is available for a more specific message
+                error_log('Item Set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/ab.log');
                 $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+                error_log('Excavation ID: ' . $excavationId, 3, OMEKA_PATH . '/logs/ab.log');
                 if ($excavationId && strpos($result, 'successfully') !== false) {
                     $result = "Arrowhead was successfully added to excavation $excavationId (Item Set #$itemSetId). You can upload another or click Exit when done.";
                 }
@@ -1201,13 +1204,11 @@ private function transformCollectingFormDataToTTL(array $formData, ?string $uplo
 
 private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string {
     // Check if this is excavation data
-    error_log('Checking if this is excavation data', 3, OMEKA_PATH . '/logs/file-upload.log');
+    error_log('Checking if this is excavation data', 3, OMEKA_PATH . '/logs/auxNew.log');
     $isExcavation = false;
     $excavationIdentifier = "0"; // Default to "0" graph
 
     // log ttl data
-    error_log('TTL data preview: ' . substr($ttlData, 0, 1000), 3, OMEKA_PATH . '/logs/file-upload.log');
-    error_log('going to try ' , 3, OMEKA_PATH . '/logs/a.log');
     try {
         $this->validateUploadType($ttlData, 'excavation');
         error_log('Upload excav validation passed', 3, OMEKA_PATH . '/logs/a.log');
@@ -1220,15 +1221,17 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
         error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug-final.log');
     } catch (\Exception $e) {
         // If validation fails, it means the data is not excavation data
+        error_log('Validation for excavation, this is an arrwohead', 3, OMEKA_PATH . '/logs/auxNew.log');
         error_log('Validation for excavation failed: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
         
         // Check if this item belongs to an excavation item set
         if ($itemSetId) {
+            error_log('Item set ID provided: ' . $itemSetId, 3, OMEKA_PATH . '/logs/auxNew.log');
             $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+            error_log('Item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/bbbbbbbb.log');
             if ($excavationId) {
                 $excavationIdentifier = $excavationId;
                 $graphUri = $this->baseDataGraphUri . $excavationId . "/";
-
                 error_log('Using excavation ID from item set: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
             }
         }
@@ -1277,8 +1280,10 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             }
         }
     } else if (!$isExcavation && $itemSetId) {
+        error_log(' this is an item that is not excavation', 3, OMEKA_PATH . '/logs/auxNew.log');
         // This is an arrowhead or other item being added to an existing excavation
         // Retrieve the excavation identifier associated with this item set
+        error_log('Attempting to retrieve excavation identifier for item set: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
         $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
         error_log('Retrieved excavation identifier for item set ' . $itemSetId . ': ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
     }
@@ -1286,8 +1291,9 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
     // Now proceed with the regular upload process
     // First, upload to GraphDB with the excavation identifier if available
     $graphDbResult = $this->sendToGraphDB($ttlData, $itemSetId);
+
     // log ttl data
-    error_log('GraphDB upload result: ' . $ttlData, 3, OMEKA_PATH . '/logs/aux-ttl.log');
+    error_log('GraphDB upload result: ' . $graphDbResult, 3, OMEKA_PATH . '/logs/auxNew.log');
     
     if (strpos($graphDbResult, 'successfully') !== false) {
         // If GraphDB upload is successful, then process in Omeka S
@@ -1858,6 +1864,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
     $excavationId = "0"; // Default
     if ($itemSetId) {
         $mappedId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+        error_log('Mapped ID: ' . $mappedId, 3, OMEKA_PATH . '/logs/mappingtoomeka.log');
         if ($mappedId) {
             $excavationId = $mappedId;
         }
