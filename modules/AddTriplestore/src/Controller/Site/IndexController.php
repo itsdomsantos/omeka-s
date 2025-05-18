@@ -638,7 +638,7 @@ private function updateItemSetWithExcavationInfo($itemSetId, $excavationData) {
             $updateData['dcterms:creator'] = [
                 [
                     'type' => 'literal',
-                    'property_id' => 2, // Dublin Core Creator
+                    'property_id' => 7665, // Dublin Core Creator
                     '@value' => $excavationData['archaeologist']
                 ]
             ];
@@ -663,7 +663,7 @@ private function updateItemSetWithExcavationInfo($itemSetId, $excavationData) {
             
             $updateData['dcterms:coverage'][] = [
                 'type' => 'literal',
-                'property_id' => 18, // Dublin Core Coverage
+                'property_id' => 7664, // Dublin Core Coverage
                 '@value' => $excavationData['location_details']
             ];
         }
@@ -2462,19 +2462,14 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
                 
                 // ONLY add the combined coordinates representation
                 if ($lat && $long) {
-                    if (!isset($itemData['Coordinates'])) {
-                        $itemData['Coordinates'] = [];
+                    if (!isset($itemData['GPS Coordinates'])) {
+                        $itemData['GPS Coordinates'] = [];
                     }
                     
-                    $coordText = "Latitude: $lat, Longitude: $long";
-                    if ($depth) {
-                        $coordText .= ", Depth: $depth";
-                    }
-                    
-                    $itemData['Coordinates'][] = [
+                    $itemData['GPS Coordinates'][] = [
                         'type' => 'literal',
-                        'property_id' => 7674, // Use a unique property ID
-                        '@value' => $coordText
+                        'property_id' => 7664, // Use appropriate property ID
+                        '@value' => "Latitude: $lat, Longitude: $long"
                     ];
                 }
             }
@@ -2964,9 +2959,9 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                     }
                 }
                 
-                // Extract location details like district, parish, country
-                $locationDetails = [];
+      
                 
+                // Modify this section in processExcavationData() method
                 // District
                 if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/district'])) {
                     foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/district'] as $distObj) {
@@ -2974,50 +2969,73 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                             $distUri = $distObj['value'];
                             if (isset($rdfData[$distUri])) {
                                 $parts = explode('/', $distUri);
-                                $locationDetails[] = "District: " . end($parts);
+                                $districtName = end($parts);
+                                
+                                // Add district as a separate field
+                                if (!isset($itemData['District'])) {
+                                    $itemData['District'] = [];
+                                }
+                                
+                                $itemData['District'][] = [
+                                    'type' => 'literal',
+                                    'property_id' => 1555, // Use an appropriate property ID
+                                    '@value' => $districtName
+                                ];
                             }
                         }
                     }
                 }
-                
-                // Parish
+
+                // Parish - similar modification
                 if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/parish'])) {
                     foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/parish'] as $parishObj) {
                         if ($parishObj['type'] === 'uri') {
                             $parishUri = $parishObj['value'];
                             if (isset($rdfData[$parishUri])) {
                                 $parts = explode('/', $parishUri);
-                                $locationDetails[] = "Parish: " . end($parts);
+                                $parishName = end($parts);
+                                
+                                // Add parish as a separate field
+                                if (!isset($itemData['Parish'])) {
+                                    $itemData['Parish'] = [];
+                                }
+                                
+                                $itemData['Parish'][] = [
+                                    'type' => 'literal',
+                                    'property_id' => 1681, // Use an appropriate property ID
+                                    '@value' => $parishName
+                                ];
                             }
                         }
                     }
                 }
-                
-                // Country
+
+                // Country - similar modification
                 if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/country'])) {
                     foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/country'] as $countryObj) {
                         if ($countryObj['type'] === 'uri') {
                             $countryUri = $countryObj['value'];
                             if (isset($rdfData[$countryUri])) {
                                 $parts = explode('/', $countryUri);
-                                $locationDetails[] = "Country: " . end($parts);
+                                $countryName = end($parts);
+                                
+                                // Add country as a separate field
+                                if (!isset($itemData['Country'])) {
+                                    $itemData['Country'] = [];
+                                }
+                                
+                                $itemData['Country'][] = [
+                                    'type' => 'literal',
+                                    'property_id' => 1402, // Use an appropriate property ID
+                                    '@value' => $countryName
+                                ];
                             }
                         }
                     }
                 }
-                
-                // Add location details as a single field
-                if (!empty($locationDetails)) {
-                    if (!isset($itemData['Location Details'])) {
-                        $itemData['Location Details'] = [];
-                    }
-                    
-                    $itemData['Location Details'][] = [
-                        'type' => 'literal',
-                        'property_id' => 7663, // Use appropriate property ID
-                        '@value' => implode(", ", $locationDetails)
-                    ];
-                }
+
+
+
             }
         }
     }
