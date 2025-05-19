@@ -18,6 +18,25 @@
 @prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
 
 
+# ==========================================================================
+# REFERENCES- Instanciate the references
+# ==========================================================================
+
+
+<https://purl.org/megalod/example/excavation/CasteloVelho> a excav:Excavation ;
+    dct:identifier "CasteloVelho"^^xsd:literal .
+
+<https://purl.org/megalod/example/context/CV-001> a excav:Context ;
+    dct:identifier "CV-001"^^xsd:literal .
+
+<https://purl.org/megalod/example/svu/CV-001-1> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "CV-001-1"^^xsd:literal .
+
+<https://purl.org/megalod/example/square/CV-A1> a excav:Square ;
+    dct:identifier "A1"^^xsd:literal .
+
+<https://purl.org/megalod/example/square/CV-A2> a excav:Square ;
+    dct:identifier "A2"^^xsd:literal .
 
 # ==========================================================================
 # ARROWHEAD 1 - Triangular with convex base
@@ -46,6 +65,10 @@
     dbo:Annotation "Excellent example of triangular arrowhead with fine bifacial working"^^xsd:literal ;
     excav:foundInSquare <https://purl.org/megalod/example/square/CV-A1> ;
     edm:Webresource <https://purl.org/megalod/example/images/CV-AH-001-3d.obj> .
+
+
+# instanciate references
+<https://purl.org/megalod/example/context/CV-001> a excav:Context .
 
 <https://purl.org/megalod/example/morphology/CV-AH-001> a ah:Morphology ;
     ah:point "true"^^xsd:boolean ; # Sharp
@@ -97,7 +120,6 @@
     schema:value "45.2"^^xsd:decimal ;
     schema:UnitCode <http://qudt.org/vocab/unit/CMNT> .
 
-# Encounter Event for Arrowhead 1
 <https://purl.org/megalod/example/encounter/CV-AH-001> a excav:EncounterEvent ;
     dct:date "2025-04-12"^^xsd:literal ;
     crmsci:O19_encountered_object <https://purl.org/megalod/example/arrowhead/CV-AH-001> ;
@@ -190,3 +212,4 @@
     excav:foundInSVU <https://purl.org/megalod/example/svu/CV-001-1> ;
     excav:foundInContext <https://purl.org/megalod/example/context/CV-001> ;
     excav:foundInExcavation <https://purl.org/megalod/example/excavation/CasteloVelho> .
+
