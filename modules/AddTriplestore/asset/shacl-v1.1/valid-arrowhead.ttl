@@ -17,8 +17,14 @@
 @prefix excav: <https://purl.org/megalod/ms/excavation/> .
 @prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
 
+
+
+# ==========================================================================
+# ARROWHEAD 1 - Triangular with convex base
+# ==========================================================================
+
 <https://purl.org/megalod/example/arrowhead/CV-AH-001> a ah:Arrowhead, excav:Item ;
-    dct:identifier "CV-AH-001"^^xsd:literal  ;
+    dct:identifier "CV-AH-001"^^xsd:literal ;
     ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
     crm:E55_Type "true"^^xsd:boolean ; # Elongate type
     ah:variant <https://purl.org/megalod/kos/ah-variant/flat> ;
@@ -99,3 +105,88 @@
     excav:foundInContext <https://purl.org/megalod/example/context/CV-001> ;
     excav:foundInExcavation <https://purl.org/megalod/example/excavation/CasteloVelho> .
 
+# ==========================================================================
+# ARROWHEAD 2 - Lozenge-shaped with straight base
+# ==========================================================================
+
+<https://purl.org/megalod/example/arrowhead/CV-AH-002> a ah:Arrowhead, excav:Item ;
+    dct:identifier "CV-AH-002"^^xsd:literal ;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/lozenge-shaped> ;
+    crm:E55_Type "false"^^xsd:boolean ; # Short type
+    ah:variant <https://purl.org/megalod/kos/ah-variant/raised> ;
+    ah:hasMorphology <https://purl.org/megalod/example/morphology/CV-AH-002> ;
+    ah:hasChipping <https://purl.org/megalod/example/chipping/CV-AH-002> ;
+    ah:bodyLength <https://purl.org/megalod/example/typometry/CV-AH-002-bodyLength> ;
+    ah:baseLength <https://purl.org/megalod/example/typometry/CV-AH-002-baseLength> ;
+    
+    # Item properties (inherited)
+    crm:E57_Material <http://collection.britishmuseum.org/id/thesaurus/material/quartz> ;
+    crm:E3_Condition_State "true"^^xsd:boolean ; # Complete
+    schema:height <https://purl.org/megalod/example/typometry/CV-AH-002-height> ;
+    schema:width <https://purl.org/megalod/example/typometry/CV-AH-002-width> ;
+    schema:depth <https://purl.org/megalod/example/typometry/CV-AH-002-thickness> ;
+    schema:weight <https://purl.org/megalod/example/weight/CV-AH-002> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Medium> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Medium> ;
+    excav:hasCoordinatesInSquare <https://purl.org/megalod/example/coordinates/CV-AH-002> ;
+    dbo:Annotation "Lozenge-shaped quartz arrowhead with distinctive raised profile"^^xsd:literal ;
+    excav:foundInSquare <https://purl.org/megalod/example/square/CV-A2> ;
+    edm:Webresource <https://purl.org/megalod/example/images/CV-AH-002-1.jpg>,
+                    <https://purl.org/megalod/example/images/CV-AH-002-2.jpg> .
+
+<https://purl.org/megalod/example/morphology/CV-AH-002> a ah:Morphology ;
+    ah:point "true"^^xsd:boolean ; # Sharp
+    ah:body "true"^^xsd:boolean ; # Symmetrical
+    ah:base <https://purl.org/megalod/kos/ah-base/straight> .
+
+<https://purl.org/megalod/example/chipping/CV-AH-002> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/sub-parallel> ;
+    ah:chippingAmplitude "true"^^xsd:boolean ; # Marginal
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/direct> ;
+    ah:chippingOrientation "true"^^xsd:boolean ; # Lateral
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/composite> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/distal>,
+                           <https://purl.org/megalod/kos/ah-chippingLocation/median> ;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/straight> .
+
+<https://purl.org/megalod/example/typometry/CV-AH-002-bodyLength> a excav:TypometryValue ;
+    schema:value "21.8"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/MM> .
+
+<https://purl.org/megalod/example/typometry/CV-AH-002-baseLength> a excav:TypometryValue ;
+    schema:value "16.5"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/MM> .
+
+<https://purl.org/megalod/example/typometry/CV-AH-002-height> a excav:TypometryValue ;
+    schema:value "25.2"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/MM> .
+
+<https://purl.org/megalod/example/typometry/CV-AH-002-width> a excav:TypometryValue ;
+    schema:value "16.8"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/MM> .
+
+<https://purl.org/megalod/example/typometry/CV-AH-002-thickness> a excav:TypometryValue ;
+    schema:value "5.4"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/MM> .
+
+<https://purl.org/megalod/example/weight/CV-AH-002> a excav:Weight ;
+    schema:value "6.8"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/GM> .
+
+<https://purl.org/megalod/example/coordinates/CV-AH-002> a excav:Coordinates ;
+    geo:longitude "10.75"^^xsd:decimal ;
+    geo:latitude "11.28"^^xsd:decimal ;
+    schema:depth <https://purl.org/megalod/example/depth/CV-AH-002> .
+
+<https://purl.org/megalod/example/depth/CV-AH-002> a excav:Depth ;
+    schema:value "38.7"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMNT> .
+
+# Encounter Event for Arrowhead 2
+<https://purl.org/megalod/example/encounter/CV-AH-002> a excav:EncounterEvent ;
+    dct:date "2025-04-15"^^xsd:literal ;
+    crmsci:O19_encountered_object <https://purl.org/megalod/example/arrowhead/CV-AH-002> ;
+    excav:foundInSVU <https://purl.org/megalod/example/svu/CV-001-1> ;
+    excav:foundInContext <https://purl.org/megalod/example/context/CV-001> ;
+    excav:foundInExcavation <https://purl.org/megalod/example/excavation/CasteloVelho> .

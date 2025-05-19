@@ -2425,6 +2425,82 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     }
 
        
+    // process encounter event data
+    // In the processArrowheadData function, add this section to process encounter events:
+
+// Extract encounter event data for this arrowhead
+if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/EncounterEvent'])) {
+    foreach ($rdfData as $encounterSubject => $encounterPredicates) {
+        // Check if this is an encounter event for the current arrowhead
+        if (isset($encounterPredicates['crmsci:O19_encountered_object'])) {
+            foreach ($encounterPredicates['crmsci:O19_encountered_object'] as $obj) {
+                if ($obj['type'] === 'uri' && $obj['value'] === $subject) {
+                    // Found the encounter event for this arrowhead
+                    
+                    // Add encounter date
+                    if (isset($encounterPredicates['dct:date'])) {
+                        if (!isset($itemData['Encounter Date'])) {
+                            $itemData['Encounter Date'] = [];
+                        }
+                        foreach ($encounterPredicates['dct:date'] as $dateObj) {
+                            $itemData['Encounter Date'][] = [
+                                'type' => 'literal',
+                                'property_id' => 7, // Use appropriate ID
+                                '@value' => $dateObj['value']
+                            ];
+                        }
+                    }
+                    
+                    // Add link to SVU
+                    if (isset($encounterPredicates['excav:foundInSVU'])) {
+                        if (!isset($itemData['Found in SVU'])) {
+                            $itemData['Found in SVU'] = [];
+                        }
+                        foreach ($encounterPredicates['excav:foundInSVU'] as $svuObj) {
+                            $svuId = $this->extractResourceIdentifier($rdfData, $svuObj['value']);
+                            $itemData['Found in SVU'][] = [
+                                'type' => 'resource',
+                                'property_id' => 7671, // Use appropriate ID
+                                '@value' => $svuId ?: $svuObj['value']
+                            ];
+                        }
+                    }
+                    
+                    // Add link to Context
+                    if (isset($encounterPredicates['excav:foundInContext'])) {
+                        if (!isset($itemData['Found in Context'])) {
+                            $itemData['Found in Context'] = [];
+                        }
+                        foreach ($encounterPredicates['excav:foundInContext'] as $ctxObj) {
+                            $ctxId = $this->extractResourceIdentifier($rdfData, $ctxObj['value']);
+                            $itemData['Found in Context'][] = [
+                                'type' => 'resource',
+                                'property_id' => 7672, // Use appropriate ID
+                                '@value' => $ctxId ?: $ctxObj['value']
+                            ];
+                        }
+                    }
+                    
+                    // Add link to Excavation
+                    if (isset($encounterPredicates['excav:foundInExcavation'])) {
+                        if (!isset($itemData['Found in Excavation'])) {
+                            $itemData['Found in Excavation'] = [];
+                        }
+                        foreach ($encounterPredicates['excav:foundInExcavation'] as $excObj) {
+                            $excId = $this->extractResourceIdentifier($rdfData, $excObj['value']);
+                            $itemData['Found in Excavation'][] = [
+                                'type' => 'resource',
+                                'property_id' => 7673, // Use appropriate ID
+                                '@value' => $excId ?: $excObj['value']
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
     if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare'])) {
         foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare'] as $coordObj) {
             if ($coordObj['type'] === 'uri' && isset($rdfData[$coordObj['value']])) {
@@ -2765,7 +2841,16 @@ private function extractMeasurementValue($rdfData, $typometryUri) {
     
     return null;
 }
-
+private function extractResourceIdentifier($rdfData, $resourceUri) {
+    if (isset($rdfData[$resourceUri]['http://purl.org/dc/terms/identifier'])) {
+        foreach ($rdfData[$resourceUri]['http://purl.org/dc/terms/identifier'] as $idObj) {
+            if ($idObj['type'] === 'literal') {
+                return $idObj['value'];
+            }
+        }
+    }
+    return null;
+}
 /**
  * Extract the measurement unit from a typometry URI
  */
