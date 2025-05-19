@@ -2429,70 +2429,172 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     // In the processArrowheadData function, add this section to process encounter events:
 
 // Extract encounter event data for this arrowhead
-if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/EncounterEvent'])) {
-    foreach ($rdfData as $encounterSubject => $encounterPredicates) {
-        // Check if this is an encounter event for the current arrowhead
-        if (isset($encounterPredicates['crmsci:O19_encountered_object'])) {
-            foreach ($encounterPredicates['crmsci:O19_encountered_object'] as $obj) {
-                if ($obj['type'] === 'uri' && $obj['value'] === $subject) {
-                    // Found the encounter event for this arrowhead
+// Process encounter event data for this arrowhead
+// Find all encounter events that reference this arrowhead
+foreach ($rdfData as $encounterSubject => $encounterPredicates) {
+    // Check if this is an encounter event
+    $isEncounterEvent = false;
+    if (isset($encounterPredicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
+        foreach ($encounterPredicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
+            if ($typeObj['type'] === 'uri' && 
+                (strpos($typeObj['value'], 'EncounterEvent') !== false || 
+                 $typeObj['value'] === 'https://purl.org/megalod/ms/excavation/EncounterEvent')) {
+                $isEncounterEvent = true;
+                break;
+            }
+        }
+    }
+    
+    // If it's an encounter event, check if it's for this arrowhead
+    if ($isEncounterEvent) {
+        // Look for all possible predicates that might link an encounter event to an arrowhead
+        $possiblePredicates = [
+            'http://cidoc-crm.org/extensions/crmsci/O19_encountered_object',
+            'crmsci:O19_encountered_object',
+            'https://cidoc-crm.org/extensions/crmsci/O19_encountered_object'
+        ];
+        
+        $isForThisArrowhead = false;
+        foreach ($possiblePredicates as $predicate) {
+            if (isset($encounterPredicates[$predicate])) {
+                foreach ($encounterPredicates[$predicate] as $obj) {
+                    if ($obj['type'] === 'uri' && $obj['value'] === $subject) {
+                        $isForThisArrowhead = true;
+                        break 2; // Break out of both loops
+                    }
+                }
+            }
+        }
+        
+        if ($isForThisArrowhead) {
+            // Found an encounter event for this arrowhead
+            error_log('Found encounter event for arrowhead: ' . $encounterSubject, 3, OMEKA_PATH . '/logs/encounter-events.log');
+            
+            // Process date information - check multiple potential predicates
+            $datePredicates = [
+                'http://purl.org/dc/terms/date',
+                'dct:date',
+                'https://purl.org/dc/terms/date'
+            ];
+            
+            foreach ($datePredicates as $datePredicate) {
+                if (isset($encounterPredicates[$datePredicate])) {
+                    if (!isset($itemData['Encounter Date'])) {
+                        $itemData['Encounter Date'] = [];
+                    }
                     
-                    // Add encounter date
-                    if (isset($encounterPredicates['dct:date'])) {
-                        if (!isset($itemData['Encounter Date'])) {
-                            $itemData['Encounter Date'] = [];
-                        }
-                        foreach ($encounterPredicates['dct:date'] as $dateObj) {
+                    foreach ($encounterPredicates[$datePredicate] as $dateObj) {
+                        if ($dateObj['type'] === 'literal') {
                             $itemData['Encounter Date'][] = [
                                 'type' => 'literal',
-                                'property_id' => 7, // Use appropriate ID
+                                'property_id' => 7, // Use appropriate ID for date
                                 '@value' => $dateObj['value']
                             ];
+                            error_log('Added encounter date: ' . $dateObj['value'], 3, OMEKA_PATH . '/logs/encounter-events.log');
                         }
                     }
+                }
+            }
+            
+            // Process SVU information - check multiple potential predicates
+            $svuPredicates = [
+                'https://purl.org/megalod/ms/excavation/foundInSVU',
+                'excav:foundInSVU'
+            ];
+            
+            foreach ($svuPredicates as $svuPredicate) {
+                if (isset($encounterPredicates[$svuPredicate])) {
+                    if (!isset($itemData['Found in SVU'])) {
+                        $itemData['Found in SVU'] = [];
+                    }
                     
-                    // Add link to SVU
-                    if (isset($encounterPredicates['excav:foundInSVU'])) {
-                        if (!isset($itemData['Found in SVU'])) {
-                            $itemData['Found in SVU'] = [];
-                        }
-                        foreach ($encounterPredicates['excav:foundInSVU'] as $svuObj) {
+                    foreach ($encounterPredicates[$svuPredicate] as $svuObj) {
+                        if ($svuObj['type'] === 'uri') {
                             $svuId = $this->extractResourceIdentifier($rdfData, $svuObj['value']);
-                            $itemData['Found in SVU'][] = [
-                                'type' => 'resource',
-                                'property_id' => 7671, // Use appropriate ID
-                                '@value' => $svuId ?: $svuObj['value']
+                            $itemData['https://purl.org/megalod/ms/excavation/foundInSVU'][] = [
+                                'type' => 'uri', // Changed from 'resource' to 'uri'
+                                'property_id' => 7671,
+                                '@id' => $svuObj['value'] // Use the full URI
                             ];
+                            error_log('Added SVU reference as URI: ' . $svuObj['value'], 3, OMEKA_PATH . '/logs/encounter-events.log');
                         }
                     }
+                }
+            }
+            
+            // Process Context information - check multiple potential predicates
+            $contextPredicates = [
+                'https://purl.org/megalod/ms/excavation/foundInContext',
+                'excav:foundInContext'
+            ];
+            
+            foreach ($contextPredicates as $contextPredicate) {
+                if (isset($encounterPredicates[$contextPredicate])) {
+                    if (!isset($itemData['Found in Context'])) {
+                        $itemData['Found in Context'] = [];
+                    }
                     
-                    // Add link to Context
-                    if (isset($encounterPredicates['excav:foundInContext'])) {
-                        if (!isset($itemData['Found in Context'])) {
-                            $itemData['Found in Context'] = [];
-                        }
-                        foreach ($encounterPredicates['excav:foundInContext'] as $ctxObj) {
+                    foreach ($encounterPredicates[$contextPredicate] as $ctxObj) {
+                        if ($ctxObj['type'] === 'uri') {
                             $ctxId = $this->extractResourceIdentifier($rdfData, $ctxObj['value']);
-                            $itemData['Found in Context'][] = [
-                                'type' => 'resource',
-                                'property_id' => 7672, // Use appropriate ID
-                                '@value' => $ctxId ?: $ctxObj['value']
+                            $itemData['https://purl.org/megalod/ms/excavation/foundInContext'][] = [
+                                'type' => 'uri', // Changed from 'resource' to 'uri'
+                                'property_id' => 7672,
+                                '@id' => $ctxObj['value'] // Use the full URI
                             ];
+                            error_log('Added Context reference as URI: ' . $ctxObj['value'], 3, OMEKA_PATH . '/logs/encounter-events.log');
                         }
                     }
+                }
+            }
+            
+            // Process Excavation information - check multiple potential predicates
+            $excavationPredicates = [
+                'https://purl.org/megalod/ms/excavation/foundInExcavation',
+                'excav:foundInExcavation',
+                'excav:foundInAExcavation'
+            ];
+            
+            foreach ($excavationPredicates as $excavationPredicate) {
+                if (isset($encounterPredicates[$excavationPredicate])) {
+                    if (!isset($itemData['Found in Excavation'])) {
+                        $itemData['Found in Excavation'] = [];
+                    }
                     
-                    // Add link to Excavation
-                    if (isset($encounterPredicates['excav:foundInExcavation'])) {
-                        if (!isset($itemData['Found in Excavation'])) {
-                            $itemData['Found in Excavation'] = [];
-                        }
-                        foreach ($encounterPredicates['excav:foundInExcavation'] as $excObj) {
+                    foreach ($encounterPredicates[$excavationPredicate] as $excObj) {
+                        if ($excObj['type'] === 'uri') {
                             $excId = $this->extractResourceIdentifier($rdfData, $excObj['value']);
-                            $itemData['Found in Excavation'][] = [
-                                'type' => 'resource',
-                                'property_id' => 7673, // Use appropriate ID
-                                '@value' => $excId ?: $excObj['value']
+                            $itemData['https://purl.org/megalod/ms/excavation/foundInExcavation'][] = [
+                                'type' => 'uri', // Changed from 'resource' to 'uri'
+                                'property_id' => 7673,
+                                '@id' => $excObj['value'] // Use the full URI
                             ];
+                            error_log('Added Excavation reference as URI: ' . $excObj['value'], 3, OMEKA_PATH . '/logs/encounter-events.log');
+                        }
+                    }
+                }
+            }
+            
+            // Process depth information if available
+            $depthPredicates = [
+                'http://dbpedia.org/ontology/depth',
+                'dbo:depth'
+            ];
+            
+            foreach ($depthPredicates as $depthPredicate) {
+                if (isset($encounterPredicates[$depthPredicate])) {
+                    if (!isset($itemData['Encounter Depth'])) {
+                        $itemData['Encounter Depth'] = [];
+                    }
+                    
+                    foreach ($encounterPredicates[$depthPredicate] as $depthObj) {
+                        if ($depthObj['type'] === 'literal') {
+                            $itemData['Encounter Depth'][] = [
+                                'type' => 'literal',
+                                'property_id' => 7675, // Use appropriate ID for depth
+                                '@value' => $depthObj['value'] . (isset($depthObj['datatype']) && $depthObj['datatype'] === 'http://www.w3.org/2001/XMLSchema#decimal' ? ' m' : '')
+                            ];
+                            error_log('Added encounter depth: ' . $depthObj['value'], 3, OMEKA_PATH . '/logs/encounter-events.log');
                         }
                     }
                 }
