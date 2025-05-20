@@ -17,15 +17,26 @@
 @prefix excav: <https://purl.org/megalod/ms/excavation/> .
 @prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
 
+
 # ==========================================================================
-# Note: The following excavation-related declarations have been removed as they
-# already exist in the triplestore:
-# - <https://purl.org/megalod/example/excavation/CasteloVelho>
-# - <https://purl.org/megalod/example/context/CV-001>
-# - <https://purl.org/megalod/example/svu/CV-001-1>
-# - <https://purl.org/megalod/example/square/CV-A1>
-# - <https://purl.org/megalod/example/square/CV-A2>
+# REFERENCES- Instanciate the references
 # ==========================================================================
+
+
+<https://purl.org/megalod/example/excavation/CasteloVelho> a excav:Excavation ;
+    dct:identifier "CasteloVelho"^^xsd:literal .
+
+<https://purl.org/megalod/example/context/CV-001> a excav:Context ;
+    dct:identifier "CV-001"^^xsd:literal .
+
+<https://purl.org/megalod/example/svu/CV-001-1> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "CV-001-1"^^xsd:literal .
+
+<https://purl.org/megalod/example/square/CV-A1> a excav:Square ;
+    dct:identifier "A1"^^xsd:literal .
+
+<https://purl.org/megalod/example/square/CV-A2> a excav:Square ;
+    dct:identifier "A2"^^xsd:literal .
 
 # ==========================================================================
 # item 1 - Triangular with convex base
@@ -54,6 +65,7 @@
     dbo:Annotation "Excellent example of triangular item with fine bifacial working"^^xsd:literal ;
     excav:foundInSquare <https://purl.org/megalod/example/square/CV-A1> ;
     edm:Webresource <https://purl.org/megalod/example/images/CV-AH-001-3d.obj> .
+
 
 
 <https://purl.org/megalod/example/morphology/CV-AH-001> a ah:Morphology ;
@@ -198,3 +210,4 @@
     excav:foundInSVU <https://purl.org/megalod/example/svu/CV-001-1> ;
     excav:foundInContext <https://purl.org/megalod/example/context/CV-001> ;
     excav:foundInExcavation <https://purl.org/megalod/example/excavation/CasteloVelho> .
+

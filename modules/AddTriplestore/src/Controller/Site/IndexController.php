@@ -1343,14 +1343,14 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
         }
     }
 
-    if ($itemSetId) {
+    if ($itemSetId) { // If itemSetId is provided, normalize URIs of the data which is not excavation
         $ttlData = $this->normalizeUris($ttlData, $itemSetId);
         error_log('URIs normalized for item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
     }
 
     // normalize also when is excavation
     if ($isExcavation) {
-        $ttlData = $this->normalizeUris($ttlData, $excavationIdentifier);
+        $ttlData = $this->normalizeUris($ttlData, $itemSetId);
         error_log('URIs normalized for excavation ID: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/uri-normalize.log');
     }
 
@@ -1911,20 +1911,20 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
             
             SELECT ?message
             WHERE {
-              GRAPH <http://www.arch-project.com/shapes> {
+              GRAPH <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> {
                 ?shape a sh:NodeShape .
               }
-              GRAPH <http://www.arch-project.com/data> {
+              GRAPH <$graphUri> {
                 ?focusNode ?predicate ?object .
               }
               FILTER EXISTS {
-                  GRAPH <http://www.arch-project.com/shapes> {
+                  GRAPH <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> {
                     ?shape sh:targetClass ?targetClass .
                     FILTER NOT EXISTS { ?focusNode a ?targetClass }
                   }
               }
               FILTER EXISTS {
-                  GRAPH <http://www.arch-project.com/shapes> {
+                  GRAPH <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> {
                     ?shape sh:property ?propertyShape .
                     ?propertyShape sh:path ?path .
                     FILTER NOT EXISTS { ?focusNode ?path ?object }
