@@ -1348,6 +1348,12 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
         error_log('URIs normalized for item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
     }
 
+    // normalize also when is excavation
+    if ($isExcavation) {
+        $ttlData = $this->normalizeUris($ttlData, $excavationIdentifier);
+        error_log('URIs normalized for excavation ID: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/uri-normalize.log');
+    }
+
     if ($isExcavation && $excavationIdentifier) {
         if ($this->excavationIdentifierExists($excavationIdentifier)) {
             /*$errorMessage = 'An excavation with identifier "' . $excavationIdentifier . '" already exists. Please use a different identifier.';
