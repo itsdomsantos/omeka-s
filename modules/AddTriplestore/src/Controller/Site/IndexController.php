@@ -2121,37 +2121,62 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
     
     // Find main subjects (arrowheads, excavation components, etc.)
     $subjects = [];
+    $arrowheadSubjects = [];
+    $excavationSubjects = [];
+    $otherSubjects = [];
+    
+    // First pass: categorize all subjects
     foreach ($rdfData as $subject => $predicates) {
         foreach ($predicates as $predicate => $objects) {
             foreach ($objects as $object) {
-                // Look for various types of archaeological objects
                 if ($predicate === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' && $object['type'] === 'uri') {
                     // Arrowhead
                     if ($object['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' || 
                         strpos($object['value'], 'Arrowhead') !== false ||
                         $object['value'] === 'http://www.cidoc-crm.org/cidoc-crm/E24_Physical_Man-Made_Thing') {
-                        $subjects[$subject] = 'arrowhead';
+                        $arrowheadSubjects[$subject] = 'arrowhead';
                     }
                     // Excavation
                     else if ($object['value'] === 'http://www.cidoc-crm.org/extensions/crmarchaeo/A9_Archaeological_Excavation' || 
                              strpos($object['value'], 'Excavation') !== false) {
-                        $subjects[$subject] = 'excavation';
+                        $excavationSubjects[$subject] = 'excavation';
                     }
                     // Context
                     else if (strpos($object['value'], 'Context') !== false) {
-                        $subjects[$subject] = 'context';
+                        $otherSubjects[$subject] = 'context';
                     }
                     // SVU
                     else if (strpos($object['value'], 'StratigraphicVolumeUnit') !== false) {
-                        $subjects[$subject] = 'svu';
+                        $otherSubjects[$subject] = 'svu';
                     }
                     // Item
                     else if ($object['value'] === 'https://purl.org/megalod/ms/excavation/Item') {
-                        $subjects[$subject] = 'item';
+                        $arrowheadSubjects[$subject] = 'item';
                     }
                 }
             }
         }
+    }
+    
+    // Second pass: decide which subjects to process based on upload context
+    if ($itemSetId) {
+        // We're uploading to an existing item set (likely adding arrowheads to an excavation)
+        if (!empty($arrowheadSubjects)) {
+            // This is an arrowhead upload - only process arrowheads
+            $subjects = $arrowheadSubjects;
+            error_log('Processing ' . count($subjects) . ' arrowhead subjects in context of item set ' . $itemSetId, 
+                     3, OMEKA_PATH . '/logs/transform.log');
+        } else {
+            // This might be additional excavation data - process everything
+            $subjects = array_merge($excavationSubjects, $otherSubjects);
+            error_log('Processing ' . count($subjects) . ' non-arrowhead subjects in context of item set ' . $itemSetId, 
+                     3, OMEKA_PATH . '/logs/transform.log');
+        }
+    } else {
+        // New upload, no item set context - process everything
+        $subjects = array_merge($arrowheadSubjects, $excavationSubjects, $otherSubjects);
+        error_log('Processing all ' . count($subjects) . ' subjects without item set context', 
+                 3, OMEKA_PATH . '/logs/transform.log');
     }
     
     // If no subjects found, look for any subject that has a dcterms:identifier
@@ -2163,7 +2188,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
         }
     }
     
-    error_log('Found subjects: ' . print_r($subjects, true), 3, OMEKA_PATH . '/logs/transform.log');
+    error_log('Final subjects to process: ' . print_r($subjects, true), 3, OMEKA_PATH . '/logs/transform.log');
     
     // Get excavation identifier for context - use either the default or from item set
     $excavationId = "0"; // Default
