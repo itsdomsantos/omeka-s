@@ -40,7 +40,7 @@ class IndexController extends AbstractActionController
     private function processArrowheadFormData($formData, $itemSetId)
     {
         // Generate a base URI for resources
-        $baseUri = "http://www.arch-project.com/data";
+        $baseUri = $this->baseDataGraphUri;
         
         // Generate a unique ID for the arrowhead if not provided
         $arrowheadId = !empty($formData['arrowhead_identifier']) 
@@ -714,12 +714,6 @@ private function updateItemSetWithExcavationInfo($itemSetId, $excavationData) {
         }
     }
 
-    // Add this method to your AddTriplestore's IndexController.php
-
-/**
- * Handle submission from Collecting module forms
- * This method receives data from the Collecting module and processes it for the triplestore
- */
 public function processCollectingFormAction()
 {
     // Get the item set ID and upload type from query parameters
@@ -776,36 +770,46 @@ private function transformCollectingFormToArrowheadData($formData)
     $arrowheadData = [];
     
     // Correct mapping based on the actual form structure
+    // Map new collecting form prompts to arrowhead fields
     $fieldMappings = [
-        'prompt_1' => 'arrowhead_identifier',    // ID field 
-        'prompt_3' => 'arrowhead_annotation',    // OK testing (observations)
-        'prompt_4' => 'condition_state',         // True (Complete)
-        'prompt_5' => 'arrowhead_type',          // True (Elongate)
-        'prompt_6' => 'arrowhead_variant',       // Raised
-        'prompt_7' => 'arrowhead_shape',         // Losangular
-        'prompt_8' => 'latitude',                // Latitude
-        'prompt_9' => 'longitude',               // Longitude
-        'prompt_10' => 'point_definition',       // True (Sharp)
-        'prompt_11' => 'body_symmetry',          // True (Symmetrical)
-        'prompt_12' => 'arrowhead_base',         // Convex
-        'prompt_13' => 'height',                 // Height
-        'prompt_14' => 'width',                  // Width
-        'prompt_15' => 'thickness',              // Thickness
-        'prompt_16' => 'body_length',            // Body length
-        'prompt_17' => 'base_length',            // Base length
-        'prompt_18' => 'chipping_mode',          // Parallel
-        'prompt_19' => 'chipping_amplitude',     // True (Marginal)
-        'prompt_20' => 'chipping_direction',     // Reverse
-        'prompt_21' => 'chipping_orientation',   // Orientation
-        'prompt_22' => 'chipping_delineation',   // Delineation
-        'prompt_23' => 'chipping_location_lateral_1', // Distal
-        'prompt_24' => 'chipping_location_lateral_2', // Median
-        'prompt_25' => 'chipping_location_lateral_3', // Distal
-        'prompt_26' => 'chipping_location_transversal_1', // Median
-        'prompt_27' => 'chipping_location_transversal_2', // Distal
-        'prompt_28' => 'chipping_location_transversal_3', // Median
-        'prompt_29' => 'chipping_shape',         // Straight
-        'prompt_30' => 'arrowhead_material',     // Flint
+        'prompt_1'  => 'arrowhead_identifier',           // Identifier must be unique.
+        'prompt_3'  => 'arrowhead_annotation',           // Item's observations and details.
+        'prompt_4'  => 'condition_state',                // Condition State (Complete=True; Broken=False)
+        'prompt_6'  => 'weight',                         // Item's weight (with no units)
+        'prompt_7'  => 'weight_unit',                    // Unit of the Weight (URI)
+        'prompt_8'  => 'height',                         // Item's length
+        'prompt_9'  => 'height_unit',                    // Unit of the length (URI)
+        'prompt_10' => 'width',                          // Item's width
+        'prompt_11' => 'width_unit',                     // Unit of the width (URI)
+        'prompt_12' => 'thickness',                      // Item's thickness
+        'prompt_13' => 'thickness_unit',                 // Unit of the thickness (URI)
+        'prompt_14' => 'arrowhead_type',                 // Type of the arrowhead (Elongate=True;Short=False)
+        'prompt_16' => 'elongation_index',               // Elongation Index of the Item
+        'prompt_18' => 'latitude',                       // Was found in the Coordinates (Y coordinate)
+        'prompt_19' => 'longitude',                      // Was found in the Coordinates (X coordinate)
+        'prompt_20' => 'depth',                          // Was found in the Coordinates (Depth)
+        'prompt_21' => 'arrowhead_material',             // Arrowhead is made of (material uri)
+        'prompt_22' => 'gps_latitude',                   // GPS coordinates (Latitude)
+        'prompt_23' => 'gps_longitude',                  // GPS coordinates (Longitude)
+        'prompt_24' => 'arrowhead_variant',              // Variant of the arrowhead
+        'prompt_26' => 'arrowhead_shape',                // Shape of the arrowhead
+        'prompt_28' => 'point_definition',               // Definition of the tip (Pinquant=True; Fractured=False)
+        'prompt_30' => 'body_symmetry',                  // Body symmetry (Symmetrical=True; Non-symmetrical=False)
+        'prompt_32' => 'arrowhead_base',                 // Type of the base
+        'prompt_34' => 'body_length',                    // BodyLength (in mm)
+        'prompt_35' => 'base_length',                    // BaseLength (in mm)
+        'prompt_36' => 'chipping_mode',                  // Chipping-mode
+        'prompt_38' => 'chipping_amplitude',             // Chipping-amplitude (Marginal=True, Deep=False)
+        'prompt_40' => 'chipping_direction',             // Chipping-direction
+        'prompt_42' => 'chipping_orientation',           // Chipping-orientation (Side=True, Transversal=False)
+        'prompt_44' => 'chipping_delineation',           // Chipping-delineation
+        'prompt_46' => 'chipping_location_lateral_1',    // Chipping-location-Lateral (1)
+        'prompt_48' => 'chipping_location_lateral_2',    // Chipping-location-Lateral (2)
+        'prompt_50' => 'chipping_location_lateral_3',    // Chipping-location-Lateral (3)
+        'prompt_52' => 'chipping_location_transversal_1',// Chipping-Location-Transversal (1)
+        'prompt_54' => 'chipping_location_transversal_2',// Chipping-Location-Transversal (2)
+        'prompt_56' => 'chipping_location_transversal_3',// Chipping-Location-Transversal (3)
+        'prompt_58' => 'chipping_shape',                 // Chipping-Shape
     ];
     
     // Process the mapping
