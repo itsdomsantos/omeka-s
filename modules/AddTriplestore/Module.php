@@ -351,7 +351,7 @@ private function deleteFromGraphDB($identifier, $itemId, $graphId)
         if ($identifier) {
             // If we have a specific identifier, target resources with that identifier
             error_log("Using identifier-based deletion strategy", 3, OMEKA_PATH . '/logs/finalDelete.log');
-            $result = $this->deleteResourceByIdentifier($graphdbEndpoint, $graphUri, $identifier);
+            $result = $this->deleteResourceByIdentifier($graphdbEndpoint, $graphUri, $identifier, $graphId);
             $deleted = $result->isSuccess();
         } else {
             // If no identifier, try to delete based on Omeka item ID patterns
@@ -367,7 +367,7 @@ private function deleteFromGraphDB($identifier, $itemId, $graphId)
             error_log("First attempt failed, trying default graph: $defaultGraphUri", 3, OMEKA_PATH . '/logs/finalDelete.log');
             
             if ($identifier) {
-                $this->deleteResourceByIdentifier($graphdbEndpoint, $defaultGraphUri, $identifier);
+                $this->deleteResourceByIdentifier($graphdbEndpoint, $defaultGraphUri, $identifier, "0");
             } else {
                 $this->deleteResourceByOmekaId($graphdbEndpoint, $defaultGraphUri, $itemId);
             }
@@ -386,13 +386,13 @@ private function deleteFromGraphDB($identifier, $itemId, $graphId)
      * @param string $graphUri Graph URI
      * @param string $identifier Resource identifier
      */
-    private function deleteResourceByIdentifier($endpoint, $graphUri, $identifier)
-    {
-        // First, log what we're trying to do
-        error_log("Attempting to delete resource with identifier '$identifier' from graph $graphUri", 3, OMEKA_PATH . '/logs/finalDelete.log');
-        
-        // Build a SPARQL query to delete the resource and related triples
-$query =
+private function deleteResourceByIdentifier($endpoint, $graphUri, $identifier, $graphId)
+{
+    // First, log what we're trying to do
+    error_log("Attempting to delete resource with identifier '$identifier' from graph $graphUri", 3, OMEKA_PATH . '/logs/finalDelete.log');
+    
+    // Build a SPARQL query to delete the resource and related triples
+    $query =
 "PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
@@ -417,78 +417,78 @@ WHERE {
   GRAPH <$graphUri> {
     {
       # The main arrowhead item and all its properties
-      <https://purl.org/megalod/1067/item/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/1067/item/{$identifier}> AS ?s)
+      <https://purl.org/megalod/{$graphId}/item/{$identifier}> ?p ?o .
+      BIND(<https://purl.org/megalod/{$graphId}/item/{$identifier}> AS ?s)
     }
     UNION
     {
       # All triples where the arrowhead is the object
-      ?s ?p <https://purl.org/megalod/1067/item/{$identifier}> .
+      ?s ?p <https://purl.org/megalod/{$graphId}/item/{$identifier}> .
     }
     UNION
     {
       # All related chipping data
-      <https://purl.org/megalod/1067/chipping/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/1067/chipping/{$identifier}> AS ?s)
+      <https://purl.org/megalod/{$graphId}/chipping/{$identifier}> ?p ?o .
+      BIND(<https://purl.org/megalod/{$graphId}/chipping/{$identifier}> AS ?s)
     }
     UNION
     {
       # All triples where the chipping data is the object
-      ?s ?p <https://purl.org/megalod/1067/chipping/{$identifier}> .
+      ?s ?p <https://purl.org/megalod/{$graphId}/chipping/{$identifier}> .
     }
     UNION
     {
       # All related coordinates data
-      <https://purl.org/megalod/1067/coordinates/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/1067/coordinates/{$identifier}> AS ?s)
+      <https://purl.org/megalod/{$graphId}/coordinates/{$identifier}> ?p ?o .
+      BIND(<https://purl.org/megalod/{$graphId}/coordinates/{$identifier}> AS ?s)
     }
     UNION
     {
       # All triples where the coordinates are the object
-      ?s ?p <https://purl.org/megalod/1067/coordinates/{$identifier}> .
+      ?s ?p <https://purl.org/megalod/{$graphId}/coordinates/{$identifier}> .
     }
     UNION
     {
       # All related depth data
-      <https://purl.org/megalod/1067/depth/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/1067/depth/{$identifier}> AS ?s)
+      <https://purl.org/megalod/{$graphId}/depth/{$identifier}> ?p ?o .
+      BIND(<https://purl.org/megalod/{$graphId}/depth/{$identifier}> AS ?s)
     }
     UNION
     {
       # All triples where the depth data is the object
-      ?s ?p <https://purl.org/megalod/1067/depth/{$identifier}> .
+      ?s ?p <https://purl.org/megalod/{$graphId}/depth/{$identifier}> .
     }
     UNION
     {
       # All related encounter event data
-      <https://purl.org/megalod/1067/encounter/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/1067/encounter/{$identifier}> AS ?s)
+      <https://purl.org/megalod/{$graphId}/encounter/{$identifier}> ?p ?o .
+      BIND(<https://purl.org/megalod/{$graphId}/encounter/{$identifier}> AS ?s)
     }
     UNION
     {
       # All triples where the encounter event is the object
-      ?s ?p <https://purl.org/megalod/1067/encounter/{$identifier}> .
+      ?s ?p <https://purl.org/megalod/{$graphId}/encounter/{$identifier}> .
     }
     UNION
     {
       # All related morphology data
-      <https://purl.org/megalod/1067/morphology/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/1067/morphology/{$identifier}> AS ?s)
+      <https://purl.org/megalod/{$graphId}/morphology/{$identifier}> ?p ?o .
+      BIND(<https://purl.org/megalod/{$graphId}/morphology/{$identifier}> AS ?s)
     }
     UNION
     {
       # All triples where the morphology data is the object
-      ?s ?p <https://purl.org/megalod/1067/morphology/{$identifier}> .
+      ?s ?p <https://purl.org/megalod/{$graphId}/morphology/{$identifier}> .
     }
     UNION
     {
       # All related typometry data (baseLength, bodyLength, height, thickness, width)
       VALUES ?typometry {
-        <https://purl.org/megalod/1067/typometry/{$identifier}-baseLength>
-        <https://purl.org/megalod/1067/typometry/{$identifier}-bodyLength>
-        <https://purl.org/megalod/1067/typometry/{$identifier}-height>
-        <https://purl.org/megalod/1067/typometry/{$identifier}-thickness>
-        <https://purl.org/megalod/1067/typometry/{$identifier}-width>
+        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-baseLength>
+        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-bodyLength>
+        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-height>
+        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-thickness>
+        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-width>
       }
       ?typometry ?p ?o .
       BIND(?typometry AS ?s)
@@ -497,24 +497,24 @@ WHERE {
     {
       # All triples where the typometry data is the object
       VALUES ?typometry {
-        <https://purl.org/megalod/1067/typometry/{$identifier}-baseLength>
-        <https://purl.org/megalod/1067/typometry/{$identifier}-bodyLength>
-        <https://purl.org/megalod/1067/typometry/{$identifier}-height>
-        <https://purl.org/megalod/1067/typometry/{$identifier}-thickness>
-        <https://purl.org/megalod/1067/typometry/{$identifier}-width>
+        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-baseLength>
+        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-bodyLength>
+        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-height>
+        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-thickness>
+        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-width>
       }
       ?s ?p ?typometry .
     }
     UNION
     {
       # All related weight data
-      <https://purl.org/megalod/1067/weight/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/1067/weight/{$identifier}> AS ?s)
+      <https://purl.org/megalod/{$graphId}/weight/{$identifier}> ?p ?o .
+      BIND(<https://purl.org/megalod/{$graphId}/weight/{$identifier}> AS ?s)
     }
     UNION
     {
       # All triples where the weight data is the object
-      ?s ?p <https://purl.org/megalod/1067/weight/{$identifier}> .
+      ?s ?p <https://purl.org/megalod/{$graphId}/weight/{$identifier}> .
     }
   }
 }";
