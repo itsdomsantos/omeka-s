@@ -18,25 +18,6 @@
 @prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
 
 
-# ==========================================================================
-# REFERENCES- Instanciate the references
-# ==========================================================================
-
-
-<https://purl.org/megalod/example/excavation/CasteloVelho> a excav:Excavation ;
-    dct:identifier "CasteloVelho"^^xsd:literal .
-
-<https://purl.org/megalod/example/context/CV-001> a excav:Context ;
-    dct:identifier "CV-001"^^xsd:literal .
-
-<https://purl.org/megalod/example/svu/CV-001-1> a excav:StratigraphicVolumeUnit ;
-    dct:identifier "CV-001-1"^^xsd:literal .
-
-<https://purl.org/megalod/example/square/CV-A1> a excav:Square ;
-    dct:identifier "A1"^^xsd:literal .
-
-<https://purl.org/megalod/example/square/CV-A2> a excav:Square ;
-    dct:identifier "A2"^^xsd:literal .
 
 # ==========================================================================
 # item 1 - Triangular with convex base

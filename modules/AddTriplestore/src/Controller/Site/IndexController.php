@@ -1349,9 +1349,46 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
     }
 
     // normalize also when is excavation
-    if ($isExcavation) {
-        $ttlData = $this->normalizeUris($ttlData, $itemSetId);
-        error_log('URIs normalized for excavation ID: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/uri-normalize.log');
+    if ($isExcavation && !$itemSetId) {
+        try {
+            // Create a new item set directly using the API manager
+            $response = $this->api()->create('item_sets', [
+                'dcterms:title' => [
+                    [
+                        'type' => 'literal',
+                        'property_id' => 1,
+                        '@value' => "Excavation " . ($excavationIdentifier ?: "New")
+                    ]
+                ],
+                'dcterms:description' => [
+                    [
+                        'type' => 'literal',
+                        'property_id' => 4,
+                        '@value' => "Item set for excavation " . ($excavationIdentifier ?: "")
+                    ]
+                ],
+                'o:is_public' => true
+            ]);
+            
+            // If successful, get the new item set ID
+            if ($response) {
+                $newItemSet = $response->getContent();
+                $itemSetId = $newItemSet->id();
+                
+                error_log('Successfully created item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+                
+                // Now normalize the URIs with the new item set ID
+                $ttlData = $this->normalizeUris($ttlData, $itemSetId);
+                error_log('URIs normalized for excavation with item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
+                
+                // Store the mapping between item set and excavation
+                if ($excavationIdentifier) {
+                    $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
+                }
+            }
+        } catch (\Exception $e) {
+            error_log('Error creating item set for excavation: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        }
     }
 
     if ($isExcavation && $excavationIdentifier) {
