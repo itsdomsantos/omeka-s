@@ -2925,7 +2925,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         $resourceId = $match[2];   // e.g., "CV-AH-001"
         
         // Create new URI that maintains the resource type and ID
-        $newUri = "<http://www.purl.com/megalod/{$itemSetId}/{$resourceType}/{$resourceId}>";
+        $newUri = "<https://www.purl.com/megalod/{$itemSetId}/{$resourceType}/{$resourceId}>";
         
         // Store the mapping
         $uriMappings[$fullUri] = $newUri;

@@ -42,7 +42,7 @@
 # ARROWHEAD 1 - Triangular with convex base
 # ==========================================================================
 
-<https://purl.org/megalod/example/arrowhead/CV-AH-001> a ah:Arrowhead, excav:Item ;
+<https://purl.org/megalod/example/arrowhead/1> a ah:Arrowhead, excav:Item ;
     dct:identifier "CV-AH-001"^^xsd:literal ;
     ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
     crm:E55_Type "true"^^xsd:boolean ; # Elongate type
@@ -67,8 +67,6 @@
     edm:Webresource <https://purl.org/megalod/example/images/CV-AH-001-3d.obj> .
 
 
-# instanciate references
-<https://purl.org/megalod/example/context/CV-001> a excav:Context .
 
 <https://purl.org/megalod/example/morphology/CV-AH-001> a ah:Morphology ;
     ah:point "true"^^xsd:boolean ; # Sharp
