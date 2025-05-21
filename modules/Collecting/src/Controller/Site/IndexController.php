@@ -27,8 +27,6 @@ class IndexController extends AbstractActionController
         $this->mediaTypeManager = $mediaTypeManager;
     }
 
-// This code should be added to modules/Collecting/src/Controller/Site/IndexController.php
-// in the uploadArrowheadFormAction() method
 
 public function uploadArrowheadFormAction()
 {
@@ -151,7 +149,7 @@ public function uploadArrowheadFormAction()
 private function fetchEntitiesFromTripleStore($entityType)
 {
     // Base SPARQL endpoint
-    $endpoint = "http://localhost:7200/repositories/arch-project-shacl";
+    $endpoint = "http://localhost:7200/repositories/megalod";
     
     // Query pattern depends on entity type
     switch ($entityType) {
@@ -239,32 +237,6 @@ private function fetchEntitiesFromTripleStore($entityType)
     return [];
 }
 
-
-
-private function createTtlFromExcavationData($data)
-{
-    $ttl = "@prefix excav: <https://purl.org/ah/ms/excavationMS#>.\n";
-    $ttl .= "@prefix xsd: <http://www.w3.org/2001/XMLSchema#>.\n";
-    $ttl .= "@prefix time: <http://www.w3.org/2006/time#>.\n";
-    $ttl .= "@prefix dbo: <http://dbpedia.org/ontology/>.\n";
-    $ttl .= "@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>.\n";
-    $ttl .= "@prefix sh: <http://www.w3.org/ns/shacl#>.\n";
-    $ttl .= "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/>.\n";
-    $ttl .= "@prefix crmsci: <https://cidoc-crm.org/extensions/crmsci/>.\n";
-    $ttl .= "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/>.\n";
-    $ttl .= "@prefix edm: <http://www.europeana.eu/schemas/edm#>.\n";
-    $ttl .= "@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>.\n";
-    $ttl .= "@prefix ah: <http://www.purl.com/ah/ms/ahMS#>.\n";
-    $ttl .= "@prefix ah-vocab: <http://www.purl.com/ah/kos#>.\n";
-    $ttl .= "@prefix dct: <http://purl.org/dc/terms/>.\n";
-    $ttl .= "@prefix foaf: <http://xmlns.com/foaf/0.1/>.\n";
-    $ttl .= "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.\n";
-    $ttl .= "@prefix schema: <http://schema.org/>.\n";
-    $ttl .= "@prefix voaf: <http://purl.org/vocommons/voaf#>.\n";
-    $ttl .= "@prefix skos: <http://www.w3.org/2004/02/skos/core#>.\n";
-    
-    return $ttl;
-}
 
 
 private function redirectToTriplestore(array $data, string $uploadType, ?int $itemSetId = null): void
