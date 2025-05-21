@@ -37,10 +37,15 @@ class IndexController extends AbstractActionController
         return new ViewModel(['site' => $site]);
     }
 
+    // Updated function to process arrowhead form data with new namespace prefixes and structure
     private function processArrowheadFormData($formData, $itemSetId)
     {
         // Generate a base URI for resources
         $baseUri = $this->baseDataGraphUri;
+        
+        // Use the provided excavation ID or default to "0"
+        $graphId = $itemSetId ?: "0";
+        $baseUri .= $graphId . "/";
         
         // Generate a unique ID for the arrowhead if not provided
         $arrowheadId = !empty($formData['arrowhead_identifier']) 
@@ -48,120 +53,105 @@ class IndexController extends AbstractActionController
             : 'AH-' . uniqid();
         
         // Create resource URIs
-        $arrowheadUri = "$baseUri/arrowhead/$arrowheadId";
-        $morphologyUri = "$baseUri/morphology/" . substr($arrowheadId, 3); // Remove "AH-" prefix
-        $typometryUri = "$baseUri/typometry/" . substr($arrowheadId, 3);
-        $chippingUri = "$baseUri/chipping/" . substr($arrowheadId, 3);
-        $gpsUri = "$baseUri/gps/" . substr($arrowheadId, 3);
+        $arrowheadUri = "$baseUri/item/$arrowheadId";
+        $morphologyUri = "$baseUri/morphology/$arrowheadId";
+        $chippingUri = "$baseUri/chipping/$arrowheadId";
+        $heightUri = "$baseUri/typometry/{$arrowheadId}-height";
+        $widthUri = "$baseUri/typometry/{$arrowheadId}-width";
+        $thicknessUri = "$baseUri/typometry/{$arrowheadId}-thickness";
+        $bodyLengthUri = "$baseUri/typometry/{$arrowheadId}-bodyLength";
+        $baseLengthUri = "$baseUri/typometry/{$arrowheadId}-baseLength";
+        $weightUri = "$baseUri/weight/$arrowheadId";
+        $coordsUri = "$baseUri/coordinates/$arrowheadId";
+        $depthUri = "$baseUri/depth/$arrowheadId";
+        $encounterUri = "$baseUri/encounter/$arrowheadId";
         
-        // Build TTL data
+        // Build TTL data with updated namespaces
         $ttl = $this->getTtlPrefixes();
         
-        // Process material - sanitize and create URI-friendly value
-        $materialLabel = !empty($formData['arrowhead_material']) ? $formData['arrowhead_material'] : "Unknown";
-        $materialUriSafe = $this->sanitizeForUri($materialLabel);
-        $materialUri = "$baseUri/material/$materialUriSafe";
-        
-        // Add material instance
-        $ttl .= "<$materialUri> a crm:E57_Material;\n";
-        $ttl .= "    rdfs:label \"" . $materialLabel . "\";\n";
-        $ttl .= "    .\n\n";
-        
         // Add arrowhead
-        $ttl .= "<$arrowheadUri> a crm:E24_Physical_Man-Made_Thing;\n";
-        $ttl .= "    dcterms:identifier \"$arrowheadId\"^^xsd:string;\n";
+        $ttl .= "<$arrowheadUri> a ah:Arrowhead, excav:Item;\n";
+        $ttl .= "    dct:identifier \"$arrowheadId\"^^xsd:literal;\n";
         
         // Add shape if selected
         if (!empty($formData['arrowhead_shape'])) {
             $shapeSafe = $this->sanitizeForUri($formData['arrowhead_shape']);
-            $ttl .= "    ah:shape ah-shape:" . $shapeSafe . ";\n";
+            $ttl .= "    ah:shape <https://purl.org/megalod/kos/ah-shape/$shapeSafe>;\n";
+        }
+        
+        // Add E55_Type (Elongate=True;Short=False)
+        if (!empty($formData['arrowhead_type'])) {
+            $value = stripos($formData['arrowhead_type'], 'true') !== false ? "true" : "false";
+            $ttl .= "    crm:E55_Type \"$value\"^^xsd:boolean;\n";
         }
         
         // Add variant if selected
         if (!empty($formData['arrowhead_variant'])) {
             $variantSafe = $this->sanitizeForUri($formData['arrowhead_variant']);
-            $ttl .= "    ah:variant ah-variant:" . $variantSafe . ";\n";
+            $ttl .= "    ah:variant <https://purl.org/megalod/kos/ah-variant/$variantSafe>;\n";
         }
         
         // Add material reference
-        $ttl .= "    crm:P45_consists_of <$materialUri>;\n";
-        
-        // Add annotation if provided
-        if (!empty($formData['arrowhead_annotation'])) {
-            $ttl .= "    dbo:Annotation \"" . $formData['arrowhead_annotation'] . "\"^^xsd:string;\n";
+        if (!empty($formData['arrowhead_material'])) {
+            $ttl .= "    crm:E57_Material <http://collection.britishmuseum.org/id/thesaurus/material/" . $this->sanitizeForUri($formData['arrowhead_material']) . ">;\n";
         }
         
         // Add condition state
         if (!empty($formData['condition_state'])) {
-            $value = stripos($formData['condition_state'], 'true') !== false ? "\"true\"" : "\"false\"";
-            $ttl .= "    crm:E3_Condition_State " . $value . "^^xsd:boolean;\n";
+            $value = stripos($formData['condition_state'], 'true') !== false ? "true" : "false";
+            $ttl .= "    crm:E3_Condition_State \"$value\"^^xsd:boolean;\n";
         }
         
-        // Add type
-        if (!empty($formData['arrowhead_type'])) {
-            $value = stripos($formData['arrowhead_type'], 'true') !== false ? "\"true\"" : "\"false\"";
-            $ttl .= "    crm:E55_Type " . $value . "^^xsd:boolean;\n";
+        // Add annotation if provided
+        if (!empty($formData['arrowhead_annotation'])) {
+            $ttl .= "    dbo:Annotation \"" . $formData['arrowhead_annotation'] . "\"^^xsd:literal;\n";
         }
         
-        // Add GPS coordinates if both latitude and longitude are provided
+        // Add typometry measurements
+        if (!empty($formData['height'])) {
+            $ttl .= "    schema:height <$heightUri>;\n";
+        }
+        
+        if (!empty($formData['width'])) {
+            $ttl .= "    schema:width <$widthUri>;\n";
+        }
+        
+        if (!empty($formData['thickness'])) {
+            $ttl .= "    schema:depth <$thicknessUri>;\n";
+        }
+        
+        if (!empty($formData['weight'])) {
+            $ttl .= "    schema:weight <$weightUri>;\n";
+        }
+        
+        // Add elongation and thickness indices if provided
+        if (!empty($formData['elongation_index'])) {
+            $elongationSafe = $this->sanitizeForUri($formData['elongation_index']);
+            $ttl .= "    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/$elongationSafe>;\n";
+        }
+        
+        if (!empty($formData['thickness_index'])) {
+            $thicknessSafe = $this->sanitizeForUri($formData['thickness_index']);
+            $ttl .= "    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/$thicknessSafe>;\n";
+        }
+        
+        // Add coordinates if both latitude and longitude are provided
         if (!empty($formData['latitude']) && !empty($formData['longitude'])) {
-            $ttl .= "    ah:foundInCoordinates <$gpsUri>;\n";
+            $ttl .= "    excav:hasCoordinatesInSquare <$coordsUri>;\n";
         }
         
-        // Add morphology and typometry references
+        // Add references to morphology and additional properties
         $ttl .= "    ah:hasMorphology <$morphologyUri>;\n";
-        $ttl .= "    ah:hasTypometry <$typometryUri>;\n";
-        $ttl .= "    .\n\n";
         
-        // Add morphology
-        $ttl .= "<$morphologyUri> a ah:Morphology;\n";
-        
-        // Add base if selected
-        if (!empty($formData['arrowhead_base'])) {
-            $baseSafe = $this->sanitizeForUri($formData['arrowhead_base']);
-            $ttl .= "    ah:base ah-base:" . $baseSafe . ";\n";
+        if (!empty($formData['body_length'])) {
+            $ttl .= "    ah:bodyLength <$bodyLengthUri>;\n";
         }
         
-        // Add point definition
-        if (!empty($formData['point_definition'])) {
-            $value = stripos($formData['point_definition'], 'true') !== false ? "\"true\"" : "\"false\"";
-            $ttl .= "    ah:point " . $value . "^^xsd:boolean;\n";
-        } else {
-            $ttl .= "    ah:point \"true\"^^xsd:boolean;\n";
+        if (!empty($formData['base_length'])) {
+            $ttl .= "    ah:baseLength <$baseLengthUri>;\n";
         }
         
-        // Add body symmetry
-        if (!empty($formData['body_symmetry'])) {
-            $value = stripos($formData['body_symmetry'], 'true') !== false ? "\"true\"" : "\"false\"";
-            $ttl .= "    ah:body " . $value . "^^xsd:boolean;\n";
-        } else {
-            $ttl .= "    ah:body \"true\"^^xsd:boolean;\n";
-        }
-        
-        $ttl .= "    .\n\n";
-        
-        // Add typometry with measurements
-        $ttl .= "<$typometryUri> a ah:Typometry;\n";
-        
-        // Add dimensions
-        $dimensions = [];
-        if (!empty($formData['height'])) $dimensions[] = $formData['height'];
-        if (!empty($formData['width'])) $dimensions[] = $formData['width'];
-        if (!empty($formData['thickness'])) $dimensions[] = $formData['thickness'];
-        if (!empty($formData['body_length'])) $dimensions[] = $formData['body_length'];
-        if (!empty($formData['base_length'])) $dimensions[] = $formData['base_length'];
-        
-        if (empty($dimensions)) {
-            // Add default dimensions if none provided
-            $ttl .= "    crm:E54_Dimension \"50\"^^xsd:decimal, \"25\"^^xsd:decimal, \"5\"^^xsd:decimal;\n";
-        } else {
-            $dimensionsStr = implode(", ", array_map(function($dim) {
-                return "\"$dim\"^^xsd:decimal";
-            }, $dimensions));
-            $ttl .= "    crm:E54_Dimension $dimensionsStr;\n";
-        }
-        
-        // Add chipping information if available
+        // Add chipping information if relevant fields are provided
         if (!empty($formData['chipping_mode']) || 
             !empty($formData['chipping_amplitude']) || 
             !empty($formData['chipping_direction'])) {
@@ -169,6 +159,76 @@ class IndexController extends AbstractActionController
         }
         
         $ttl .= "    .\n\n";
+        
+        // Add morphology
+        $ttl .= "<$morphologyUri> a ah:Morphology;\n";
+        
+        // Add point definition
+        if (!empty($formData['point_definition'])) {
+            $value = stripos($formData['point_definition'], 'true') !== false ? "true" : "false";
+            $ttl .= "    ah:point \"$value\"^^xsd:boolean;\n";
+        } else {
+            $ttl .= "    ah:point \"true\"^^xsd:boolean;\n";
+        }
+        
+        // Add body symmetry
+        if (!empty($formData['body_symmetry'])) {
+            $value = stripos($formData['body_symmetry'], 'true') !== false ? "true" : "false";
+            $ttl .= "    ah:body \"$value\"^^xsd:boolean;\n";
+        } else {
+            $ttl .= "    ah:body \"true\"^^xsd:boolean;\n";
+        }
+        
+        // Add base if selected
+        if (!empty($formData['arrowhead_base'])) {
+            $baseSafe = $this->sanitizeForUri($formData['arrowhead_base']);
+            $ttl .= "    ah:base <https://purl.org/megalod/kos/ah-base/$baseSafe>;\n";
+        }
+        
+        $ttl .= "    .\n\n";
+        
+        // Add typometry values
+        if (!empty($formData['height'])) {
+            $ttl .= "<$heightUri> a excav:TypometryValue;\n";
+            $ttl .= "    schema:value \"" . $formData['height'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/MM>;\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        if (!empty($formData['width'])) {
+            $ttl .= "<$widthUri> a excav:TypometryValue;\n";
+            $ttl .= "    schema:value \"" . $formData['width'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/MM>;\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        if (!empty($formData['thickness'])) {
+            $ttl .= "<$thicknessUri> a excav:TypometryValue;\n";
+            $ttl .= "    schema:value \"" . $formData['thickness'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/MM>;\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        if (!empty($formData['body_length'])) {
+            $ttl .= "<$bodyLengthUri> a excav:TypometryValue;\n";
+            $ttl .= "    schema:value \"" . $formData['body_length'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/MM>;\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        if (!empty($formData['base_length'])) {
+            $ttl .= "<$baseLengthUri> a excav:TypometryValue;\n";
+            $ttl .= "    schema:value \"" . $formData['base_length'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/MM>;\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        if (!empty($formData['weight'])) {
+            $ttl .= "<$weightUri> a excav:Weight;\n";
+            $ttl .= "    schema:value \"" . $formData['weight'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/GM>;\n";
+            $ttl .= "    .\n\n";
+        }
         
         // Add chipping details if necessary
         if (!empty($formData['chipping_mode']) || 
@@ -180,31 +240,31 @@ class IndexController extends AbstractActionController
             // Add chipping mode
             if (!empty($formData['chipping_mode'])) {
                 $modeSafe = $this->sanitizeForUri($formData['chipping_mode']);
-                $ttl .= "    ah:mode ah-chippingMode:" . $modeSafe . ";\n";
+                $ttl .= "    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/$modeSafe>;\n";
             }
             
             // Add chipping amplitude
             if (!empty($formData['chipping_amplitude'])) {
-                $value = stripos($formData['chipping_amplitude'], 'true') !== false ? "\"true\"" : "\"false\"";
-                $ttl .= "    ah:amplitude " . $value . "^^xsd:boolean;\n";
+                $value = stripos($formData['chipping_amplitude'], 'true') !== false ? "true" : "false";
+                $ttl .= "    ah:chippingAmplitude \"$value\"^^xsd:boolean;\n";
             }
             
             // Add chipping direction
             if (!empty($formData['chipping_direction'])) {
                 $directionSafe = $this->sanitizeForUri($formData['chipping_direction']);
-                $ttl .= "    ah:direction ah-chippingDirection:" . $directionSafe . ";\n";
+                $ttl .= "    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/$directionSafe>;\n";
             }
             
             // Add chipping orientation
             if (!empty($formData['chipping_orientation'])) {
-                $value = stripos($formData['chipping_orientation'], 'true') !== false ? "\"true\"" : "\"false\"";
-                $ttl .= "    ah:orientation " . $value . "^^xsd:boolean;\n";
+                $value = stripos($formData['chipping_orientation'], 'true') !== false ? "true" : "false";
+                $ttl .= "    ah:chippingOrientation \"$value\"^^xsd:boolean;\n";
             }
             
             // Add chipping delineation
             if (!empty($formData['chipping_delineation'])) {
                 $delineationSafe = $this->sanitizeForUri($formData['chipping_delineation']);
-                $ttl .= "    ah:delineation ah-chippingDelineation:" . $delineationSafe . ";\n";
+                $ttl .= "    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/$delineationSafe>;\n";
             }
             
             // Add lateral chipping locations
@@ -218,7 +278,7 @@ class IndexController extends AbstractActionController
             
             if (!empty($lateralLocations)) {
                 foreach ($lateralLocations as $location) {
-                    $ttl .= "    ah:chippinglocation-Lateral ah-chippingLocation:" . $location . ";\n";
+                    $ttl .= "    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/$location>;\n";
                 }
             }
             
@@ -233,28 +293,82 @@ class IndexController extends AbstractActionController
             
             if (!empty($transversalLocations)) {
                 foreach ($transversalLocations as $location) {
-                    $ttl .= "    ah:chippingLocation-Transversal ah-chippingLocation:" . $location . ";\n";
+                    $ttl .= "    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/$location>;\n";
                 }
             }
             
             // Add chipping shape
             if (!empty($formData['chipping_shape'])) {
                 $shapeSafe = $this->sanitizeForUri($formData['chipping_shape']);
-                $ttl .= "    ah:chippingShape ah-chippingShape:" . $shapeSafe . ";\n";
+                $ttl .= "    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/$shapeSafe>;\n";
             }
             
             $ttl .= "    .\n\n";
         }
         
-        // Add GPS coordinates if provided
+        // Add coordinates if provided
         if (!empty($formData['latitude']) && !empty($formData['longitude'])) {
-            $ttl .= "<$gpsUri> a geo:SpatialThing;\n";
-            $ttl .= "    geo:lat \"" . $formData['latitude'] . "\"^^xsd:decimal;\n";
-            $ttl .= "    geo:long \"" . $formData['longitude'] . "\"^^xsd:decimal;\n";
+            $ttl .= "<$coordsUri> a excav:Coordinates;\n";
+            $ttl .= "    geo:latitude \"" . $formData['latitude'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    geo:longitude \"" . $formData['longitude'] . "\"^^xsd:decimal;\n";
+            
+            // Add depth if provided
+            if (!empty($formData['depth'])) {
+                $ttl .= "    schema:depth <$depthUri>;\n";
+            }
+            
+            $ttl .= "    .\n\n";
+            
+            // Add depth details if provided
+            if (!empty($formData['depth'])) {
+                $ttl .= "<$depthUri> a excav:Depth;\n";
+                $ttl .= "    schema:value \"" . $formData['depth'] . "\"^^xsd:decimal;\n";
+                $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/CMNT>;\n";
+                $ttl .= "    .\n\n";
+            }
+        }
+        
+        // Add encounter event if we have context information
+        if ($itemSetId) {
+            $ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
+            $ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal;\n";
+            $ttl .= "    crmsci:O19_encountered_object <$arrowheadUri>;\n";
+            
+            // Connect to excavation, context and SVU if available
+            $excavationUri = $this->baseDataGraphUri . $graphId;
+            $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
+            
+            // We'll assume the context and SVU information is available from the excavation data
+            // This would need to be enhanced with actual context/SVU data in a real implementation
             $ttl .= "    .\n\n";
         }
         
         return $ttl;
+    }
+    
+    /**
+     * Update the getTtlPrefixes function with the new namespace prefixes
+     */
+    private function getTtlPrefixes()
+    {
+        return "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n" .
+               "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n" .
+               "@prefix sh: <http://www.w3.org/ns/shacl#> .\n" .
+               "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n" .
+               "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n" .
+               "@prefix dct: <http://purl.org/dc/terms/> .\n" .
+               "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n" .
+               "@prefix dbo: <http://dbpedia.org/ontology/> .\n" .
+               "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .\n" .
+               "@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .\n" .
+               "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .\n" .
+               "@prefix edm: <http://www.europeana.eu/schemas/edm/> .\n" .
+               "@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .\n" .
+               "@prefix time: <http://www.w3.org/2006/time#> .\n" .
+               "@prefix schema: <http://schema.org/> .\n" .
+               "@prefix ah: <https://purl.org/megalod/ms/ah/> .\n" .
+               "@prefix excav: <https://purl.org/megalod/ms/excavation/> .\n" .
+               "@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .\n\n";
     }
     
     /**
@@ -822,36 +936,39 @@ private function transformCollectingFormToArrowheadData($formData)
     return $arrowheadData;
 }
 
-    private function prepareTtlFromExcavationData($excavationId, $excavationData, $contextData, $svuData, $encounterData)
-    {
-        // Ensure we have a valid excavation ID with proper prefix
-        if (empty($excavationId) || $excavationId === "") {
-            $excavationId = "EXC-" . uniqid();
-        } else if (strpos($excavationId, 'EXC-') !== 0) {
-            // Ensure excavation ID has the right prefix
-            $excavationId = "EXC-" . $excavationId;
-        }
-        
-        // Generate base URIs for the resources
-        $baseUri = "http://www.arch-project.com/data";
-        $excavationUri = "$baseUri/excavation/$excavationId";
-        
-        // Create context with proper ID - never use the excavation ID for the context
-        $contextId = null;
-        if ($contextData && !$contextData['isExisting']) {
-            $contextId = $contextData['data']['id'];
-        } else {
-            $contextId = 'CTX-' . uniqid();
-        }
-        
-        $contextUri = "$baseUri/context/$contextId";
-
+/**
+ * Prepare TTL data from excavation form submissions with the new data model
+ */
+private function prepareTtlFromExcavationData($excavationId, $excavationData, $contextData, $svuData, $encounterData)
+{
+    // Ensure we have a valid excavation ID with proper prefix
+    if (empty($excavationId) || $excavationId === "") {
+        $excavationId = "EXC-" . uniqid();
+    } else if (strpos($excavationId, 'EXC-') !== 0) {
+        // Ensure excavation ID has the right prefix
+        $excavationId = "EXC-" . $excavationId;
+    }
+    
+    // Generate base URIs for the resources
+    $baseUri = $this->baseDataGraphUri;
+    $graphId = preg_replace('/[^a-zA-Z0-9]/', '', $excavationId); // Clean ID for URI
+    $excavationUri = "$baseUri$graphId/excavation/$excavationId";
+    
+    // Create context with proper ID - never use the excavation ID for the context
+    $contextId = null;
+    if ($contextData && !$contextData['isExisting']) {
+        $contextId = $contextData['data']['id'];
+    } else {
+        $contextId = 'CTX-' . uniqid();
+    }
+    
+    $contextUri = "$baseUri$graphId/context/$contextId";
     
     // Create SVU with proper ID
     $svuId = ($svuData && !$svuData['isExisting']) 
         ? $svuData['data']['id'] 
         : 'SVU-' . uniqid();
-    $svuUri = "$baseUri/svu/$svuId";
+    $svuUri = "$baseUri$graphId/svu/$svuId";
     
     // Use existing URIs if provided
     if ($contextData && $contextData['isExisting']) {
@@ -866,13 +983,29 @@ private function transformCollectingFormToArrowheadData($formData)
     
     // Add excavation with required link to context
     $ttl .= "<$excavationUri> a crmarchaeo:A9_Archaeological_Excavation;\n";
-    $ttl .= "    dct:identifier \"$excavationId\"^^xsd:string;\n";
+    $ttl .= "    dct:identifier \"$excavationId\"^^xsd:literal;\n";
     $ttl .= "    excav:hasContext <$contextUri>;\n";
+    
+    // Add location information if available
+    if (!empty($excavationData['location_name'])) {
+        $locationUri = "$baseUri$graphId/location/" . $this->sanitizeForUri($excavationData['location_name']);
+        $ttl .= "    dul:hasLocation <$locationUri>;\n";
+    }
+    
+    // Add archaeologist information if available
+    if (!empty($excavationData['archaeologist_name']) || !empty($excavationData['orcid'])) {
+        $archaeologistId = !empty($excavationData['orcid']) ? 
+            $this->sanitizeForUri($excavationData['orcid']) : 
+            $this->sanitizeForUri($excavationData['archaeologist_name'] ?: 'unknown');
+        $archaeologistUri = "$baseUri$graphId/archaeologist/$archaeologistId";
+        $ttl .= "    excav:hasPersonInCharge <$archaeologistUri>;\n";
+    }
+    
     $ttl .= "    .\n\n";
     
     // Add context with required ID and link to SVU (if provided)
     $ttl .= "<$contextUri> a crmarchaeo:A1_Excavation_Processing_Unit;\n";
-    $ttl .= "    dct:identifier \"$contextId\"^^xsd:string;\n";
+    $ttl .= "    dct:identifier \"$contextId\"^^xsd:literal;\n";
     
     // Only add hasSVU if SVU data exists
     if ($svuData) {
@@ -881,30 +1014,107 @@ private function transformCollectingFormToArrowheadData($formData)
     
     // Add description if available
     if ($contextData && !$contextData['isExisting'] && !empty($contextData['data']['description'])) {
-        $ttl .= "    dct:description \"" . $contextData['data']['description'] . "\"^^xsd:string;\n";
+        $ttl .= "    dct:description \"" . $contextData['data']['description'] . "\"^^xsd:literal;\n";
     }
     
     $ttl .= "    .\n\n";
     
+    // Add location if provided
+    if (!empty($excavationData['location_name'])) {
+        $locationUri = "$baseUri$graphId/location/" . $this->sanitizeForUri($excavationData['location_name']);
+        $ttl .= "<$locationUri> a excav:Location;\n";
+        $ttl .= "    dbo:informationName \"" . $excavationData['location_name'] . "\"^^xsd:literal;\n";
+        
+        // Add GPS coordinates if provided
+        if (!empty($excavationData['latitude']) && !empty($excavationData['longitude'])) {
+            $gpsUri = "$locationUri/gps";
+            $ttl .= "    excav:hasGPSCoordinates <$gpsUri>;\n";
+        }
+        
+        // Add district and parish if provided
+        if (!empty($excavationData['district'])) {
+            $districtUri = "$baseUri$graphId/district/" . $this->sanitizeForUri($excavationData['district']);
+            $ttl .= "    dbo:district <$districtUri>;\n";
+        }
+        
+        if (!empty($excavationData['parish'])) {
+            $parishUri = "$baseUri$graphId/parish/" . $this->sanitizeForUri($excavationData['parish']);
+            $ttl .= "    dbo:parish <$parishUri>;\n";
+        }
+        
+        if (!empty($excavationData['country'])) {
+            $countryUri = "http://dbpedia.org/resource/" . $this->sanitizeForUri($excavationData['country']);
+            $ttl .= "    dbo:country <$countryUri>;\n";
+        }
+        
+        $ttl .= "    .\n\n";
+        
+        // Add GPS coordinates if provided
+        if (!empty($excavationData['latitude']) && !empty($excavationData['longitude'])) {
+            $ttl .= "<$gpsUri> a excav:GPSCoordinates;\n";
+            $ttl .= "    geo:lat " . $excavationData['latitude'] . ";\n";
+            $ttl .= "    geo:long " . $excavationData['longitude'] . ";\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        // Add district if provided
+        if (!empty($excavationData['district'])) {
+            $ttl .= "<$districtUri> a dbo:District;\n";
+            $ttl .= "    dbo:informationName \"" . $excavationData['district'] . "\"^^xsd:literal;\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        // Add parish if provided
+        if (!empty($excavationData['parish'])) {
+            $ttl .= "<$parishUri> a dbo:Parish;\n";
+            $ttl .= "    dbo:informationName \"" . $excavationData['parish'] . "\"^^xsd:literal;\n";
+            $ttl .= "    .\n\n";
+        }
+    }
+    
+    // Add archaeologist if provided
+    if (!empty($excavationData['archaeologist_name']) || !empty($excavationData['orcid'])) {
+        $archaeologistId = !empty($excavationData['orcid']) ? 
+            $this->sanitizeForUri($excavationData['orcid']) : 
+            $this->sanitizeForUri($excavationData['archaeologist_name'] ?: 'unknown');
+        $archaeologistUri = "$baseUri$graphId/archaeologist/$archaeologistId";
+        
+        $ttl .= "<$archaeologistUri> a excav:Archaeologist;\n";
+        
+        if (!empty($excavationData['archaeologist_name'])) {
+            $ttl .= "    foaf:name \"" . $excavationData['archaeologist_name'] . "\"^^xsd:literal;\n";
+        }
+        
+        if (!empty($excavationData['orcid'])) {
+            $ttl .= "    foaf:account <https://orcid.org/" . $excavationData['orcid'] . ">;\n";
+        }
+        
+        if (!empty($excavationData['archaeologist_email'])) {
+            $ttl .= "    foaf:mbox <mailto:" . $excavationData['archaeologist_email'] . ">;\n";
+        }
+        
+        $ttl .= "    .\n\n";
+    }
+    
     // Add SVU if provided
     if ($svuData) {
         $ttl .= "<$svuUri> a crmarchaeo:A2_Stratigraphic_Volume_Unit;\n";
-        $ttl .= "    dct:identifier \"$svuId\"^^xsd:string;\n";
+        $ttl .= "    dct:identifier \"$svuId\"^^xsd:literal;\n";
         
         // Add description if available
         if ($svuData && !$svuData['isExisting'] && !empty($svuData['data']['description'])) {
-            $ttl .= "    dct:description \"" . $svuData['data']['description'] . "\"^^xsd:string;\n";
+            $ttl .= "    dct:description \"" . $svuData['data']['description'] . "\"^^xsd:literal;\n";
         }
         
         // Add timeline if year data is provided
         if ($svuData && !$svuData['isExisting'] && 
             (!empty($svuData['data']['lower_year']) || !empty($svuData['data']['upper_year']))) {
             $timelineUri = "$svuUri/timeline";
-            $ttl .= "    excav:hasTimeLine <$timelineUri>;\n";
+            $ttl .= "    excav:hasTimeline <$timelineUri>;\n";
             $ttl .= "    .\n\n";
             
             // Add timeline
-            $ttl .= "<$timelineUri> a time:TemporalEntity;\n";
+            $ttl .= "<$timelineUri> a excav:TimeLine;\n";
             
             if (!empty($svuData['data']['lower_year'])) {
                 $lowerInstantUri = "$timelineUri/beginning";
@@ -920,16 +1130,22 @@ private function transformCollectingFormToArrowheadData($formData)
             
             // Add instants
             if (!empty($svuData['data']['lower_year'])) {
-                $ttl .= "<$lowerInstantUri> a time:Instant;\n";
-                $ttl .= "    time:inXSDYear \"" . $svuData['data']['lower_year'] . "\"^^xsd:gYear;\n";
-                $ttl .= "    excav:bc " . ($svuData['data']['lower_bc'] ? "true" : "false") . ";\n";
+                $ttl .= "<$lowerInstantUri> a excav:Instant;\n";
+                $ttl .= "    time:inXSDgYear \"" . $svuData['data']['lower_year'] . "\"^^xsd:gYear;\n";
+                
+                // Use the new BCAC URI structure
+                $bcacValue = $svuData['data']['lower_bc'] ? "BC" : "AC";
+                $ttl .= "    excav:bcac <https://purl.org/megalod/kos/MegaLOD-BCAC/$bcacValue>;\n";
                 $ttl .= "    .\n\n";
             }
             
             if (!empty($svuData['data']['upper_year'])) {
-                $ttl .= "<$upperInstantUri> a time:Instant;\n";
-                $ttl .= "    time:inXSDYear \"" . $svuData['data']['upper_year'] . "\"^^xsd:gYear;\n";
-                $ttl .= "    excav:bc " . ($svuData['data']['upper_bc'] ? "true" : "false") . ";\n";
+                $ttl .= "<$upperInstantUri> a excav:Instant;\n";
+                $ttl .= "    time:inXSDgYear \"" . $svuData['data']['upper_year'] . "\"^^xsd:gYear;\n";
+                
+                // Use the new BCAC URI structure
+                $bcacValue = $svuData['data']['upper_bc'] ? "BC" : "AC";
+                $ttl .= "    excav:bcac <https://purl.org/megalod/kos/MegaLOD-BCAC/$bcacValue>;\n";
                 $ttl .= "    .\n\n";
             }
         } else {
@@ -939,36 +1155,52 @@ private function transformCollectingFormToArrowheadData($formData)
     
     // Add encounter event if provided
     if ($encounterData) {
-        $encounterUri = "$baseUri/encounter/" . uniqid();
+        $encounterUri = "$baseUri$graphId/encounter/" . uniqid();
         if ($encounterData['isExisting']) {
             $encounterUri = $encounterData['uri'];
         }
         
-        $ttl .= "<$encounterUri> a crmsci:S19_Encounter_Event;\n";
+        $ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
         
         if (!$encounterData['isExisting']) {
             if (!empty($encounterData['data']['date'])) {
-                $ttl .= "    dct:date \"" . $encounterData['data']['date'] . "\"^^xsd:date;\n";
+                $ttl .= "    dct:date \"" . $encounterData['data']['date'] . "\"^^xsd:literal;\n";
+            } else {
+                // Default to current date if not provided
+                $ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal;\n";
             }
             
             if (!empty($encounterData['data']['depth'])) {
-                $ttl .= "    dbo:depth \"" . $encounterData['data']['depth'] . "\"^^xsd:decimal;\n";
+                // Create depth resource
+                $depthUri = "$encounterUri/depth";
+                $ttl .= "    schema:depth <$depthUri>;\n";
             }
         }
         
-        $ttl .= "    excav:foundInAExcavation <$excavationUri>;\n";
-        $ttl .= "    excav:foundInAContext <$contextUri>;\n";
+        $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
+        $ttl .= "    excav:foundInContext <$contextUri>;\n";
         
         if ($svuData) {
             $ttl .= "    excav:foundInSVU <$svuUri>;\n";
         }
         
         $ttl .= "    .\n\n";
+        
+        // Add depth details if provided
+        if (!$encounterData['isExisting'] && !empty($encounterData['data']['depth'])) {
+            $depthUri = "$encounterUri/depth";
+            $ttl .= "<$depthUri> a excav:Depth;\n";
+            $ttl .= "    schema:value \"" . $encounterData['data']['depth'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/CMNT>;\n";
+            $ttl .= "    .\n\n";
+        }
     }
-    error_log('TTL data: ' . $ttl, 3, OMEKA_PATH . '/logs/dkdkdk-submission.log');
 
     return $ttl;
 }
+/**
+ * Process entity selection for Context, SVU, and EncounterEvent
+ */
 
 private function processEntitySelection($existingUri, array $newData, $entityType)
 {
@@ -1005,30 +1237,7 @@ private function processEntitySelection($existingUri, array $newData, $entityTyp
     ];
 }
 
-/**
- * Get standard TTL prefixes for archaeological data
- */
-private function getTtlPrefixes()
-{
-    return "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n" .
-           "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n" .
-           "@prefix sh: <http://www.w3.org/ns/shacl#> .\n" .
-           "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n" .
-           "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n" .
-           "@prefix dct: <http://purl.org/dc/terms/> .\n" .
-           "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n" .
-           "@prefix dbo: <http://dbpedia.org/ontology/> .\n" .
-           "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .\n" .
-           "@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .\n" .
-           "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .\n" .
-           "@prefix edm: <http://www.europeana.eu/schemas/edm/> .\n" .
-           "@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .\n" .
-           "@prefix time: <http://www.w3.org/2006/time#> .\n" .
-           "@prefix schema: <http://schema.org/> .\n" .
-           "@prefix ah: <https://purl.org/megalod/ms/ah/> .\n" .
-           "@prefix excav: <https://purl.org/megalod/ms/excavation/> .\n" .
-           "@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .\n\n";
-}
+
 
 /**
  * Generate TTL for a context
