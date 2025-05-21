@@ -963,78 +963,118 @@ public function processCollectingFormAction()
     ]));
 }
 
-/**
- * Transform data from Collecting module format to format needed for triplestore
- */
 private function transformCollectingFormToArrowheadData($formData)
 {
     $arrowheadData = [];
     
-    // Correct mapping based on the actual form structure
-    // Map new collecting form prompts to arrowhead fields
-    $fieldMappings = [
-        'prompt_1'  => 'arrowhead_identifier',           // Identifier must be unique.
-        'prompt_3'  => 'arrowhead_annotation',           // Item's observations and details.
-        'prompt_4'  => 'condition_state',                // Condition State (Complete=True; Broken=False)
-        'prompt_5'  => 'weight',                         // Item's weight (with no units)
-        'prompt_6'  => 'weight_unit',                    // Unit of the Weight (URI)
-        'prompt_8'  => 'height',                         // Item's length
-        'prompt_9'  => 'height_unit',                    // Unit of the length (URI)
-        'prompt_10' => 'width',                          // Item's width
-        'prompt_11' => 'width_unit',                     // Unit of the width (URI)
-        'prompt_12' => 'thickness',                      // Item's thickness
-        'prompt_13' => 'thickness_unit',                 // Unit of the thickness (URI)
-        'prompt_14' => 'arrowhead_type',                 // Type of the arrowhead (Elongate=True;Short=False)
-        'prompt_15' => 'elongation_index',               // Elongation Index of the Item
-        'prompt_16' => 'latitude',                       // Was found in the Coordinates (Y coordinate)
-        'prompt_17' => 'longitude',                      // Was found in the Coordinates (X coordinate)
-        'prompt_18' => 'depth',                          // Was found in the Coordinates (Depth)
-        'prompt_19' => 'arrowhead_material',             // Arrowhead is made of (material uri)
-        'prompt_20' => 'gps_latitude',                   // GPS coordinates (Latitude)
-        'prompt_21' => 'gps_longitude',                  // GPS coordinates (Longitude)
-        'prompt_22' => 'arrowhead_variant',              // Variant of the arrowhead
-        'prompt_23' => 'arrowhead_shape',                // Shape of the arrowhead
-        'prompt_24' => 'point_definition',               // Definition of the tip (Pinquant=True; Fractured=False)
-        'prompt_25' => 'body_symmetry',                  // Body symmetry (Symmetrical=True; Non-symmetrical=False)
-        'prompt_26' => 'arrowhead_base',                 // Type of the base
-        'prompt_27' => 'body_length',                    // BodyLength (in mm)
-        'prompt_28' => 'base_length',                    // BaseLength (in mm)
-        'prompt_29' => 'chipping_mode',                  // Chipping-mode
-        'prompt_30' => 'chipping_amplitude',             // Chipping-amplitude (Marginal=True, Deep=False)
-        'prompt_31' => 'chipping_direction',             // Chipping-direction
-        'prompt_32' => 'chipping_orientation',           // Chipping-orientation (Side=True, Transversal=False)
-        'prompt_33' => 'chipping_delineation',           // Chipping-delineation
-        'prompt_34' => 'chipping_location_lateral_1',    // Chipping-location-Lateral (1)
-        'prompt_35' => 'chipping_location_lateral_2',    // Chipping-location-Lateral (2)
-        'prompt_36' => 'chipping_location_lateral_3',    // Chipping-location-Lateral (3)
-        'prompt_37' => 'chipping_location_transversal_1',// Chipping-Location-Transversal (1)
-        'prompt_38' => 'chipping_location_transversal_2',// Chipping-Location-Transversal (2)
-        'prompt_39' => 'chipping_location_transversal_3',// Chipping-Location-Transversal (3)
-        'prompt_40' => 'chipping_shape',                 // Chipping-Shape
+    // First, log the raw data for debugging
+    error_log('Raw form data: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/collecting-form-raw.log');
+    
+    // Extract all prompt_X fields and sort them by X (their position)
+    $promptFields = [];
+    foreach ($formData as $key => $value) {
+        if (preg_match('/^prompt_(\d+)$/', $key, $matches)) {
+            $promptFields[(int)$matches[1]] = $value;
+        }
+    }
+    
+    // Add the 'integer' field as a special case (for the identifier)
+    if (isset($formData['integer'])) {
+        $promptFields['identifier'] = $formData['integer'];
+    }
+    
+    // Sort by prompt number to ensure we process them in order
+    ksort($promptFields);
+    
+    // Log the sorted prompt fields
+    error_log('Sorted prompt fields: ' . print_r($promptFields, true), 3, OMEKA_PATH . '/logs/sorted-prompts.log');
+    
+    // Create a positional mapping based on the form structure
+    // The numbers here match the form's field order, not the prompt IDs
+    $positionalMapping = [
+        53 => 'arrowhead_identifier',         // The identifier field (integer)
+        // Skip the file upload field 54
+        55 => 'arrowhead_annotation',                    // Observations and details
+        56 => 'condition_state',                         // Condition State
+        // Weight fields
+        57 => 'weight',                                 // Weight value
+        58 => 'weight_unit',                            // Weight unit
+        // Height (length) fields
+        59 => 'height',                                 // Length value
+        60 => 'height_unit',                            // Length unit
+        // Width fields
+        61 => 'width',                                  // Width value 
+        62 => 'width_unit',                             // Width unit
+        // Thickness fields
+        63 => 'thickness',                              // Thickness value
+        64 => 'thickness_unit',                         // Thickness unit
+        // Other properties
+        65 => 'arrowhead_type',                          // Type (Elongate/Short)
+        66 => 'elongation_index',                       // Elongation Index
+        91 => 'latitude',                                // Found coordinates Y
+        90 => 'longitude',                               // Found coordinates X
+        92 => 'depth',                                  // Found depth
+        93 => 'arrowhead_material',                     // Material
+        
+        67 => 'gps_latitude',                           // GPS latitude
+        68 => 'gps_longitude',                          // GPS longitude
+        69 => 'arrowhead_variant',                       // Variant
+        70 => 'arrowhead_shape',                         // Shape
+        71 => 'point_definition',                       // Point definition
+        72 => 'body_symmetry',                          // Body symmetry
+        73 => 'arrowhead_base',                         // Base type
+        74 => 'body_length',                            // Body length
+        75 => 'body_length_unit',                       // Body length unit
+        76 => 'base_length',                            // Base length
+        77 => 'base_length_unit',                       // Base length unit
+        78 => 'chipping_mode',                          // Chipping mode
+        79 => 'chipping_amplitude',                     // Chipping amplitude
+        80 => 'chipping_direction',                     // Chipping direction
+        81 => 'chipping_orientation',                   // Chipping orientation
+        82 => 'chipping_delineation',                   // Chipping delineation
+        83 => 'chipping_location_lateral_1',            // Lateral location 1
+        84 => 'chipping_location_lateral_2',            // Lateral location 2
+        85 => 'chipping_location_lateral_3',            // Lateral location 3
+        86 => 'chipping_location_transversal_1',        // Transversal location 1
+        87 => 'chipping_location_transversal_2',        // Transversal location 2
+        88 => 'chipping_location_transversal_3',        // Transversal location 3
+        89 => 'chipping_shape',                         // Chipping shape
     ];
     
     // Process the mapping
-    foreach ($fieldMappings as $collectingField => $arrowheadField) {
-        if (isset($formData[$collectingField])) {
-            // Clean up the data before mapping
-            $value = trim($formData[$collectingField]);
+    foreach ($positionalMapping as $position => $arrowheadField) {
+        if (isset($promptFields[$position]) && trim($promptFields[$position]) !== '') {
+            // Get the value and clean it up
+            $value = trim($promptFields[$position]);
+            
+            // Special handling for boolean fields
+            if (strpos($value, 'True') !== false || strpos($value, 'False') !== false) {
+                if (in_array($arrowheadField, ['condition_state', 'arrowhead_type', 'point_definition', 
+                                              'body_symmetry', 'chipping_amplitude', 'chipping_orientation'])) {
+                    // Extract just the boolean part
+                    $value = strpos($value, 'True') !== false ? 'true' : 'false';
+                }
+            }
             
             // Special handling for numeric fields
             $numericFields = ['height', 'width', 'thickness', 'body_length', 'base_length', 'weight', 'depth', 'latitude', 'longitude'];
-            if (in_array($arrowheadField, $numericFields) && !is_numeric($value)) {
-                // Try to extract a numeric value if possible
+            if (in_array($arrowheadField, $numericFields)) {
+                // Try to extract a numeric value
                 if (preg_match('/(\d+(\.\d+)?)/', $value, $matches)) {
-                    $value = $matches[1]; // Extract the numeric part
-                } else {
+                    $value = $matches[1]; // The numeric part
+                } elseif (!is_numeric($value)) {
                     // Skip non-numeric values for numeric fields
                     continue;
                 }
             }
             
-            // Store the (possibly transformed) value
+            // Store the processed value
             $arrowheadData[$arrowheadField] = $value;
         }
     }
+    
+    // Log the transformed data for verification
+    error_log('Transformed arrowhead data: ' . print_r($arrowheadData, true), 3, OMEKA_PATH . '/logs/transformed-arrowhead.log');
     
     return $arrowheadData;
 }

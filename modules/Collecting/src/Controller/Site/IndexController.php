@@ -30,7 +30,7 @@ class IndexController extends AbstractActionController
 
 public function uploadArrowheadFormAction()
 {
-    $formId = $this->params('form-id');
+    $formId = 4;
     $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
     $form = $cForm->getForm(); // Get the Laminas Form object
     

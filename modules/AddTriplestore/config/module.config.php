@@ -80,28 +80,35 @@ return [
         ],
     ],
     'navigation' => [
-        'site' => [
-            [
-                'label' => 'Archaeological Data',
-                'route' => 'site/add-triplestore',
-                'pages' => [
-                    [
-                        'label' => 'Search',
-                        'route' => 'site/add-triplestore/search',
+    'site' => [
+        [
+            'label' => 'Archaeological Data',
+            'route' => 'site/add-triplestore',
+            'params' => [
+                'site-slug' => '__SITE_SLUG__' // This will be replaced dynamically
+            ],
+            'pages' => [
+                [
+                    'label' => 'Search',
+                    'route' => 'site/add-triplestore/search',
+                    'params' => [
+                        'site-slug' => '__SITE_SLUG__' // This will be replaced dynamically
                     ],
-                    [
-                        'label' => 'Add Excavation',
-                        'route' => 'site/add-triplestore/upload',
-                        'params' => [
-                            'query' => [
-                                'upload_type' => 'excavation'
-                            ]
-                        ],
+                ],
+                [
+                    'label' => 'Add Excavation',
+                    'route' => 'site/add-triplestore/upload',
+                    'params' => [
+                        'site-slug' => '__SITE_SLUG__', // This will be replaced dynamically
+                        'query' => [
+                            'upload_type' => 'excavation'
+                        ]
                     ],
                 ],
             ],
         ],
     ],
+],
     'translator' => [
         'translation_file_patterns' => [
             [
