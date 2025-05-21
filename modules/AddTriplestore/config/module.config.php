@@ -6,38 +6,59 @@ return [
         ],
     ],
     'router' => [
-    'routes' => [
-        'site' => [
-            'child_routes' => [
-                'add-triplestore' => [
-                    'type' => 'Literal',
-                    'options' => [
-                        'route' => '/add-triplestore',
-                        'defaults' => [
-                            '__NAMESPACE__' => 'AddTriplestore\Controller\Site',
-                            'controller' => 'Index',
-                            'action' => 'index',
-                        ],
-                    ],
-                    'may_terminate' => true,
-                    'child_routes' => [
-                        'upload' => [
-                            'type' => 'Segment',
-                            'options' => [
-                                'route' => '/upload',
-                                'defaults' => [
-                                    'controller' => 'AddTriplestore\Controller\Site\Index',
-                                    'action' => 'upload',
-                                ],
+        'routes' => [
+            'site' => [
+                'child_routes' => [
+                    'add-triplestore' => [
+                        'type' => 'Literal',
+                        'options' => [
+                            'route' => '/add-triplestore',
+                            'defaults' => [
+                                '__NAMESPACE__' => 'AddTriplestore\Controller\Site',
+                                'controller' => 'Index',
+                                'action' => 'index',
                             ],
                         ],
-                        'process-collecting' => [
-                            'type' => 'Segment',
-                            'options' => [
-                                'route' => '/process-collecting',
-                                'defaults' => [
-                                    'controller' => 'AddTriplestore\Controller\Site\Index',
-                                    'action' => 'processCollectingForm',
+                        'may_terminate' => true,
+                        'child_routes' => [
+                            'upload' => [
+                                'type' => 'Segment',
+                                'options' => [
+                                    'route' => '/upload',
+                                    'defaults' => [
+                                        'controller' => 'AddTriplestore\Controller\Site\Index',
+                                        'action' => 'upload',
+                                    ],
+                                ],
+                            ],
+                            'process-collecting' => [
+                                'type' => 'Segment',
+                                'options' => [
+                                    'route' => '/process-collecting',
+                                    'defaults' => [
+                                        'controller' => 'AddTriplestore\Controller\Site\Index',
+                                        'action' => 'processCollectingForm',
+                                    ],
+                                ],
+                            ],
+                            'search' => [
+                                'type' => 'Segment',
+                                'options' => [
+                                    'route' => '/search',
+                                    'defaults' => [
+                                        'controller' => 'AddTriplestore\Controller\Site\Index',
+                                        'action' => 'search',
+                                    ],
+                                ],
+                            ],
+                            'view-details' => [
+                                'type' => 'Segment',
+                                'options' => [
+                                    'route' => '/view-details',
+                                    'defaults' => [
+                                        'controller' => 'AddTriplestore\Controller\Site\Index',
+                                        'action' => 'viewDetails',
+                                    ],
                                 ],
                             ],
                         ],
@@ -46,8 +67,6 @@ return [
             ],
         ],
     ],
-],
-
     'view_manager' => [
         'template_path_stack' => [
             __DIR__ . '/../view',
@@ -56,9 +75,41 @@ return [
     'asset_manager' => [
         'resolver_configs' => [
             'paths' => [
-                'AddTriplestore' => __DIR__ . '/../asset', // <--- This is the crucial line
+                'AddTriplestore' => __DIR__ . '/../asset', // This is the crucial line for asset management
             ],
         ],
     ],
-    
+    'navigation' => [
+        'site' => [
+            [
+                'label' => 'Archaeological Data',
+                'route' => 'site/add-triplestore',
+                'pages' => [
+                    [
+                        'label' => 'Search',
+                        'route' => 'site/add-triplestore/search',
+                    ],
+                    [
+                        'label' => 'Add Excavation',
+                        'route' => 'site/add-triplestore/upload',
+                        'params' => [
+                            'query' => [
+                                'upload_type' => 'excavation'
+                            ]
+                        ],
+                    ],
+                ],
+            ],
+        ],
+    ],
+    'translator' => [
+        'translation_file_patterns' => [
+            [
+                'type' => 'gettext',
+                'base_dir' => __DIR__ . '/../language',
+                'pattern' => '%s.mo',
+                'text_domain' => null,
+            ],
+        ],
+    ],
 ];

@@ -1,0 +1,496 @@
+<?php
+$this->headTitle($resource->displayTitle() . ' | Archaeological Data');
+$this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'AddTriplestore'));
+
+$resourceTitle = $resource->displayTitle();
+$resourceDescription = $resource->displayDescription();
+$resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
+?>
+
+<div class="resource-details">
+    <div class="resource-header">
+        <div class="breadcrumbs">
+            <a href="<?php echo $this->url('site', ['site-slug' => $site->slug()]); ?>">Home</a> &gt;
+            <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()]); ?>">Search</a> &gt;
+            <?php echo $this->escapeHtml($resourceTitle); ?>
+        </div>
+        
+        <h1><?php echo $this->escapeHtml($resourceTitle); ?></h1>
+        
+        <?php if ($resourceDescription): ?>
+            <div class="resource-description">
+                <?php echo $resourceDescription; ?>
+            </div>
+        <?php endif; ?>
+    </div>
+    
+    <div class="resource-content">
+        <div class="resource-main">
+            <?php if ($resourceType === 'item_set'): ?>
+                <div class="excavation-details">
+                    <div class="metadata-section">
+                        <h2>Excavation Details</h2>
+                        <table class="metadata-table">
+                            <?php foreach ($properties as $property): ?>
+                                <tr>
+                                    <th><?php echo $this->escapeHtml($property['label']); ?></th>
+                                    <td>
+                                        <?php foreach ($property['values'] as $value): ?>
+                                            <div class="value">
+                                                <?php echo $value->type() === 'uri' ? '<a href="' . $this->escapeHtml($value->uri()) . '">' . $this->escapeHtml($value->value()) . '</a>' : $this->escapeHtml($value->value()); ?>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </table>
+                    </div>
+                    
+                    <?php if (!empty($relatedItems)): ?>
+                        <div class="related-items">
+                            <h2>Artifacts in this Excavation (<?php echo count($relatedItems); ?>)</h2>
+                            <div class="result-cards">
+                                <?php foreach ($relatedItems as $item): ?>
+                                    <div class="result-card">
+                                        <?php if ($item->thumbnail()): ?>
+                                            <div class="thumbnail">
+                                                <img src="<?php echo $this->escapeHtml($item->thumbnail()->assetUrl()); ?>" alt="<?php echo $this->escapeHtml($item->displayTitle()); ?>">
+                                            </div>
+                                        <?php endif; ?>
+                                        <h4><?php echo $this->escapeHtml($item->displayTitle()); ?></h4>
+                                        <?php if ($item->displayDescription()): ?>
+                                            <div class="description"><?php echo $this->escapeHtml(substr($item->displayDescription(), 0, 100)); ?>...</div>
+                                        <?php endif; ?>
+                                        <div class="actions">
+                                            <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()], ['query' => ['id' => $item->id(), 'type' => 'item']]); ?>" class="details-button">View Details</a>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <div class="no-related-items">
+                            <p>No artifacts found in this excavation.</p>
+                            <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $resource->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add Artifacts to this Excavation</a>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            <?php else: ?>
+                <div class="artifact-details">
+                    <div class="artifact-media">
+                        <?php $mediaList = $resource->media(); ?>
+                        <?php if (count($mediaList) > 0): ?>
+                            <div class="media-gallery">
+                                <?php foreach ($mediaList as $media): ?>
+                                    <div class="media-item">
+                                        <a href="<?php echo $media->originalUrl(); ?>" target="_blank">
+                                            <img src="<?php echo $media->thumbnailUrl('medium'); ?>" alt="<?php echo $this->escapeHtml($media->displayTitle()); ?>">
+                                        </a>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <div class="artifact-context">
+                        <h3>Archaeological Context</h3>
+                        <div class="context-info">
+                            <?php $itemSets = $resource->itemSets(); ?>
+                            <?php if (count($itemSets) > 0): ?>
+                                <div class="excavation-info">
+                                    <span class="label">Excavation:</span>
+                                    <?php foreach ($itemSets as $index => $itemSet): ?>
+                                        <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()], ['query' => ['id' => $itemSet->id(), 'type' => 'item_set']]); ?>">
+                                            <?php echo $this->escapeHtml($itemSet->displayTitle()); ?>
+                                        </a><?php if ($index < count($itemSets) - 1) echo ', '; ?>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endif; ?>
+                            
+                            <?php 
+                            // Look for specific context properties
+                            $contextProperties = [
+                                'dcterms:spatial' => 'Location',
+                                'dcterms:temporal' => 'Time Period',
+                                'ah:chippingLocation' => 'Chipping Location',
+                            ];
+                            
+                            foreach ($properties as $property): 
+                                if (isset($contextProperties[$property['term']])): 
+                            ?>
+                                <div class="context-property">
+                                    <span class="label"><?php echo $this->escapeHtml($contextProperties[$property['term']]); ?>:</span>
+                                    <?php foreach ($property['values'] as $index => $value): ?>
+                                        <span><?php echo $this->escapeHtml($value->value()); ?></span><?php if ($index < count($property['values']) - 1) echo ', '; ?>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php 
+                                endif;
+                            endforeach; 
+                            ?>
+                        </div>
+                    </div>
+                    
+                    <div class="metadata-section">
+                        <h2>Artifact Metadata</h2>
+                        <table class="metadata-table">
+                            <?php foreach ($properties as $property): ?>
+                                <tr>
+                                    <th><?php echo $this->escapeHtml($property['label']); ?></th>
+                                    <td>
+                                        <?php foreach ($property['values'] as $value): ?>
+                                            <div class="value">
+                                                <?php echo $value->type() === 'uri' ? '<a href="' . $this->escapeHtml($value->uri()) . '">' . $this->escapeHtml($value->value()) . '</a>' : $this->escapeHtml($value->value()); ?>
+                                            </div>
+                                        <?php endforeach; ?>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </table>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+        
+        <div class="resource-sidebar">
+            <div class="actions-panel">
+                <h3>Actions</h3>
+                <ul class="action-list">
+                    <li>
+                        <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()]); ?>" class="action-link">
+                            <span class="icon">🔍</span> Back to Search
+                        </a>
+                    </li>
+                    
+                    <?php if ($resourceType === 'Excavation'): ?>
+                        <li>
+                            <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $resource->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="action-link">
+                                <span class="icon">➕</span> Add Artifacts to this Excavation
+                            </a>
+                        </li>
+                    <?php endif; ?>
+                    
+                    <li>
+                        <a href="<?php echo $this->url('admin/default', [], ['query' => ['resource-id' => $resource->id(), 'resource-type' => ($resourceType === 'Excavation' ? 'item_set' : 'item')]]); ?>" class="action-link" target="_blank">
+                            <span class="icon">✏️</span> Edit in Admin (Requires Login)
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            
+            <?php if ($resourceType === 'Artifact'): ?>
+                <div class="related-excavations">
+                    <h3>Related Excavations</h3>
+                    <?php $itemSets = $resource->itemSets(); ?>
+                    <?php if (count($itemSets) > 0): ?>
+                        <ul class="related-list">
+                            <?php foreach ($itemSets as $itemSet): ?>
+                                <li>
+                                    <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()], ['query' => ['id' => $itemSet->id(), 'type' => 'item_set']]); ?>">
+                                        <?php echo $this->escapeHtml($itemSet->displayTitle()); ?>
+                                    </a>
+                                </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php else: ?>
+                        <p class="no-results">This artifact is not associated with any excavation.</p>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+</div>
+
+<style>
+.resource-details {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.breadcrumbs {
+    margin-bottom: 20px;
+    color: #666;
+}
+
+.breadcrumbs a {
+    color: #4CAF50;
+    text-decoration: none;
+}
+
+.breadcrumbs a:hover {
+    text-decoration: underline;
+}
+
+.resource-header {
+    margin-bottom: 30px;
+}
+
+.resource-header h1 {
+    margin: 10px 0;
+    color: #333;
+}
+
+.resource-description {
+    color: #555;
+    line-height: 1.6;
+    margin-bottom: 20px;
+}
+
+.resource-content {
+    display: grid;
+    grid-template-columns: 3fr 1fr;
+    gap: 30px;
+}
+
+@media (max-width: 768px) {
+    .resource-content {
+        grid-template-columns: 1fr;
+    }
+}
+
+.metadata-section {
+    margin-bottom: 30px;
+}
+
+.metadata-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.metadata-table th, .metadata-table td {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    text-align: left;
+    vertical-align: top;
+}
+
+.metadata-table th {
+    width: 30%;
+    color: #555;
+    font-weight: 600;
+}
+
+.value {
+    margin-bottom: 5px;
+}
+
+.related-items {
+    margin-top: 30px;
+}
+
+.artifact-media {
+    margin-bottom: 20px;
+}
+
+.media-gallery {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.media-item {
+    width: 200px;
+    height: 200px;
+    overflow: hidden;
+    border: 1px solid #ddd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f9f9f9;
+}
+
+.media-item img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.artifact-context {
+    background-color: #f5f5f5;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.artifact-context h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.context-info {
+    margin-top: 10px;
+}
+
+.context-property {
+    margin-bottom: 8px;
+}
+
+.context-property .label {
+    font-weight: bold;
+    color: #555;
+}
+
+.excavation-info {
+    margin-bottom: 10px;
+}
+
+.excavation-info .label {
+    font-weight: bold;
+    color: #555;
+}
+
+.actions-panel {
+    background-color: #f5f5f5;
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+}
+
+.actions-panel h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.action-list {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.action-list li {
+    margin-bottom: 10px;
+}
+
+.action-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    color: #2196F3;
+    padding: 8px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.action-link:hover {
+    background-color: #e3f2fd;
+}
+
+.action-link .icon {
+    margin-right: 10px;
+    font-size: 20px;
+}
+
+.related-excavations {
+    background-color: #f5f5f5;
+    padding: 15px;
+    border-radius: 5px;
+}
+
+.related-excavations h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.related-list {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.related-list li {
+    margin-bottom: 8px;
+}
+
+.related-list a {
+    color: #2196F3;
+    text-decoration: none;
+}
+
+.related-list a:hover {
+    text-decoration: underline;
+}
+
+.result-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 15px;
+    margin-top: 15px;
+}
+
+.result-card {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 12px;
+    background-color: white;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+.result-card h4 {
+    margin-top: 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.thumbnail {
+    width: 100%;
+    height: 120px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f5f5f5;
+}
+
+.thumbnail img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.description {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 10px;
+}
+
+.actions {
+    margin-top: auto;
+    padding-top: 10px;
+}
+
+.details-button, .add-button {
+    display: block;
+    width: 100%;
+    padding: 6px 0;
+    border-radius: 4px;
+    text-align: center;
+    text-decoration: none;
+    font-size: 13px;
+}
+
+.details-button {
+    background-color: #2196F3;
+    color: white;
+}
+
+.add-button {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.no-related-items {
+    text-align: center;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+.no-related-items .add-button {
+    display: inline-block;
+    margin-top: 10px;
+    padding: 8px 15px;
+}
+</style>

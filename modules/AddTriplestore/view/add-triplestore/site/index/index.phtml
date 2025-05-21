@@ -4,6 +4,33 @@ $escape = $this->plugin('escapeHtml');
 $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'AddTriplestore') . '?v=' . time());
 ?>
 
+<div class="add-triplestore-navigation">
+    <a href="<?php echo $this->url('site', ['site-slug' => $this->currentSite()->slug()]); ?>" class="nav-link">Home</a>
+    <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]); ?>" class="nav-link">Search Archaeological Data</a>
+    <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $this->currentSite()->slug()], ['query' => ['upload_type' => 'excavation']]); ?>" class="nav-link">Add Excavation</a>
+</div>
+
+<style>
+.add-triplestore-navigation {
+    margin-bottom: 20px;
+    display: flex;
+    gap: 15px;
+}
+
+.nav-link {
+    display: inline-block;
+    padding: 8px 15px;
+    background-color: #f5f5f5;
+    border-radius: 4px;
+    text-decoration: none;
+    color: #333;
+}
+
+.nav-link:hover {
+    background-color: #e0e0e0;
+}
+</style>
+
 <div class="add-triplestore">
     <h1>Upload Data to Triple Store</h1>
 

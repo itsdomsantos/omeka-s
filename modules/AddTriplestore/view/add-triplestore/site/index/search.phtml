@@ -1,0 +1,304 @@
+<?php
+$this->headTitle('Search Archaeological Data');
+$this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'AddTriplestore'));
+?>
+
+<div class="add-triplestore-search">
+    <h1>Search Archaeological Data</h1>
+    
+    <form action="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()]); ?>" method="get" class="search-form">
+        <div class="search-container">
+            <input type="text" name="query" value="<?php echo $this->escapeHtml($searchQuery); ?>" placeholder="Search excavations, arrowheads, or other artifacts..." class="search-input">
+            
+            <div class="search-type">
+                <label>
+                    <input type="radio" name="type" value="all" <?php echo ($searchType === 'all') ? 'checked' : ''; ?>>
+                    All
+                </label>
+                <label>
+                    <input type="radio" name="type" value="item_sets" <?php echo ($searchType === 'item_sets') ? 'checked' : ''; ?>>
+                    Excavations (Item Sets)
+                </label>
+                <label>
+                    <input type="radio" name="type" value="items" <?php echo ($searchType === 'items') ? 'checked' : ''; ?>>
+                    Artifacts (Items)
+                </label>
+            </div>
+            
+            <button type="submit" class="search-button">Search</button>
+        </div>
+    </form>
+    
+    <?php if ($searchQuery): ?>
+        <div class="search-results">
+            <h2>Search Results for "<?php echo $this->escapeHtml($searchQuery); ?>"</h2>
+            <p><?php echo $totalResults; ?> results found</p>
+            
+            <?php if (isset($results['item_sets']) && count($results['item_sets']) > 0): ?>
+                <div class="result-section">
+                    <h3>Excavations (<?php echo $totalItemSets; ?>)</h3>
+                    <div class="result-cards">
+                        <?php foreach ($results['item_sets'] as $itemSet): ?>
+                            <div class="result-card">
+                                <h4><?php echo $this->escapeHtml($itemSet->displayTitle()); ?></h4>
+                                <?php if ($itemSet->displayDescription()): ?>
+                                    <div class="description"><?php echo $this->escapeHtml(substr($itemSet->displayDescription(), 0, 150)); ?>...</div>
+                                <?php endif; ?>
+                                <div class="actions">
+                                    <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()], ['query' => ['id' => $itemSet->id(), 'type' => 'item_set']]); ?>" class="details-button">View Details</a>
+                                    <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $itemSet->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add Artifacts</a>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+            
+            <?php if (isset($results['items']) && count($results['items']) > 0): ?>
+                <div class="result-section">
+                    <h3>Artifacts (<?php echo $totalItems; ?>)</h3>
+                    <div class="result-cards">
+                        <?php foreach ($results['items'] as $item): ?>
+                            <div class="result-card">
+                                <?php if ($item->thumbnail()): ?>
+                                    <div class="thumbnail">
+                                        <img src="<?php echo $this->escapeHtml($item->thumbnail()->assetUrl()); ?>" alt="<?php echo $this->escapeHtml($item->displayTitle()); ?>">
+                                    </div>
+                                <?php endif; ?>
+                                <h4><?php echo $this->escapeHtml($item->displayTitle()); ?></h4>
+                                <?php if ($item->displayDescription()): ?>
+                                    <div class="description"><?php echo $this->escapeHtml(substr($item->displayDescription(), 0, 100)); ?>...</div>
+                                <?php endif; ?>
+                                
+                                <div class="item-sets">
+                                    <?php if (count($item->itemSets()) > 0): ?>
+                                        <div class="metadata-field">
+                                            <span class="label">Excavation:</span> 
+                                            <?php foreach ($item->itemSets() as $index => $itemSet): ?>
+                                                <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()], ['query' => ['id' => $itemSet->id(), 'type' => 'item_set']]); ?>">
+                                                    <?php echo $this->escapeHtml($itemSet->displayTitle()); ?>
+                                                </a><?php if ($index < count($item->itemSets()) - 1) echo ', '; ?>
+                                            <?php endforeach; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <div class="actions">
+                                    <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()], ['query' => ['id' => $item->id(), 'type' => 'item']]); ?>" class="details-button">View Details</a>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            <?php endif; ?>
+            
+            <?php if ($totalResults === 0): ?>
+                <div class="no-results">
+                    <p>No results found for "<?php echo $this->escapeHtml($searchQuery); ?>". Try a different search term.</p>
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php else: ?>
+        <div class="search-instructions">
+            <p>Enter a search term above to find excavations and artifacts.</p>
+            
+            <div class="quick-links">
+                <h3>Quick Links</h3>
+                <ul>
+                    <li><a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()], ['query' => ['query' => 'excavation', 'type' => 'item_sets']]); ?>">Browse All Excavations</a></li>
+                    <li><a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()], ['query' => ['query' => 'arrowhead', 'type' => 'items']]); ?>">Browse Arrowheads</a></li>
+                    <li><a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()], ['query' => ['query' => 'flint', 'type' => 'items']]); ?>">Flint Objects</a></li>
+                </ul>
+            </div>
+        </div>
+    <?php endif; ?>
+</div>
+
+<style>
+.add-triplestore-search {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.search-container {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-bottom: 20px;
+    gap: 10px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    min-width: 300px;
+    font-size: 16px;
+}
+
+.search-type {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.search-button {
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.search-button:hover {
+    background-color: #45a049;
+}
+
+.search-instructions {
+    background-color: #f9f9f9;
+    padding: 20px;
+    border-radius: 5px;
+    margin-top: 20px;
+}
+
+.quick-links {
+    margin-top: 20px;
+}
+
+.quick-links ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.quick-links li {
+    margin-bottom: 10px;
+}
+
+.quick-links a {
+    color: #4CAF50;
+    text-decoration: none;
+}
+
+.quick-links a:hover {
+    text-decoration: underline;
+}
+
+.result-section {
+    margin-bottom: 30px;
+}
+
+.result-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.result-card {
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    padding: 15px;
+    background-color: white;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+.result-card h4 {
+    margin-top: 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.description {
+    margin: 10px 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.thumbnail {
+    width: 100%;
+    height: 150px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: #f5f5f5;
+}
+
+.thumbnail img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.metadata-field {
+    margin: 5px 0;
+    font-size: 14px;
+}
+
+.metadata-field .label {
+    font-weight: bold;
+    color: #555;
+}
+
+.actions {
+    margin-top: auto;
+    padding-top: 15px;
+    display: flex;
+    gap: 10px;
+}
+
+.details-button, .add-button {
+    padding: 8px 12px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 14px;
+    text-align: center;
+}
+
+.details-button {
+    background-color: #2196F3;
+    color: white;
+}
+
+.add-button {
+    background-color: #4CAF50;
+    color: white;
+}
+
+.details-button:hover {
+    background-color: #0b7dda;
+}
+
+.add-button:hover {
+    background-color: #45a049;
+}
+
+.no-results {
+    text-align: center;
+    padding: 30px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .search-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .search-type {
+        margin: 10px 0;
+    }
+    
+    .result-cards {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
