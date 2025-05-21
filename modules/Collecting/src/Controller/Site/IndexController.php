@@ -28,38 +28,147 @@ class IndexController extends AbstractActionController
     }
 
 
-public function uploadArrowheadFormAction()
-{
-    $formId = 4;
-    $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
-    $form = $cForm->getForm(); // Get the Laminas Form object
-    
-    // Get the item set ID from query parameters if present
-    $itemSetId = $this->params()->fromQuery('item_set_id');
-    $uploadType = $this->params()->fromQuery('upload_type', 'arrowhead');
-    $returnUrl = $this->params()->fromQuery('return_url');
-    
-    // If returnUrl is provided, override the form action to use our processCollectingForm endpoint
-    if ($returnUrl) {
-        $form->setAttribute('action', $this->url()->fromRoute('site/add-triplestore/process-collecting', [
-            'site-slug' => $this->currentSite()->slug(),
-        ], [
-            'query' => [
-                'item_set_id' => $itemSetId,
-                'upload_type' => $uploadType
-            ]
-        ]));
+    public function uploadArrowheadFormAction()
+    {
+        $formId = 4;
+        $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
+        $form = $cForm->getForm();
+        
+        // Get the item set ID from query parameters
+        $itemSetId = $this->params()->fromQuery('item_set_id');
+        $uploadType = $this->params()->fromQuery('upload_type', 'arrowhead');
+        $returnUrl = $this->params()->fromQuery('return_url');
+        
+        // Fetch squares, contexts, and SVUs from this item set
+        $squares = [];
+        $contexts = [];
+        $svus = [];
+        
+        if ($itemSetId) {
+            // Fetch all items in this item set
+            $items = $this->api()->search('items', ['item_set_id' => $itemSetId])->getContent();
+            
+            foreach ($items as $item) {
+                // Get item type from title or class
+                $title = $item->displayTitle();
+                $values = $item->values();
+                
+                // Check if this is a Square
+                if (strpos($title, 'Square') !== false || 
+                    $this->hasProperty($values, 'Square ID')) {
+                    $squares[] = [
+                        'id' => $item->id(),
+                        'label' => $title,
+                        'identifier' => $this->getPropertyValue($values, 'Square ID')
+                    ];
+                }
+                
+                // Check if this is a Context
+                if (strpos($title, 'Context') !== false || 
+                    $this->hasProperty($values, 'Context ID')) {
+                    $contexts[] = [
+                        'id' => $item->id(),
+                        'label' => $title,
+                        'identifier' => $this->getPropertyValue($values, 'Context ID')
+                    ];
+                }
+                
+                // Check if this is a Stratigraphic Volume Unit
+                if (strpos($title, 'Stratigraphic') !== false || 
+                    strpos($title, 'SVU') !== false ||
+                    $this->hasProperty($values, 'SVU ID')) {
+                    $svus[] = [
+                        'id' => $item->id(),
+                        'label' => $title,
+                        'identifier' => $this->getPropertyValue($values, 'SVU ID')
+                    ];
+                }
+            }
+        }
+        
+        // If returnUrl is provided, override the form action
+        if ($returnUrl) {
+            $form->setAttribute('action', $this->url()->fromRoute('site/add-triplestore/process-collecting', [
+                'site-slug' => $this->currentSite()->slug(),
+            ], [
+                'query' => [
+                    'item_set_id' => $itemSetId,
+                    'upload_type' => $uploadType
+                ]
+            ]));
+        }
+        
+        $result = $this->params()->fromQuery('result', '');
+        
+        $view = new ViewModel([
+            'form' => $form,
+            'formType' => 'arrowhead', 
+            'itemSetId' => $itemSetId,
+            'result' => $result,
+            'squares' => $squares,
+            'contexts' => $contexts,
+            'svus' => $svus
+        ]);
+        
+        return $view;
     }
     
-    $result = $this->params()->fromQuery('result', '');
+/**
+ * Helper to check if an item has a specific property
+ */
+private function hasProperty($values, $propertyLabel)
+{
+    if (empty($values)) {
+        return false;
+    }
     
-    $view = new ViewModel([
-        'form' => $form,
-        'formType' => 'arrowhead', 
-        'itemSetId' => $itemSetId,
-        'result' => $result
-    ]);
-    return $view;
+    foreach ($values as $propertyValues) {
+        // Make sure we have at least one value
+        if (!isset($propertyValues[0])) {
+            continue;
+        }
+        
+        // Get the property
+        $property = $propertyValues[0]->property();
+        if (!$property) {
+            continue;
+        }
+        
+        // Check if this is the property we're looking for
+        if ($property->label() === $propertyLabel) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * Helper to get a property value
+ */
+private function getPropertyValue($values, $propertyLabel)
+{
+    if (empty($values)) {
+        return null;
+    }
+    
+    foreach ($values as $propertyValues) {
+        // Make sure we have at least one value
+        if (!isset($propertyValues[0])) {
+            continue;
+        }
+        
+        // Get the property
+        $property = $propertyValues[0]->property();
+        if (!$property) {
+            continue;
+        }
+        
+        // Check if this is the property we're looking for
+        if ($property->label() === $propertyLabel) {
+            return $propertyValues[0]->value();
+        }
+    }
+    return null;
 }
 
     public function uploadExcavationFormAction()

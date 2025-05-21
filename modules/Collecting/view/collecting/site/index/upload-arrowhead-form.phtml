@@ -5,6 +5,83 @@ $result = $this->params()->fromQuery('result', '');
 $itemSetId = $this->params()->fromQuery('item_set_id');
 ?>
 
+<style>
+.archaeological-context-section {
+    background-color: #f5f5f5;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    border: 1px solid #e0e0e0;
+}
+
+.archaeological-context-section h3 {
+    margin-top: 0;
+    color: #333;
+    font-size: 18px;
+    margin-bottom: 15px;
+}
+
+.archaeological-context-section .form-group {
+    margin-bottom: 15px;
+}
+
+.archaeological-context-section label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.archaeological-context-section select {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.success-message {
+    background-color: #dff0d8;
+    color: #3c763d;
+    border: 1px solid #d6e9c6;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.error-message {
+    background-color: #f2dede;
+    color: #a94442;
+    border: 1px solid #ebccd1;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.button {
+    display: inline-block;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.button:hover {
+    background-color: #45a049;
+}
+</style>
+
 <?php if ($itemSetId): ?>
     <div class="excavation-context alert <?php echo $result ? 'alert-success' : 'alert-info'; ?>">
         <p>You are adding an arrowhead to the excavation with Item Set ID: <?php echo $this->escapeHtml($itemSetId); ?></p>
@@ -43,6 +120,66 @@ $itemSetId = $this->params()->fromQuery('item_set_id');
     
     <?php if ($itemSetId): ?>
         <input type="hidden" name="item_set_id" value="<?php echo $this->escapeHtml($itemSetId); ?>">
+    <?php endif; ?>
+    
+    <?php if (!empty($squares) || !empty($contexts) || !empty($svus)): ?>
+    <div class="archaeological-context-section">
+        <h3>Archaeological Context</h3>
+        
+        <?php if (!empty($squares)): ?>
+        <div class="form-group">
+            <label for="selected_square">Square</label>
+            <select name="selected_square" id="selected_square" class="form-control">
+                <option value="">-- Select Square --</option>
+                <?php foreach ($squares as $square): ?>
+                <option value="<?php echo $this->escapeHtml($square['id']); ?>">
+                    <?php echo $this->escapeHtml($square['label']); ?>
+                    <?php if (!empty($square['identifier'])): ?>
+                        (<?php echo $this->escapeHtml($square['identifier']); ?>)
+                    <?php endif; ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+            <small class="help-text">Select the square where this arrowhead was found</small>
+        </div>
+        <?php endif; ?>
+        
+        <?php if (!empty($contexts)): ?>
+        <div class="form-group">
+            <label for="selected_context">Context</label>
+            <select name="selected_context" id="selected_context" class="form-control">
+                <option value="">-- Select Context --</option>
+                <?php foreach ($contexts as $context): ?>
+                <option value="<?php echo $this->escapeHtml($context['id']); ?>">
+                    <?php echo $this->escapeHtml($context['label']); ?>
+                    <?php if (!empty($context['identifier'])): ?>
+                        (<?php echo $this->escapeHtml($context['identifier']); ?>)
+                    <?php endif; ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+            <small class="help-text">Select the archaeological context</small>
+        </div>
+        <?php endif; ?>
+        
+        <?php if (!empty($svus)): ?>
+        <div class="form-group">
+            <label for="selected_svu">Stratigraphic Volume Unit</label>
+            <select name="selected_svu" id="selected_svu" class="form-control">
+                <option value="">-- Select SVU --</option>
+                <?php foreach ($svus as $svu): ?>
+                <option value="<?php echo $this->escapeHtml($svu['id']); ?>">
+                    <?php echo $this->escapeHtml($svu['label']); ?>
+                    <?php if (!empty($svu['identifier'])): ?>
+                        (<?php echo $this->escapeHtml($svu['identifier']); ?>)
+                    <?php endif; ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+            <small class="help-text">Select the stratigraphic volume unit</small>
+        </div>
+        <?php endif; ?>
+    </div>
     <?php endif; ?>
     
     <div class="form-elements">

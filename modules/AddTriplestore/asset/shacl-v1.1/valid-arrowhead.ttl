@@ -24,32 +24,32 @@
 # ==========================================================================
 
 <https://purl.org/megalod/example/item/CV-AH-001> a ah:Arrowhead, excav:Item ;
-    dct:identifier "CV-AH-001"^^xsd:literal ;
-    ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
-    crm:E55_Type "true"^^xsd:boolean ; # Elongate type
-    ah:variant <https://purl.org/megalod/kos/ah-variant/flat> ;
-    ah:hasMorphology <https://purl.org/megalod/example/morphology/CV-AH-001> ;
-    ah:hasChipping <https://purl.org/megalod/example/chipping/CV-AH-001> ;
-    ah:bodyLength <https://purl.org/megalod/example/typometry/CV-AH-001-bodyLength> ;
-    ah:baseLength <https://purl.org/megalod/example/typometry/CV-AH-001-baseLength> ;
+    dct:identifier "CV-AH-001"^^xsd:literal ; ok
+    ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;ok
+    crm:E55_Type "true"^^xsd:boolean ; # Elongate type ok
+    ah:variant <https://purl.org/megalod/kos/ah-variant/flat> ; ok
+    ah:hasMorphology <https://purl.org/megalod/example/morphology/CV-AH-001> ; ok
+    ah:hasChipping <https://purl.org/megalod/example/chipping/CV-AH-001> ; ok
+    ah:bodyLength <https://purl.org/megalod/example/typometry/CV-AH-001-bodyLength> ; falta 
+    ah:baseLength <https://purl.org/megalod/example/typometry/CV-AH-001-baseLength> ; falta
     
     # Item properties (inherited)
-    crm:E57_Material <http://collection.britishmuseum.org/id/thesaurus/material/flint> ;
-    crm:E3_Condition_State "true"^^xsd:boolean ; # Complete
-    schema:height <https://purl.org/megalod/example/typometry/CV-AH-001-height> ;
-    schema:width <https://purl.org/megalod/example/typometry/CV-AH-001-width> ;
-    schema:depth <https://purl.org/megalod/example/typometry/CV-AH-001-thickness> ;
-    schema:weight <https://purl.org/megalod/example/weight/CV-AH-001> ;
-    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
-    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin> ;
-    excav:hasCoordinatesInSquare <https://purl.org/megalod/example/coordinates/CV-AH-001> ;
-    dbo:Annotation "Excellent example of triangular item with fine bifacial working"^^xsd:literal ;
-    excav:foundInSquare <https://purl.org/megalod/example/square/CV-A1> ;
-    edm:Webresource <https://purl.org/megalod/example/images/CV-AH-001-3d.obj> .
+    crm:E57_Material <http://collection.britishmuseum.org/id/thesaurus/material/flint> ; ok
+    crm:E3_Condition_State "true"^^xsd:boolean ; # Complete ok
+    schema:height <https://purl.org/megalod/example/typometry/CV-AH-001-height> ; ok
+    schema:width <https://purl.org/megalod/example/typometry/CV-AH-001-width> ; ok
+    schema:depth <https://purl.org/megalod/example/typometry/CV-AH-001-thickness> ; falta
+    schema:weight <https://purl.org/megalod/example/weight/CV-AH-001> ; ok
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ; ok
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin> ; falta
+    excav:hasCoordinatesInSquare <https://purl.org/megalod/example/coordinates/CV-AH-001> ; falta
+    dbo:Annotation "Excellent example of triangular item with fine bifacial working"^^xsd:literal ; ok
+    excav:foundInSquare <https://purl.org/megalod/example/square/CV-A1> ; falta
+    edm:Webresource <https://purl.org/megalod/example/images/CV-AH-001-3d.obj> . falta
 
 
 
-<https://purl.org/megalod/example/morphology/CV-AH-001> a ah:Morphology ;
+<https://purl.org/megalod/example/morphology/CV-AH-001> a ah:Morphology ; ok
     ah:point "true"^^xsd:boolean ; # Sharp
     ah:body "true"^^xsd:boolean ; # Symmetrical
     ah:base <https://purl.org/megalod/kos/ah-base/convex> .
@@ -66,15 +66,15 @@
     ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/distal> ;
     ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex> .
 
-<https://purl.org/megalod/example/typometry/CV-AH-001-bodyLength> a excav:TypometryValue ;
+<https://purl.org/megalod/example/typometry/CV-AH-001-bodyLength> a excav:TypometryValue ; falta
     schema:value "28.5"^^xsd:decimal ;
     schema:UnitCode <http://qudt.org/vocab/unit/MM> .
 
-<https://purl.org/megalod/example/typometry/CV-AH-001-baseLength> a excav:TypometryValue ;
+<https://purl.org/megalod/example/typometry/CV-AH-001-baseLength> a excav:TypometryValue ; falta
     schema:value "14.2"^^xsd:decimal ;
     schema:UnitCode <http://qudt.org/vocab/unit/MM> .
 
-<https://purl.org/megalod/example/typometry/CV-AH-001-height> a excav:TypometryValue ;
+<https://purl.org/megalod/example/typometry/CV-AH-001-height> a excav:TypometryValue ; ok
     schema:value "32.7"^^xsd:decimal ;
     schema:UnitCode <http://qudt.org/vocab/unit/MM> .
 
