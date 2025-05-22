@@ -508,7 +508,7 @@
         sh:maxCount 1 ;
         sh:in (
             <https://purl.org/megalod/kos/ah-shape/triangle>
-            <https://purl.org/megalod/kos/ah-shape/lozenge-shaped>
+            <https://purl.org/megalod/kos/ah-shape/losangular>
             <https://purl.org/megalod/kos/ah-shape/stemmed>
         ) ;
     ] ;

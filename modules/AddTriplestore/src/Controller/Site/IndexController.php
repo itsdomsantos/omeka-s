@@ -3093,7 +3093,7 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     $propertyMap = [
         'https://purl.org/megalod/ms/ah/shape' => ['Shape', 7651],
         'https://purl.org/megalod/ms/ah/variant' => ['Variant', 7652],
-        'http://www.cidoc-crm.org/cidoc-crm/P45_consists_of' => ['Material', 13],
+        'http://www.cidoc-crm.org/cidoc-crm/P45_consists_of' => ['Material', 404],
         'https://purl.org/megalod/ms/excavation/elongationIndex' => ['Elongation Index', 7676],
         'https://purl.org/megalod/ms/excavation/thicknessIndex' => ['Thickness Index', 7677],
         // Separate square reference from coordinates
