@@ -1175,50 +1175,49 @@ error_log('=== END SEARCHING FOR MISSING VALUES ===', 3, OMEKA_PATH . '/logs/mis
         $arrowheadData['arrowhead_identifier'] = $formData['integer'];
     }
     
-    // COMPLETE positional mapping - update these IDs to match your actual collecting form prompt IDs
-    $positionalMapping = [
-        53 => 'arrowhead_identifier',                  // Identifier
-        54 => 'media_files',                          // Media files (if any)
-        55 => 'arrowhead_annotation',                 // Annotations/Notes
-        56 => 'condition_state',                      // Condition State
-        57 => 'weight',                               // Weight value
-        58 => 'weight_unit',                          // Weight unit
-        59 => 'height',                               // Height value  
-        60 => 'height_unit',                          // Height unit
-        61 => 'width',                                // Width value
-        62 => 'width_unit',                           // Width unit
-        63 => 'thickness',                            // Thickness value ✅
-        64 => 'thickness_unit',                       // Thickness unit
-        65 => 'arrowhead_type',                       // Type (Elongate/Short)
-        66 => 'elongation_index',                     // Elongation Index
-        67 => 'gps_latitude',                         // GPS Latitude ✅
-        68 => 'gps_longitude',                        // GPS Longitude ✅
-        69 => 'arrowhead_variant',                    // Variant
-        70 => 'arrowhead_shape',                      // Shape
-        71 => 'point_definition',                     // Point definition
-        72 => 'body_symmetry',                        // Body symmetry
-        73 => 'arrowhead_base',                       // Base type
-        74 => 'body_length',                          // Body length value ✅
-        75 => 'body_length_unit',                     // Body length unit
-        76 => 'base_length',                          // Base length value ✅
-        77 => 'base_length_unit',                     // Base length unit
-        78 => 'chipping_mode',                        // Chipping mode
-        79 => 'chipping_amplitude',                   // Chipping amplitude
-        80 => 'chipping_direction',                   // Chipping direction
-        81 => 'chipping_orientation',                 // Chipping orientation
-        82 => 'chipping_delineation',                 // Chipping delineation
-        83 => 'chipping_location_lateral_1',          // Chipping location lateral 1
-        84 => 'chipping_location_lateral_2',          // Chipping location lateral 2
-        85 => 'chipping_location_lateral_3',          // Chipping location lateral 3
-        86 => 'chipping_location_transversal_1',      // Chipping location transversal 1
-        87 => 'chipping_location_transversal_2',      // Chipping location transversal 2
-        88 => 'chipping_location_transversal_3',      // Chipping location transversal 3
-        89 => 'chipping_shape',                       // Chipping shape
-        90 => 'square_x',                             // Square coordinate X ✅
-        91 => 'square_y',                             // Square coordinate Y ✅  
-        92 => 'square_depth',                         // Square coordinate Z/depth ✅
-        93 => 'arrowhead_material',                   // Material
-    ];
+$positionalMapping = [
+    53 => 'arrowhead_identifier',                  // Identifier DONE
+    54 => 'media_files',                          // Media files (if any)
+    55 => 'arrowhead_annotation',                 // Annotations/Notes DONE
+    56 => 'condition_state',                      // Condition State DONE
+    57 => 'weight',                               // Weight value DONE
+    58 => 'weight_unit',                          // Weight unit DONE
+    59 => 'height',                               // Height value DONE
+    60 => 'height_unit',                          // Height unit DONE
+    61 => 'width',                                // Width value DONE
+    62 => 'width_unit',                           // Width unit DONE
+    63 => 'thickness',                            // Thickness value
+    64 => 'thickness_unit',                       // Thickness unit
+    65 => 'arrowhead_type',                       // Type (Elongate/Short) DONE
+    66 => 'elongation_index',                     // Elongation Index DONE
+    67 => 'gps_latitude',                         // GPS Latitude
+    68 => 'gps_longitude',                        // GPS Longitude
+    69 => 'arrowhead_variant',                    // Variant DONE
+    70 => 'arrowhead_shape',                      // Shape DONE
+    71 => 'point_definition',                     // Point definition DONE
+    72 => 'body_symmetry',                        // Body symmetry DONE
+    73 => 'arrowhead_base',                       // Base type DONE
+    74 => 'body_length',                          // Body length value
+    75 => 'body_length_unit',                     // Body length unit
+    76 => 'base_length',                          // Base length value
+    77 => 'base_length_unit',                     // Base length unit
+    78 => 'chipping_mode',                        // Chipping mode DONE
+    79 => 'chipping_amplitude',                   // Chipping amplitude DONE
+    80 => 'chipping_direction',                   // Chipping direction DONE
+    81 => 'chipping_orientation',                 // Chipping orientation DONE
+    82 => 'chipping_delineation',                 // Chipping delineation DONE
+    83 => 'chipping_location_lateral_1',          // Chipping location lateral 1 DONE
+    84 => 'chipping_location_lateral_2',          // Chipping location lateral 2
+    85 => 'chipping_location_lateral_3',          // Chipping location lateral 3
+    86 => 'chipping_location_transversal_1',      // Chipping location transversal 1 DONE
+    87 => 'chipping_location_transversal_2',      // Chipping location transversal 2
+    88 => 'chipping_location_transversal_3',      // Chipping location transversal 3
+    89 => 'chipping_shape',                       // Chipping shape DONE
+    90 => 'square_x',                             // Square coordinate X
+    91 => 'square_y',                             // Square coordinate Y  
+    92 => 'square_depth',                         // Square coordinate Z/depth
+    93 => 'arrowhead_material',                   // Material
+];
     
     // Process prompt fields based on position
     foreach ($positionalMapping as $promptId => $arrowheadField) {
@@ -3098,8 +3097,8 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         'https://purl.org/megalod/ms/excavation/elongationIndex' => ['Elongation Index', 7676],
         'https://purl.org/megalod/ms/excavation/thicknessIndex' => ['Thickness Index', 7677],
         // Separate square reference from coordinates
-        'https://purl.org/megalod/ms/excavation/foundInSquare' => ['Found in Square', 7674],
-        'https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare' => ['Coordinates', 7678], // New property for actual coordinates
+        'https://purl.org/megalod/ms/excavation/foundInSquare' => ['Found in Square', 7668],
+        'https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare' => ['Coordinates', 7674], // New property for actual coordinates
         'https://purl.org/megalod/ms/excavation/foundInContext' => ['Context', 7672],
         'https://purl.org/megalod/ms/excavation/foundInSVU' => ['Stratigraphic Unit', 7671],
         'https://purl.org/megalod/ms/excavation/foundInExcavation' => ['Excavation', 7673]
@@ -3431,8 +3430,9 @@ if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordina
     // Extract typometry values (measurements)
     // Extract typometry values (measurements) - with combined value and unit
 $typometryMap = [
-    'https://purl.org/megalod/ms/ah/bodyLength' => ['ah:bodyLength', 7649],
-    'https://purl.org/megalod/ms/ah/baseLength' => ['ah:baseLength', 7650],
+    'https://purl.org/megalod/ms/ah/bodyLength' => ['Body Length', 7678],
+    'https://purl.org/megalod/ms/ah/baseLength' => ['Base Length', 7679],
+
     'http://schema.org/height' => ['height', 5616],    // Changed the property name to match display
     'http://schema.org/width' => ['width', 5688],      // Changed the property name to match display
     'http://schema.org/depth' => ['depth', 7244]       // Changed the property name to match display

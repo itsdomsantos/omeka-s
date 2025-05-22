@@ -539,14 +539,14 @@
         sh:maxCount 1 ;
     ] ;
     sh:property [
-        sh:path ah:bodyLength ;
+        sh:path ah:hasBodyLength ;
         sh:name "BodyLength of the arrowhead" ;
         sh:class excav:TypometryValue ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
-        sh:path ah:baseLength ;
+        sh:path ah:hasBaseLength ;
         sh:name "BaseLength of the arrowhead" ;
         sh:class excav:TypometryValue ;
         sh:minCount 0 ;
