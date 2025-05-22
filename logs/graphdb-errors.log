@@ -31743,3 +31743,9 @@ _:5a02ebac-2ff6-4a89-8c76-dc679b68248d-44 <http://www.w3.org/ns/shacl#class> <ht
 2025-05-22T10:49:33+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-05-22T10:50:47+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-05-22T10:52:59+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-22T16:37:03+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '^' [line 30]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '^' [line 30]2025-05-22T16:37:03+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '^' [line 30]
+2025-05-22T16:37:10+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '^' [line 30]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '^' [line 30]2025-05-22T16:37:10+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found '^' [line 30]
+2025-05-22T16:43:07+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-22T16:53:26+00:00 INFO (6): Response Status: 204 | Response Body:
