@@ -1137,11 +1137,21 @@ public function processCollectingFormAction()
     ]));
 }
 
-// In IndexController.php, replace the transformCollectingFormToArrowheadData function with this:
-
 private function transformCollectingFormToArrowheadData($formData)
 {
+
+    // Add this at the very beginning of transformCollectingFormToArrowheadData:
+error_log('=== SEARCHING FOR MISSING VALUES ===', 3, OMEKA_PATH . '/logs/missing-values.log');
+$searchValues = ['44', '55', '66', '77', '88', '3']; // Values you entered
+foreach ($formData as $key => $value) {
+    if (in_array($value, $searchValues)) {
+        error_log("Found missing value '$value' in key: $key", 3, OMEKA_PATH . '/logs/missing-values.log');
+    }
+}
+error_log('=== END SEARCHING FOR MISSING VALUES ===', 3, OMEKA_PATH . '/logs/missing-values.log');
+
     $this->debugPromptMapping($formData);
+    $this->debugDetailedPromptProcessing($formData);
     $arrowheadData = [];
     
     // Log raw data for debugging
@@ -1214,11 +1224,24 @@ private function transformCollectingFormToArrowheadData($formData)
     foreach ($positionalMapping as $promptId => $arrowheadField) {
         $promptKey = 'prompt_' . $promptId;
         
-        if (isset($formData[$promptKey]) && trim($formData[$promptKey]) !== '') {
-            $value = trim($formData[$promptKey]);
+        if (isset($formData[$promptKey])) {
+            $value = $formData[$promptKey];
             
-            // Skip empty values
-            if (empty($value)) {
+            // Log each field being processed
+            error_log("Processing prompt_$promptId ($arrowheadField): '$value'", 3, OMEKA_PATH . '/logs/field-processing.log');
+            
+            // Handle completely empty values
+            if ($value === '' || $value === null) {
+                error_log("Skipping empty value for prompt_$promptId ($arrowheadField)", 3, OMEKA_PATH . '/logs/field-processing.log');
+                continue;
+            }
+            
+            // Trim the value
+            $value = trim($value);
+            
+            // Skip if still empty after trimming
+            if ($value === '') {
+                error_log("Skipping empty value after trim for prompt_$promptId ($arrowheadField)", 3, OMEKA_PATH . '/logs/field-processing.log');
                 continue;
             }
             
@@ -1228,6 +1251,7 @@ private function transformCollectingFormToArrowheadData($formData)
                                               'body_length_unit', 'base_length_unit', 'arrowhead_material'])) {
                     // For unit and material fields, keep the full URI
                     $arrowheadData[$arrowheadField] = $value;
+                    error_log("Stored URI for $arrowheadField: $value", 3, OMEKA_PATH . '/logs/field-processing.log');
                     continue;
                 }
             }
@@ -1237,6 +1261,7 @@ private function transformCollectingFormToArrowheadData($formData)
                 // Split by | and take the first part (the actual value)
                 $parts = explode('|', $value);
                 $value = trim($parts[0]);
+                error_log("Extracted value from display text for $arrowheadField: '$value'", 3, OMEKA_PATH . '/logs/field-processing.log');
             }
             
             // Special handling for boolean fields
@@ -1245,6 +1270,17 @@ private function transformCollectingFormToArrowheadData($formData)
                                               'body_symmetry', 'chipping_amplitude', 'chipping_orientation'])) {
                     // Extract just the boolean part
                     $value = strpos($value, 'True') !== false ? 'true' : 'false';
+                    error_log("Extracted boolean for $arrowheadField: $value", 3, OMEKA_PATH . '/logs/field-processing.log');
+                }
+            }
+            
+            // Special handling for parenthetical descriptions (remove them)
+            if (strpos($value, '(') !== false) {
+                $parts = explode('(', $value);
+                $cleanValue = trim($parts[0]);
+                if (!empty($cleanValue)) {
+                    $value = $cleanValue;
+                    error_log("Cleaned parenthetical for $arrowheadField: '$value'", 3, OMEKA_PATH . '/logs/field-processing.log');
                 }
             }
             
@@ -1255,8 +1291,10 @@ private function transformCollectingFormToArrowheadData($formData)
                 // Try to extract a numeric value
                 if (preg_match('/(\d+(\.\d+)?)/', $value, $matches)) {
                     $value = $matches[1]; // Extract the numeric part
+                    error_log("Extracted numeric value for $arrowheadField: $value", 3, OMEKA_PATH . '/logs/field-processing.log');
                 } elseif (!is_numeric($value)) {
                     // Skip non-numeric values for numeric fields
+                    error_log("Skipping non-numeric value for $arrowheadField: '$value'", 3, OMEKA_PATH . '/logs/field-processing.log');
                     continue;
                 }
             }
@@ -1264,13 +1302,16 @@ private function transformCollectingFormToArrowheadData($formData)
             // Handle commas in decimal numbers (convert from European to US format)
             if (in_array($arrowheadField, $numericFields) && strpos($value, ',') !== false) {
                 $value = str_replace(',', '.', $value);
+                error_log("Converted comma to dot for $arrowheadField: $value", 3, OMEKA_PATH . '/logs/field-processing.log');
             }
             
             // Store the processed value
             $arrowheadData[$arrowheadField] = $value;
             
             // Log each successful mapping
-            error_log("Mapped prompt_$promptId ($arrowheadField) = $value", 3, OMEKA_PATH . '/logs/field-mapping.log');
+            error_log("Successfully mapped prompt_$promptId ($arrowheadField) = '$value'", 3, OMEKA_PATH . '/logs/field-mapping.log');
+        } else {
+            error_log("prompt_$promptId not found in form data for field $arrowheadField", 3, OMEKA_PATH . '/logs/field-processing.log');
         }
     }
     
@@ -1279,6 +1320,34 @@ private function transformCollectingFormToArrowheadData($formData)
     
     return $arrowheadData;
 }
+
+// Add this at the beginning of transformCollectingFormToArrowheadData for more detailed debugging
+
+private function debugDetailedPromptProcessing($formData) {
+    error_log('=== DETAILED PROMPT PROCESSING DEBUG ===', 3, OMEKA_PATH . '/logs/detailed-debug.log');
+    
+    $expectedPrompts = [63, 67, 68, 74, 76, 90, 91, 92]; // The missing ones
+    
+    foreach ($expectedPrompts as $promptId) {
+        $promptKey = 'prompt_' . $promptId;
+        
+        if (isset($formData[$promptKey])) {
+            $value = $formData[$promptKey];
+            error_log("prompt_$promptId exists: '" . $value . "' (length: " . strlen($value) . ")", 3, OMEKA_PATH . '/logs/detailed-debug.log');
+            
+            if (empty($value)) {
+                error_log("prompt_$promptId is empty", 3, OMEKA_PATH . '/logs/detailed-debug.log');
+            }
+        } else {
+            error_log("prompt_$promptId does NOT exist in form data", 3, OMEKA_PATH . '/logs/detailed-debug.log');
+        }
+    }
+    
+    error_log('=== END DETAILED PROMPT PROCESSING DEBUG ===', 3, OMEKA_PATH . '/logs/detailed-debug.log');
+}
+
+// Call this function at the very beginning of transformCollectingFormToArrowheadData:
+// $this->debugDetailedPromptProcessing($formData);
 
 /**
  * Prepare TTL data from excavation form submissions with the new data model
