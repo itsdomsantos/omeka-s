@@ -43,9 +43,10 @@ class IndexController extends AbstractActionController
         error_log('=== DEBUGGING PROMPT MAPPING ===', 3, OMEKA_PATH . '/logs/prompt-debug.log');
         
         // Log all prompt fields with their values
+        // Check for problematic values
         foreach ($formData as $key => $value) {
-            if (strpos($key, 'prompt_') === 0) {
-                error_log("$key: " . (is_array($value) ? json_encode($value) : $value), 3, OMEKA_PATH . '/logs/prompt-debug.log');
+            if (is_string($value) && (strpos($value, '"') !== false || strpos($value, '\n') !== false)) {
+                error_log("POTENTIAL PROBLEM FIELD: $key = " . $value, 3, OMEKA_PATH . '/logs/debug-all-fields.log');
             }
         }
         
@@ -491,482 +492,279 @@ private function getItemIdentifier($item)
         return $this->redirect()->toUrl($this->url()->fromRoute('site', ['site-slug' => $this->currentSite()->slug()]));
     }
 
-
-/**
- * Process arrowhead form data and convert to TTL
- */
-private function processArrowheadFormData($formData, $itemSetId)
-{
-    // Log incoming data for debugging
-    error_log("Processing arrowhead form data: " . print_r($formData, true), 3, OMEKA_PATH . '/logs/arrowhead-data.log');
-    
-    // Generate a base URI for resources
-    $baseUri = rtrim($this->baseDataGraphUri, '/');
-    
-    // Use the provided excavation ID or default to "0"
-    $graphId = $itemSetId ?: "0";
-    
-    // Use the provided identifier or generate a unique one
-    $arrowheadId = !empty($formData['arrowhead_identifier']) 
-        ? trim($formData['arrowhead_identifier']) 
-        : uniqid();
-    
-    // Create resource URIs
-    $excavationUri = "$baseUri/$graphId";
-    $arrowheadUri = "$baseUri/$graphId/item/$arrowheadId";
-    $morphologyUri = "$baseUri/$graphId/morphology/$arrowheadId";
-    $chippingUri = "$baseUri/$graphId/chipping/$arrowheadId";
-    $encounterUri = "$baseUri/$graphId/encounter/$arrowheadId";
-    
-    // References to other entities
-    $squareUri = null;
-    $contextUri = null;
-    $svuUri = null;
-    $squareIdentifier = null;
-    $contextIdentifier = null;
-    $svuIdentifier = null;
-    
-    // Get reference URIs if provided
-    if (!empty($formData['square_id'])) {
-        try {
-            $square = $this->api()->read('items', $formData['square_id'])->getContent();
-            $squareIdentifier = $this->getItemIdentifier($square);
-            
-            if ($squareIdentifier) {
-                $squareUri = "$baseUri/$graphId/square/$squareIdentifier";
-            }
-        } catch (\Exception $e) {
-            error_log('Error getting square: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/arrowhead-process.log');
-        }
-    }
-
-    if (!empty($formData['context_id'])) {
-        try {
-            $context = $this->api()->read('items', $formData['context_id'])->getContent();
-            $contextIdentifier = $this->getItemIdentifier($context);
-            
-            if ($contextIdentifier) {
-                $contextUri = "$baseUri/$graphId/context/$contextIdentifier";
-            }
-        } catch (\Exception $e) {
-            error_log('Error getting context: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/arrowhead-process.log');
-        }
-    }
-    
-    if (!empty($formData['svu_id'])) {
-        try {
-            $svu = $this->api()->read('items', $formData['svu_id'])->getContent();
-            $svuIdentifier = $this->getItemIdentifier($svu);
-            
-            if ($svuIdentifier) {
-                $svuUri = "$baseUri/$graphId/svu/$svuIdentifier";
-            }
-        } catch (\Exception $e) {
-            error_log('Error getting SVU: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/arrowhead-process.log');
-        }
-    }
-    
-    // ----------------------------------------
-    // Start building the TTL data
-    // ----------------------------------------
-    $ttl = $this->getTtlPrefixes();
-    
-    // ----------------------------------------
-    // 1. First define the excavation
-    // ----------------------------------------
-    $ttl .= "<$excavationUri> a excav:Excavation;\n";
-    $ttl .= "    dct:identifier \"EXC-$graphId\"^^xsd:literal;\n";
-    $ttl .= "    .\n\n";
-    
-    // ----------------------------------------
-    // 2. Define all reference entities (Square, Context, SVU)
-    // ----------------------------------------
-    if ($squareUri) {
-        $ttl .= "<$squareUri> a excav:Square;\n";
-        $ttl .= "    dct:identifier \"$squareIdentifier\"^^xsd:literal;\n";
-        $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
+    private function processArrowheadFormData($formData, $itemSetId)
+    {
+        // Debug log the incoming form data
+        error_log('Form data received in processArrowheadFormData: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/form-debug.log');
+        
+        // Generate a base URI for resources
+        $baseUri = "https://purl.org/megalod/$itemSetId";
+        
+        // Generate a unique ID for the arrowhead if not provided
+        $arrowheadId = !empty($formData['arrowhead_identifier']) 
+            ? $formData['arrowhead_identifier'] 
+            : 'AH-' . uniqid();
+        
+        // Create resource URIs
+        $arrowheadUri = "$baseUri/item/$arrowheadId";
+        $morphologyUri = "$baseUri/morphology/$arrowheadId";
+        $chippingUri = "$baseUri/chipping/$arrowheadId";
+        $excavationUri = "https://purl.org/megalod/$itemSetId";
+        $encounterUri = "$baseUri/encounter/$arrowheadId";
+        
+        // Build TTL data
+        $ttl = $this->getTtlPrefixes();
+        
+        // Add excavation reference
+        $ttl .= "<$excavationUri> a excav:Excavation;\n";
+        $ttl .= "    dct:identifier \"EXC-$itemSetId\"^^xsd:literal;\n";
         $ttl .= "    .\n\n";
-    }
-    
-    if ($contextUri) {
-        $ttl .= "<$contextUri> a crmarchaeo:A1_Excavation_Processing_Unit;\n";
-        $ttl .= "    dct:identifier \"$contextIdentifier\"^^xsd:literal;\n";
+        
+        // Add arrowhead - start the main resource
+        $ttl .= "<$arrowheadUri> a ah:Arrowhead, excav:Item;\n";
+        $ttl .= "    dct:identifier \"$arrowheadId\"^^xsd:literal;\n";
         $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
-        $ttl .= "    .\n\n";
-    }
-    
-    if ($svuUri) {
-        $ttl .= "<$svuUri> a crmarchaeo:A2_Stratigraphic_Volume_Unit;\n";
-        $ttl .= "    dct:identifier \"$svuIdentifier\"^^xsd:literal;\n";
-        $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
-        $ttl .= "    .\n\n";
-    }
-
-    // ----------------------------------------
-    // 3. Define the arrowhead with all its properties
-    // ----------------------------------------
-    $ttl .= "<$arrowheadUri> a ah:Arrowhead, excav:Item;\n";
-    $ttl .= "    dct:identifier \"$arrowheadId\"^^xsd:literal;\n";
-    
-    // Add references to square, context, and SVU if we have them
-    if ($squareUri) {
-        $ttl .= "    excav:foundInSquare <$squareUri>;\n";
-    }
-    
-    if ($contextUri) {
-        $ttl .= "    excav:foundInContext <$contextUri>;\n";
-    }
-    
-    if ($svuUri) {
-        $ttl .= "    excav:foundInSVU <$svuUri>;\n";
-    }
-    
-    // Add excavation reference
-    $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
-    
-    // Add annotation if provided
-    if (!empty($formData['arrowhead_annotation'])) {
-        $annotation = str_replace('"', '\"', $formData['arrowhead_annotation']);
-        $annotation = str_replace(["\r", "\n"], ' ', $annotation);
-        $ttl .= "    dbo:Annotation \"" . $annotation . "\"^^xsd:literal;\n";
-    }
-    
-    // Add condition state
-    if (!empty($formData['condition_state'])) {
-        $value = $formData['condition_state'] === 'true' ? "true" : "false";
-        $ttl .= "    crm:E3_Condition_State \"$value\"^^xsd:boolean;\n";
-    }
-    
-    // Add arrowhead type (Elongate/Short)
-    if (!empty($formData['arrowhead_type'])) {
-        $value = $formData['arrowhead_type'] === 'true' ? "true" : "false";
-        $ttl .= "    crm:E55_Type \"$value\"^^xsd:boolean;\n";
-    }
-    
-    // Add elongation index
-    if (!empty($formData['elongation_index'])) {
-        $allowedElongationIndices = ['Elongated', 'Medium', 'Short'];
-        $elongationSafe = in_array($formData['elongation_index'], $allowedElongationIndices) ? 
-            $formData['elongation_index'] : 'Medium';
-        $ttl .= "    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/$elongationSafe>;\n";
-    }
-    
-    // Add material
-    if (!empty($formData['arrowhead_material'])) {
-        $ttl .= "    crm:E57_Material <" . $formData['arrowhead_material'] . ">;\n";
-    }
-    
-    // Add shape
-    if (!empty($formData['arrowhead_shape'])) {
-        $shapeSafe = $this->sanitizeForUri($formData['arrowhead_shape']);
-        $ttl .= "    ah:shape <https://purl.org/megalod/kos/ah-shape/$shapeSafe>;\n";
-    }
-    
-    // Add variant
-    if (!empty($formData['arrowhead_variant'])) {
-        $variantSafe = $this->sanitizeForUri($formData['arrowhead_variant']);
-        $ttl .= "    ah:variant <https://purl.org/megalod/kos/ah-variant/$variantSafe>;\n";
-    }
-    
-    // Add measurements with units (handle weight separately)
-    $measurements = [
-        'height' => 'schema:height',
-        'width' => 'schema:width', 
-        'thickness' => 'schema:depth'  // This should now work properly
-    ];
-    
-    foreach ($measurements as $measurementField => $predicate) {
-        if (!empty($formData[$measurementField]) && is_numeric($formData[$measurementField])) {
-            $measurementUri = "$baseUri/$graphId/typometry/{$arrowheadId}-$measurementField";
-            $ttl .= "    $predicate <$measurementUri>;\n";
-            
-            error_log("Added measurement reference: $measurementField = " . $formData[$measurementField], 3, OMEKA_PATH . '/logs/measurements-debug.log');
+        
+        // Add annotation if provided
+        if (!empty($formData['arrowhead_annotation'])) {
+            $ttl .= "    dbo:Annotation \"" . $formData['arrowhead_annotation'] . "\"^^xsd:literal;\n";
         }
-    }
-    
-    // Handle weight separately with correct type
-    if (!empty($formData['weight']) && is_numeric($formData['weight'])) {
-        $weightUri = "$baseUri/$graphId/weight/$arrowheadId";
-        $ttl .= "    schema:weight <$weightUri>;\n";
-    }
-    
-    // Add body and base lengths - These should now work properly
-    if (!empty($formData['body_length']) && is_numeric($formData['body_length'])) {
-        $bodyLengthUri = "$baseUri/$graphId/typometry/{$arrowheadId}-bodyLength";
-        $ttl .= "    ah:bodyLength <$bodyLengthUri>;\n";
-    }
-    
-    if (!empty($formData['base_length']) && is_numeric($formData['base_length'])) {
-        $baseLengthUri = "$baseUri/$graphId/typometry/{$arrowheadId}-baseLength";
-        $ttl .= "    ah:baseLength <$baseLengthUri>;\n";
-    }
-    
-    // Add GPS coordinates if provided - These should now work properly
-    if (!empty($formData['gps_latitude']) && !empty($formData['gps_longitude'])) {
-        $gpsUri = "$baseUri/$graphId/gps/$arrowheadId";
-        $ttl .= "    excav:hasGPSCoordinates <$gpsUri>;\n";
-    }
-
-    // Add square coordinates if provided (local grid coordinates, not GPS) - These should now work properly
-    if (!empty($formData['square_x']) && !empty($formData['square_y'])) {
-        $coordsUri = "$baseUri/$graphId/coordinates/$arrowheadId";
-        $ttl .= "    excav:hasCoordinatesInSquare <$coordsUri>;\n";
-    }
-    
-    // Add chipping if we have chipping data
-    $hasChippingData = !empty($formData['chipping_mode']) || !empty($formData['chipping_direction']) || 
-                       !empty($formData['chipping_delineation']) || !empty($formData['chipping_shape']) ||
-                       !empty($formData['chipping_amplitude']) || !empty($formData['chipping_orientation']);
-    
-    if ($hasChippingData) {
-        $ttl .= "    ah:hasChipping <$chippingUri>;\n";
-    }
-    
-    // Add morphology reference
-    $hasMorphologyData = (!empty($formData['point_definition']) || !empty($formData['body_symmetry']) || !empty($formData['arrowhead_base']));
-    if ($hasMorphologyData) {
+        
+        // Add condition state
+        if (!empty($formData['condition_state'])) {
+            $value = (stripos($formData['condition_state'], 'true') !== false) ? "true" : "false";
+            $ttl .= "    crm:E3_Condition_State \"$value\"^^xsd:boolean;\n";
+        }
+        
+        // Add type (elongate/short)
+        if (!empty($formData['arrowhead_type'])) {
+            $value = (stripos($formData['arrowhead_type'], 'true') !== false) ? "true" : "false";
+            $ttl .= "    crm:E55_Type \"$value\"^^xsd:boolean;\n";
+        }
+        
+        // Add elongation index
+        if (!empty($formData['elongation_index'])) {
+            $ttl .= "    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/" . $formData['elongation_index'] . ">;\n";
+        }
+        
+        // Add material
+        if (!empty($formData['arrowhead_material'])) {
+            $ttl .= "    crm:E57_Material <" . $formData['arrowhead_material'] . ">;\n";
+        }
+        
+        // Add shape if selected
+        if (!empty($formData['arrowhead_shape'])) {
+            $shapeSafe = strtolower(str_replace('-', '', $formData['arrowhead_shape']));
+            $ttl .= "    ah:shape <https://purl.org/megalod/kos/ah-shape/$shapeSafe>;\n";
+        }
+        
+        // Add variant if selected
+        if (!empty($formData['arrowhead_variant'])) {
+            $variantSafe = strtolower($formData['arrowhead_variant']);
+            $ttl .= "    ah:variant <https://purl.org/megalod/kos/ah-variant/$variantSafe>;\n";
+        }
+        
+        // Initialize measurement blocks collection
+        $measurementBlocks = "";
+        
+        // Process basic measurements
+        $measurements = [
+            'height' => 'height',
+            'width' => 'width', 
+            'weight' => 'weight'
+        ];
+        
+        foreach ($measurements as $measurement => $property) {
+            $valueKey = $measurement;
+            $unitKey = $measurement . '_unit';
+            
+            if (!empty($formData[$valueKey])) {
+                $measurementUri = "$baseUri/typometry/$arrowheadId-$measurement";
+                
+                // Add property to main resource
+                if ($measurement === 'weight') {
+                    $ttl .= "    schema:weight <$measurementUri>;\n";
+                } else {
+                    $ttl .= "    schema:$property <$measurementUri>;\n";
+                }
+                
+                // Collect the resource block to add later
+                if ($measurement === 'weight') {
+                    $measurementBlocks .= "<$measurementUri> a excav:Weight;\n";
+                } else {
+                    $measurementBlocks .= "<$measurementUri> a excav:TypometryValue;\n";
+                }
+                $measurementBlocks .= "    schema:value \"" . $formData[$valueKey] . "\"^^xsd:decimal;\n";
+                if (!empty($formData[$unitKey])) {
+                    $measurementBlocks .= "    schema:UnitCode <" . $formData[$unitKey] . ">;\n";
+                }
+                $measurementBlocks .= "    .\n\n";
+            }
+        }
+        
+        // Add thickness (separate because it uses schema:depth)
+        if (!empty($formData['thickness'])) {
+            $thicknessUri = "$baseUri/typometry/$arrowheadId-thickness";
+            $ttl .= "    schema:depth <$thicknessUri>;\n";
+            
+            $measurementBlocks .= "<$thicknessUri> a excav:TypometryValue;\n";
+            $measurementBlocks .= "    schema:value \"" . $formData['thickness'] . "\"^^xsd:decimal;\n";
+            if (!empty($formData['thickness_unit'])) {
+                $measurementBlocks .= "    schema:UnitCode <" . $formData['thickness_unit'] . ">;\n";
+            }
+            $measurementBlocks .= "    .\n\n";
+        }
+        
+        // Add body length and base length (SHACL requirement)
+        if (!empty($formData['body_length'])) {
+            $bodyLengthUri = "$baseUri/typometry/$arrowheadId-bodyLength";
+            $ttl .= "    ah:bodyLength <$bodyLengthUri>;\n";
+            
+            $measurementBlocks .= "<$bodyLengthUri> a excav:TypometryValue;\n";
+            $measurementBlocks .= "    schema:value \"" . $formData['body_length'] . "\"^^xsd:decimal;\n";
+            if (!empty($formData['body_length_unit'])) {
+                $measurementBlocks .= "    schema:UnitCode <" . $formData['body_length_unit'] . ">;\n";
+            }
+            $measurementBlocks .= "    .\n\n";
+        }
+        
+        if (!empty($formData['base_length'])) {
+            $baseLengthUri = "$baseUri/typometry/$arrowheadId-baseLength";
+            $ttl .= "    ah:baseLength <$baseLengthUri>;\n";
+            
+            $measurementBlocks .= "<$baseLengthUri> a excav:TypometryValue;\n";
+            $measurementBlocks .= "    schema:value \"" . $formData['base_length'] . "\"^^xsd:decimal;\n";
+            if (!empty($formData['base_length_unit'])) {
+                $measurementBlocks .= "    schema:UnitCode <" . $formData['base_length_unit'] . ">;\n";
+            }
+            $measurementBlocks .= "    .\n\n";
+        }
+        
+        // Add square coordinates if provided
+        if (!empty($formData['latitude']) && !empty($formData['longitude'])) {
+            $coordinatesUri = "$baseUri/coordinates/$arrowheadId";
+            $ttl .= "    excav:hasCoordinatesInSquare <$coordinatesUri>;\n";
+            
+            $measurementBlocks .= "<$coordinatesUri> a excav:Coordinates;\n";
+            $measurementBlocks .= "    geo:longitude \"" . $formData['longitude'] . "\"^^xsd:decimal;\n";
+            $measurementBlocks .= "    geo:latitude \"" . $formData['latitude'] . "\"^^xsd:decimal;\n";
+            $measurementBlocks .= "    .\n\n";
+        }
+        
+        // Add chipping information
+        $hasChippingData = !empty($formData['chipping_mode']) || 
+                           !empty($formData['chipping_amplitude']) || 
+                           !empty($formData['chipping_direction']);
+        
+        if ($hasChippingData) {
+            $ttl .= "    ah:hasChipping <$chippingUri>;\n";
+        }
+        
+        // Add morphology reference
         $ttl .= "    ah:hasMorphology <$morphologyUri>;\n";
-    }
-    
-    $ttl .= "    .\n\n";
-    
-    // ----------------------------------------
-    // 4. Define all measurement values including the missing ones
-    // ----------------------------------------
-    
-    // Add typometry values (excluding weight)
-    foreach ($measurements as $measurementField => $predicate) {
-        if (!empty($formData[$measurementField]) && is_numeric($formData[$measurementField])) {
-            $measurementUri = "$baseUri/$graphId/typometry/{$arrowheadId}-$measurementField";
-            
-            $ttl .= "<$measurementUri> a excav:TypometryValue;\n";
-            $ttl .= "    schema:value \"" . floatval($formData[$measurementField]) . "\"^^xsd:decimal;\n";
-            $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/MM>;\n";
-            $ttl .= "    .\n\n";
-            
-            error_log("Generated typometry for $measurementField with value " . $formData[$measurementField], 3, OMEKA_PATH . '/logs/measurements-debug.log');
-        }
-    }
-    
-    // Add weight definition with correct type
-    if (!empty($formData['weight']) && is_numeric($formData['weight'])) {
-        $weightUri = "$baseUri/$graphId/weight/$arrowheadId";
-        $ttl .= "<$weightUri> a excav:Weight;\n";
-        $ttl .= "    schema:value \"" . floatval($formData['weight']) . "\"^^xsd:decimal;\n";
-        $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/GM>;\n";
-        $ttl .= "    .\n\n";
-    }
-    
-    // Add body length definition - This should now work properly
-    if (!empty($formData['body_length']) && is_numeric($formData['body_length'])) {
-        $bodyLengthUri = "$baseUri/$graphId/typometry/{$arrowheadId}-bodyLength";
-        $ttl .= "<$bodyLengthUri> a excav:TypometryValue;\n";
-        $ttl .= "    schema:value \"" . floatval($formData['body_length']) . "\"^^xsd:decimal;\n";
-        $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/MM>;\n";
-        $ttl .= "    .\n\n";
-    }
-    
-    // Add base length definition - This should now work properly
-    if (!empty($formData['base_length']) && is_numeric($formData['base_length'])) {
-        $baseLengthUri = "$baseUri/$graphId/typometry/{$arrowheadId}-baseLength";
-        $ttl .= "<$baseLengthUri> a excav:TypometryValue;\n";
-        $ttl .= "    schema:value \"" . floatval($formData['base_length']) . "\"^^xsd:decimal;\n";
-        $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/MM>;\n";
-        $ttl .= "    .\n\n";
-    }
-    
-    // ----------------------------------------
-    // 5. Define coordinates
-    // ----------------------------------------
-    
-    // Add GPS coordinates definition - These should now work properly
-    if (!empty($formData['gps_latitude']) && !empty($formData['gps_longitude'])) {
-        $gpsUri = "$baseUri/$graphId/gps/$arrowheadId";
-        $ttl .= "<$gpsUri> a excav:GPSCoordinates;\n";
-        $ttl .= "    geo:lat \"" . floatval($formData['gps_latitude']) . "\"^^xsd:decimal;\n";
-        $ttl .= "    geo:long \"" . floatval($formData['gps_longitude']) . "\"^^xsd:decimal;\n";
-        $ttl .= "    .\n\n";
-    }
-
-    // Add square coordinates definition - These should now work properly
-    if (!empty($formData['square_x']) && !empty($formData['square_y'])) {
-        $coordsUri = "$baseUri/$graphId/coordinates/$arrowheadId";
-        $ttl .= "<$coordsUri> a excav:Coordinates;\n";
-        $ttl .= "    geo:latitude \"" . floatval($formData['square_y']) . "\"^^xsd:decimal;\n";  // Y = latitude-like
-        $ttl .= "    geo:longitude \"" . floatval($formData['square_x']) . "\"^^xsd:decimal;\n"; // X = longitude-like
         
-        // Add depth if provided - This should now work properly
-        if (!empty($formData['square_depth']) && is_numeric($formData['square_depth'])) {
-            $depthUri = "$coordsUri/depth";
-            $ttl .= "    schema:depth <$depthUri>;\n";
-        }
+        // Close the main arrowhead resource
         $ttl .= "    .\n\n";
         
-        // Add depth definition - This should now work properly
-        if (!empty($formData['square_depth']) && is_numeric($formData['square_depth'])) {
-            $depthUri = "$coordsUri/depth";
-            $ttl .= "<$depthUri> a excav:Depth;\n";
-            $ttl .= "    schema:value \"" . floatval($formData['square_depth']) . "\"^^xsd:decimal;\n";
-            $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/CMNT>;\n";
-            $ttl .= "    .\n\n";
-        }
-    }
-    
-    // ----------------------------------------
-    // 6. Define the morphology (only if we have morphology data)
-    // ----------------------------------------
-    if ($hasMorphologyData) {
+        // Add morphology
         $ttl .= "<$morphologyUri> a ah:Morphology;\n";
         
-        // Only add point if provided
+        // Add point definition
         if (!empty($formData['point_definition'])) {
-            $pointValue = ($formData['point_definition'] === 'true') ? "true" : "false";
-            $ttl .= "    ah:point \"$pointValue\"^^xsd:boolean;\n";
+            $value = (stripos($formData['point_definition'], 'true') !== false) ? "true" : "false";
+            $ttl .= "    ah:point \"$value\"^^xsd:boolean;\n";
         }
         
-        // Only add body if provided
+        // Add body symmetry
         if (!empty($formData['body_symmetry'])) {
-            $bodyValue = ($formData['body_symmetry'] === 'true') ? "true" : "false";
-            $ttl .= "    ah:body \"$bodyValue\"^^xsd:boolean;\n";
+            $value = (stripos($formData['body_symmetry'], 'true') !== false) ? "true" : "false";
+            $ttl .= "    ah:body \"$value\"^^xsd:boolean;\n";
         }
         
-        // Add base if provided
+        // Add base if selected
         if (!empty($formData['arrowhead_base'])) {
-            $allowedBases = ['straight', 'convex', 'concave', 'stemmed', 'triangular'];
-            $baseSafe = $this->sanitizeForUri($formData['arrowhead_base']);
-            if (!in_array($baseSafe, $allowedBases)) {
-                $baseSafe = 'straight'; // Default
-            }
+            $baseSafe = strtolower($formData['arrowhead_base']);
             $ttl .= "    ah:base <https://purl.org/megalod/kos/ah-base/$baseSafe>;\n";
         }
         
         $ttl .= "    .\n\n";
-    }
-    
-    // ----------------------------------------
-    // 7. Define chipping details (only if we have chipping data)
-    // ----------------------------------------
-    if ($hasChippingData) {
-        $ttl .= "<$chippingUri> a ah:Chipping;\n";
         
-        // Add chipping mode
-        if (!empty($formData['chipping_mode'])) {
-            $allowedModes = ['plane', 'parallel', 'sub-parallel'];
-            $modeSafe = $this->sanitizeForUri($formData['chipping_mode']);
-            if (!in_array($modeSafe, $allowedModes)) {
-                $modeSafe = 'parallel'; // Default
+        // Add chipping details if necessary
+        if ($hasChippingData) {
+            $ttl .= "<$chippingUri> a ah:Chipping;\n";
+            
+            // Add chipping mode
+            if (!empty($formData['chipping_mode'])) {
+                $modeSafe = strtolower(str_replace('-', '-', $formData['chipping_mode']));
+                $ttl .= "    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/$modeSafe>;\n";
             }
-            $ttl .= "    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/$modeSafe>;\n";
-        }
-        
-        // Add chipping amplitude
-        if (!empty($formData['chipping_amplitude'])) {
-            $value = $formData['chipping_amplitude'] === 'true' ? "true" : "false";
-            $ttl .= "    ah:chippingAmplitude \"$value\"^^xsd:boolean;\n";
-        }
-        
-        // Add chipping direction
-        if (!empty($formData['chipping_direction'])) {
-            $allowedDirections = ['direct', 'reverse', 'bifacial'];
-            $directionSafe = $this->sanitizeForUri($formData['chipping_direction']);
-            if (!in_array($directionSafe, $allowedDirections)) {
-                $directionSafe = 'direct'; // Default
+            
+            // Add chipping amplitude
+            if (!empty($formData['chipping_amplitude'])) {
+                $value = (stripos($formData['chipping_amplitude'], 'true') !== false) ? "true" : "false";
+                $ttl .= "    ah:chippingAmplitude \"$value\"^^xsd:boolean;\n";
             }
-            $ttl .= "    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/$directionSafe>;\n";
-        }
-        
-        // Add chipping orientation
-        if (!empty($formData['chipping_orientation'])) {
-            $value = $formData['chipping_orientation'] === 'true' ? "true" : "false";
-            $ttl .= "    ah:chippingOrientation \"$value\"^^xsd:boolean;\n";
-        }
-        
-        // Add chipping delineation
-        if (!empty($formData['chipping_delineation'])) {
-            $allowedDelineations = ['continuous', 'composite', 'denticulated'];
-            $delineationSafe = $this->sanitizeForUri($formData['chipping_delineation']);
-            if (!in_array($delineationSafe, $allowedDelineations)) {
-                $delineationSafe = 'continuous'; // Default
+            
+            // Add chipping direction
+            if (!empty($formData['chipping_direction'])) {
+                $directionSafe = strtolower($formData['chipping_direction']);
+                $ttl .= "    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/$directionSafe>;\n";
             }
-            $ttl .= "    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/$delineationSafe>;\n";
-        }
-        
-        // Add lateral chipping locations
-        $allowedLocations = ['distal', 'median', 'proximal'];
-        $lateralLocations = [];
-        
-        if (!empty($formData['chipping_location_lateral_1']) && 
-            in_array($this->sanitizeForUri($formData['chipping_location_lateral_1']), $allowedLocations)) {
-            $lateralLocations[] = $this->sanitizeForUri($formData['chipping_location_lateral_1']);
-        }
-        
-        if (!empty($formData['chipping_location_lateral_2']) && 
-            in_array($this->sanitizeForUri($formData['chipping_location_lateral_2']), $allowedLocations)) {
-            $lateralLocations[] = $this->sanitizeForUri($formData['chipping_location_lateral_2']);
-        }
-        
-        if (!empty($formData['chipping_location_lateral_3']) && 
-            in_array($this->sanitizeForUri($formData['chipping_location_lateral_3']), $allowedLocations)) {
-            $lateralLocations[] = $this->sanitizeForUri($formData['chipping_location_lateral_3']);
-        }
-        
-        if (!empty($lateralLocations)) {
-            foreach ($lateralLocations as $location) {
-                $ttl .= "    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/$location>;\n";
+            
+            // Add chipping orientation
+            if (!empty($formData['chipping_orientation'])) {
+                $value = (stripos($formData['chipping_orientation'], 'true') !== false) ? "true" : "false";
+                $ttl .= "    ah:chippingOrientation \"$value\"^^xsd:boolean;\n";
             }
-        }
-        
-        // Add transversal chipping locations
-        $transversalLocations = [];
-        
-        if (!empty($formData['chipping_location_transversal_1']) && 
-            in_array($this->sanitizeForUri($formData['chipping_location_transversal_1']), $allowedLocations)) {
-            $transversalLocations[] = $this->sanitizeForUri($formData['chipping_location_transversal_1']);
-        }
-        
-        if (!empty($formData['chipping_location_transversal_2']) && 
-            in_array($this->sanitizeForUri($formData['chipping_location_transversal_2']), $allowedLocations)) {
-            $transversalLocations[] = $this->sanitizeForUri($formData['chipping_location_transversal_2']);
-        }
-        
-        if (!empty($formData['chipping_location_transversal_3']) && 
-            in_array($this->sanitizeForUri($formData['chipping_location_transversal_3']), $allowedLocations)) {
-            $transversalLocations[] = $this->sanitizeForUri($formData['chipping_location_transversal_3']);
-        }
-        
-        if (!empty($transversalLocations)) {
-            foreach ($transversalLocations as $location) {
-                $ttl .= "    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/$location>;\n";
+            
+            // Add chipping delineation
+            if (!empty($formData['chipping_delineation'])) {
+                $delineationSafe = strtolower($formData['chipping_delineation']);
+                $ttl .= "    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/$delineationSafe>;\n";
             }
-        }
-        
-        // Add chipping shape
-        if (!empty($formData['chipping_shape'])) {
-            $allowedShapes = ['straight', 'convex', 'concave', 'sinuous'];
-            $shapeSafe = $this->sanitizeForUri($formData['chipping_shape']);
-            if (!in_array($shapeSafe, $allowedShapes)) {
-                $shapeSafe = 'straight'; // Default
+            
+            // Add lateral chipping locations
+            for ($i = 1; $i <= 3; $i++) {
+                $lateralKey = "chipping_location_lateral_$i";
+                if (!empty($formData[$lateralKey])) {
+                    $locationSafe = strtolower($formData[$lateralKey]);
+                    $ttl .= "    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/$locationSafe>;\n";
+                }
             }
-            $ttl .= "    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/$shapeSafe>;\n";
+            
+            // Add transversal chipping locations
+            for ($i = 1; $i <= 3; $i++) {
+                $transversalKey = "chipping_location_transversal_$i";
+                if (!empty($formData[$transversalKey])) {
+                    $locationSafe = strtolower($formData[$transversalKey]);
+                    $ttl .= "    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/$locationSafe>;\n";
+                }
+            }
+            
+            // Add chipping shape
+            if (!empty($formData['chipping_shape'])) {
+                $shapeSafe = strtolower($formData['chipping_shape']);
+                $ttl .= "    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/$shapeSafe>;\n";
+            }
+            
+            $ttl .= "    .\n\n";
         }
         
+        // Add encounter event
+        $ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
+        $ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal;\n";
+        $ttl .= "    crmsci:O19_encountered_object <$arrowheadUri>;\n";
+        $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
         $ttl .= "    .\n\n";
+        
+        // Add all measurement resource blocks at the end
+        $ttl .= $measurementBlocks;
+        
+        // Debug log the final TTL
+        error_log('Generated TTL: ' . $ttl, 3, OMEKA_PATH . '/logs/ttl-debug.log');
+        
+        return $ttl;
     }
-    
-    // ----------------------------------------
-    // 8. Define the encounter event
-    // ----------------------------------------
-    $ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
-    $ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal;\n";
-    $ttl .= "    crmsci:O19_encountered_object <$arrowheadUri>;\n";
-    $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
-    $ttl .= "    .\n\n";
-    
-    // Log the final TTL output for debugging
-    error_log("Generated TTL data: " . $ttl, 3, OMEKA_PATH . '/logs/ttl-output.log');
-    
-    return $ttl;
-}
 
 
     /**
@@ -1137,187 +935,101 @@ public function processCollectingFormAction()
     ]));
 }
 
+// Replace the transformCollectingFormToArrowheadData function in IndexController.php
+
+/**
+ * Transform data from Collecting module format to format needed for triplestore
+ */
 private function transformCollectingFormToArrowheadData($formData)
 {
+    error_log('RAW COLLECTING FORM DATA: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/debug-all-fields.log');
 
-    // Add this at the very beginning of transformCollectingFormToArrowheadData:
-error_log('=== SEARCHING FOR MISSING VALUES ===', 3, OMEKA_PATH . '/logs/missing-values.log');
-$searchValues = ['44', '55', '66', '77', '88', '3']; // Values you entered
-foreach ($formData as $key => $value) {
-    if (in_array($value, $searchValues)) {
-        error_log("Found missing value '$value' in key: $key", 3, OMEKA_PATH . '/logs/missing-values.log');
-    }
-}
-error_log('=== END SEARCHING FOR MISSING VALUES ===', 3, OMEKA_PATH . '/logs/missing-values.log');
-
-    $this->debugPromptMapping($formData);
-    $this->debugDetailedPromptProcessing($formData);
     $arrowheadData = [];
     
-    // Log raw data for debugging
-    error_log('Raw form data: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/collecting-form-raw.log');
-    
-    // Get contextual references if provided
-    if (!empty($formData['selected_square'])) {
-        $arrowheadData['square_id'] = $formData['selected_square'];
-    }
-    
-    if (!empty($formData['selected_context'])) {
-        $arrowheadData['context_id'] = $formData['selected_context'];
-    }
-    
-    if (!empty($formData['selected_svu'])) {
-        $arrowheadData['svu_id'] = $formData['selected_svu'];
-    }
-    
-    // Extract integer field for compatibility with older forms
-    if (isset($formData['integer']) && !empty($formData['integer'])) {
-        $arrowheadData['arrowhead_identifier'] = $formData['integer'];
-    }
-    
-$positionalMapping = [
-    53 => 'arrowhead_identifier',                  // Identifier DONE
-    54 => 'media_files',                          // Media files (if any)
-    55 => 'arrowhead_annotation',                 // Annotations/Notes DONE
-    56 => 'condition_state',                      // Condition State DONE
-    57 => 'weight',                               // Weight value DONE
-    58 => 'weight_unit',                          // Weight unit DONE
-    59 => 'height',                               // Height value DONE
-    60 => 'height_unit',                          // Height unit DONE
-    61 => 'width',                                // Width value DONE
-    62 => 'width_unit',                           // Width unit DONE
-    63 => 'thickness',                            // Thickness value
-    64 => 'thickness_unit',                       // Thickness unit
-    65 => 'arrowhead_type',                       // Type (Elongate/Short) DONE
-    66 => 'elongation_index',                     // Elongation Index DONE
-    67 => 'gps_latitude',                         // GPS Latitude
-    68 => 'gps_longitude',                        // GPS Longitude
-    69 => 'arrowhead_variant',                    // Variant DONE
-    70 => 'arrowhead_shape',                      // Shape DONE
-    71 => 'point_definition',                     // Point definition DONE
-    72 => 'body_symmetry',                        // Body symmetry DONE
-    73 => 'arrowhead_base',                       // Base type DONE
-    74 => 'body_length',                          // Body length value
-    75 => 'body_length_unit',                     // Body length unit
-    76 => 'base_length',                          // Base length value
-    77 => 'base_length_unit',                     // Base length unit
-    78 => 'chipping_mode',                        // Chipping mode DONE
-    79 => 'chipping_amplitude',                   // Chipping amplitude DONE
-    80 => 'chipping_direction',                   // Chipping direction DONE
-    81 => 'chipping_orientation',                 // Chipping orientation DONE
-    82 => 'chipping_delineation',                 // Chipping delineation DONE
-    83 => 'chipping_location_lateral_1',          // Chipping location lateral 1 DONE
-    84 => 'chipping_location_lateral_2',          // Chipping location lateral 2
-    85 => 'chipping_location_lateral_3',          // Chipping location lateral 3
-    86 => 'chipping_location_transversal_1',      // Chipping location transversal 1 DONE
-    87 => 'chipping_location_transversal_2',      // Chipping location transversal 2
-    88 => 'chipping_location_transversal_3',      // Chipping location transversal 3
-    89 => 'chipping_shape',                       // Chipping shape DONE
-    90 => 'square_x',                             // Square coordinate X
-    91 => 'square_y',                             // Square coordinate Y  
-    92 => 'square_depth',                         // Square coordinate Z/depth
-    93 => 'arrowhead_material',                   // Material
-];
-    
-    // Process prompt fields based on position
-    foreach ($positionalMapping as $promptId => $arrowheadField) {
-        $promptKey = 'prompt_' . $promptId;
+    // Updated field mappings based on your actual form structure
+    $fieldMappings = [
+        'prompt_53' => 'arrowhead_identifier',    // ID field 
+        'prompt_55' => 'arrowhead_annotation',    // Observations/annotations
+        'prompt_56' => 'condition_state',         // Complete/Broken
+        'prompt_65' => 'arrowhead_type',          // Elongate/Short
+        'prompt_69' => 'arrowhead_variant',       // Flat/Raised/Thick
+        'prompt_70' => 'arrowhead_shape',         // Triangle/Losangular/Stemmed
+        'prompt_71' => 'point_definition',        // Sharp/Fractured
+        'prompt_72' => 'body_symmetry',           // Symmetrical/Non-symmetrical
+        'prompt_73' => 'arrowhead_base',          // Base type
+        'prompt_93' => 'arrowhead_material',      // Material
         
-        if (isset($formData[$promptKey])) {
-            $value = $formData[$promptKey];
+        // Measurements with values and units
+        'prompt_57' => 'weight',                  // Weight value
+        'prompt_58' => 'weight_unit',             // Weight unit
+        'prompt_59' => 'height',                  // Height value
+        'prompt_60' => 'height_unit',             // Height unit
+        'prompt_61' => 'width',                   // Width value
+        'prompt_62' => 'width_unit',              // Width unit
+        'prompt_63' => 'thickness',               // Thickness value
+        'prompt_64' => 'thickness_unit',          // Thickness unit
+        'prompt_74' => 'body_length',             // Body length value
+        'prompt_75' => 'body_length_unit',        // Body length unit
+        'prompt_76' => 'base_length',             // Base length value
+        'prompt_77' => 'base_length_unit',        // Base length unit
+        
+        // Elongation index
+        'prompt_66' => 'elongation_index',        // Medium/Elongated/Short
+        
+        // Chipping properties
+        'prompt_78' => 'chipping_mode',           // Plane/Parallel/Sub-parallel
+        'prompt_79' => 'chipping_amplitude',      // Marginal/Deep
+        'prompt_80' => 'chipping_direction',      // Direct/Reverse/Bifacial
+        'prompt_81' => 'chipping_orientation',    // Side/Transverse
+        'prompt_82' => 'chipping_delineation',    // Continuous/Composite/Denticulated
+        'prompt_83' => 'chipping_location_lateral_1',    // Distal/Median/Proximal
+        'prompt_84' => 'chipping_location_lateral_2',
+        'prompt_85' => 'chipping_location_lateral_3',
+        'prompt_86' => 'chipping_location_transversal_1', // Distal/Median/Proximal
+        'prompt_87' => 'chipping_location_transversal_2',
+        'prompt_88' => 'chipping_location_transversal_3',
+        'prompt_89' => 'chipping_shape',          // Straight/Convex/Concave/Sinuous
+        
+        // GPS coordinates (if available)
+        'prompt_90' => 'latitude',
+        'prompt_91' => 'longitude',
+    ];
+    
+    // Process the mapping
+    foreach ($fieldMappings as $collectingField => $arrowheadField) {
+        if (isset($formData[$collectingField]) && !empty($formData[$collectingField])) {
+            $value = $formData[$collectingField];
             
-            // Log each field being processed
-            error_log("Processing prompt_$promptId ($arrowheadField): '$value'", 3, OMEKA_PATH . '/logs/field-processing.log');
-            
-            // Handle completely empty values
-            if ($value === '' || $value === null) {
-                error_log("Skipping empty value for prompt_$promptId ($arrowheadField)", 3, OMEKA_PATH . '/logs/field-processing.log');
-                continue;
+            // Clean up boolean values from collecting form
+            if (strpos($value, 'True') === 0) {
+                $arrowheadData[$arrowheadField] = 'true';
+            } elseif (strpos($value, 'False') === 0) {
+                $arrowheadData[$arrowheadField] = 'false';
+            } else {
+                $arrowheadData[$arrowheadField] = $value;
             }
-            
-            // Trim the value
-            $value = trim($value);
-            
-            // Skip if still empty after trimming
-            if ($value === '') {
-                error_log("Skipping empty value after trim for prompt_$promptId ($arrowheadField)", 3, OMEKA_PATH . '/logs/field-processing.log');
-                continue;
-            }
-            
-            // Handle URI fields - extract the last part if it's a full URI
-            if (strpos($value, 'http://') === 0 || strpos($value, 'https://') === 0) {
-                if (in_array($arrowheadField, ['weight_unit', 'height_unit', 'width_unit', 'thickness_unit', 
-                                              'body_length_unit', 'base_length_unit', 'arrowhead_material'])) {
-                    // For unit and material fields, keep the full URI
-                    $arrowheadData[$arrowheadField] = $value;
-                    error_log("Stored URI for $arrowheadField: $value", 3, OMEKA_PATH . '/logs/field-processing.log');
-                    continue;
-                }
-            }
-            
-            // Special handling for select fields with display text
-            if (strpos($value, '|') !== false) {
-                // Split by | and take the first part (the actual value)
-                $parts = explode('|', $value);
-                $value = trim($parts[0]);
-                error_log("Extracted value from display text for $arrowheadField: '$value'", 3, OMEKA_PATH . '/logs/field-processing.log');
-            }
-            
-            // Special handling for boolean fields
-            if (strpos($value, 'True') !== false || strpos($value, 'False') !== false) {
-                if (in_array($arrowheadField, ['condition_state', 'arrowhead_type', 'point_definition', 
-                                              'body_symmetry', 'chipping_amplitude', 'chipping_orientation'])) {
-                    // Extract just the boolean part
-                    $value = strpos($value, 'True') !== false ? 'true' : 'false';
-                    error_log("Extracted boolean for $arrowheadField: $value", 3, OMEKA_PATH . '/logs/field-processing.log');
-                }
-            }
-            
-            // Special handling for parenthetical descriptions (remove them)
-            if (strpos($value, '(') !== false) {
-                $parts = explode('(', $value);
-                $cleanValue = trim($parts[0]);
-                if (!empty($cleanValue)) {
-                    $value = $cleanValue;
-                    error_log("Cleaned parenthetical for $arrowheadField: '$value'", 3, OMEKA_PATH . '/logs/field-processing.log');
-                }
-            }
-            
-            // Special handling for numeric fields
-            $numericFields = ['height', 'width', 'thickness', 'body_length', 'base_length', 'weight', 
-                             'square_depth', 'gps_latitude', 'gps_longitude', 'square_x', 'square_y'];
-            if (in_array($arrowheadField, $numericFields)) {
-                // Try to extract a numeric value
-                if (preg_match('/(\d+(\.\d+)?)/', $value, $matches)) {
-                    $value = $matches[1]; // Extract the numeric part
-                    error_log("Extracted numeric value for $arrowheadField: $value", 3, OMEKA_PATH . '/logs/field-processing.log');
-                } elseif (!is_numeric($value)) {
-                    // Skip non-numeric values for numeric fields
-                    error_log("Skipping non-numeric value for $arrowheadField: '$value'", 3, OMEKA_PATH . '/logs/field-processing.log');
-                    continue;
-                }
-            }
-            
-            // Handle commas in decimal numbers (convert from European to US format)
-            if (in_array($arrowheadField, $numericFields) && strpos($value, ',') !== false) {
-                $value = str_replace(',', '.', $value);
-                error_log("Converted comma to dot for $arrowheadField: $value", 3, OMEKA_PATH . '/logs/field-processing.log');
-            }
-            
-            // Store the processed value
-            $arrowheadData[$arrowheadField] = $value;
-            
-            // Log each successful mapping
-            error_log("Successfully mapped prompt_$promptId ($arrowheadField) = '$value'", 3, OMEKA_PATH . '/logs/field-mapping.log');
-        } else {
-            error_log("prompt_$promptId not found in form data for field $arrowheadField", 3, OMEKA_PATH . '/logs/field-processing.log');
         }
     }
+
+    // ADD THIS: Remove unit fields if their corresponding value fields are empty
+    $valuesToCheck = [
+        'thickness' => 'thickness_unit',
+        'body_length' => 'body_length_unit', 
+        'base_length' => 'base_length_unit'
+    ];
     
-    // Log the final transformed data 
-    error_log('Transformed arrowhead data: ' . print_r($arrowheadData, true), 3, OMEKA_PATH . '/logs/transformed-arrowhead.log');
-    
+    foreach ($valuesToCheck as $valueField => $unitField) {
+        if (empty($arrowheadData[$valueField]) && isset($arrowheadData[$unitField])) {
+            unset($arrowheadData[$unitField]);
+            error_log("Removed orphaned unit field: $unitField", 3, OMEKA_PATH . '/logs/debug-all-fields.log');
+        }
+    }
+
+    // Log the transformed data for debugging
+    error_log('TRANSFORMED ARROWHEAD DATA: ' . print_r($arrowheadData, true), 3, OMEKA_PATH . '/logs/debug-all-fields.log');
+
     return $arrowheadData;
+
 }
 
 // Add this at the beginning of transformCollectingFormToArrowheadData for more detailed debugging
@@ -3101,7 +2813,12 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         'https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare' => ['Coordinates', 7674], // New property for actual coordinates
         'https://purl.org/megalod/ms/excavation/foundInContext' => ['Context', 7672],
         'https://purl.org/megalod/ms/excavation/foundInSVU' => ['Stratigraphic Unit', 7671],
-        'https://purl.org/megalod/ms/excavation/foundInExcavation' => ['Excavation', 7673]
+        'https://purl.org/megalod/ms/excavation/foundInExcavation' => ['Excavation', 7673],
+        // ADD THESE MISSING MAPPINGS:
+        'http://www.cidoc-crm.org/cidoc-crm/E57_Material' => ['Material', 480], 
+        'https://purl.org/megalod/ms/ah/bodyLength' => ['Body Length', 7649],
+        'https://purl.org/megalod/ms/ah/baseLength' => ['Base Length', 7650],
+        'http://schema.org/depth' => ['Thickness', 7244], // Since thickness is missing
     ];
 
     error_log('Processing arrowhead data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/checkProp.log');
@@ -3155,6 +2872,9 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
             }
         }
     }
+
+
+    
 
        
     // process encounter event data
@@ -3271,43 +2991,113 @@ foreach ($datePredicates as $datePredicate) {
     }
 }
 
-    // Process coordinates to show actual lat/long values
+// Add material processing (it's currently being skipped)
+if (isset($rdfData[$subject]['http://www.cidoc-crm.org/cidoc-crm/E57_Material'])) {
+    foreach ($rdfData[$subject]['http://www.cidoc-crm.org/cidoc-crm/E57_Material'] as $materialObj) {
+        if ($materialObj['type'] === 'uri') {
+            if (!isset($itemData['Material'])) {
+                $itemData['Material'] = [];
+            }
+            
+            // Extract material name from URI or use the URI itself
+            if (strpos($materialObj['value'], '/flint') !== false) {
+                $materialName = 'Flint';
+            } elseif (strpos($materialObj['value'], '/quartz') !== false) {
+                $materialName = 'Quartz';
+            } else {
+                $materialName = $materialObj['value'];
+            }
+            
+            $itemData['Material'][] = [
+                'type' => 'literal',
+                'property_id' => 480,
+                '@value' => $materialName
+            ];
+        }
+    }
+}
+
+// Process arrowhead-specific measurements
+$arrowheadMeasurements = [
+    'https://purl.org/megalod/ms/ah/bodyLength' => ['Body Length', 7649],
+    'https://purl.org/megalod/ms/ah/baseLength' => ['Base Length', 7650]
+];
+
+foreach ($arrowheadMeasurements as $predicate => $mapping) {
+    if (isset($rdfData[$subject][$predicate])) {
+        $term = $mapping[0];
+        $propertyId = $mapping[1];
+        
+        foreach ($rdfData[$subject][$predicate] as $obj) {
+            if ($obj['type'] === 'uri') {
+                $measurementUri = $obj['value'];
+                $value = $this->extractMeasurementValue($rdfData, $measurementUri);
+                $unit = $this->extractMeasurementUnit($rdfData, $measurementUri);
+                
+                if ($value) {
+                    if (!isset($itemData[$term])) {
+                        $itemData[$term] = [];
+                    }
+                    $itemData[$term][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $value . ' ' . ($unit ?: 'MM')
+                    ];
+                }
+            }
+        }
+    }
+}
+
+
+
+// Process square coordinates (X, Y, Depth within excavation square)
 if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare'])) {
     foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare'] as $coordObj) {
         if ($coordObj['type'] === 'uri' && isset($rdfData[$coordObj['value']])) {
             $coordUri = $coordObj['value'];
             
-            // Extract latitude and longitude
-            $lat = null;
-            $long = null;
+            // Extract X, Y coordinates and depth within the square
+            $x = null;
+            $y = null;
             $depth = null;
             
-            if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'])) {
-                foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'] as $latObj) {
-                    if ($latObj['type'] === 'literal') {
-                        $lat = $latObj['value'];
-                    }
-                }
-            }
-            
             if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'])) {
-                foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'] as $longObj) {
-                    if ($longObj['type'] === 'literal') {
-                        $long = $longObj['value'];
+                $x = $rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'][0]['value'];
+            }
+            
+            if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'])) {
+                $y = $rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'][0]['value'];
+            }
+            
+            if (isset($rdfData[$coordUri]['http://schema.org/depth'])) {
+                foreach ($rdfData[$coordUri]['http://schema.org/depth'] as $depthObj) {
+                    if ($depthObj['type'] === 'uri') {
+                        $depthUri = $depthObj['value'];
+                        $depth = $this->extractMeasurementValue($rdfData, $depthUri);
+                        $depthUnit = $this->extractMeasurementUnit($rdfData, $depthUri);
+                        if ($depth && $depthUnit) {
+                            $depth = $depth . ' ' . $depthUnit;
+                        }
                     }
                 }
             }
             
-            // Create a readable coordinate string
-            if ($lat && $long) {
-                if (!isset($itemData['Coordinates'])) {
-                    $itemData['Coordinates'] = [];
+            // Add square coordinates
+            if ($x && $y) {
+                if (!isset($itemData['Square Coordinates'])) {
+                    $itemData['Square Coordinates'] = [];
                 }
                 
-                $itemData['Coordinates'][] = [
+                $coordText = "X: $x, Y: $y";
+                if ($depth) {
+                    $coordText .= ", Depth: $depth";
+                }
+                
+                $itemData['Square Coordinates'][] = [
                     'type' => 'literal',
-                    'property_id' => 7678,
-                    '@value' => "Latitude: $lat, Longitude: $long"
+                    'property_id' => 7664, // Use appropriate property ID for square coordinates
+                    '@value' => $coordText
                 ];
             }
         }
