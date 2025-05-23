@@ -352,12 +352,12 @@ private function getItemIdentifier($item)
                 $itemSetResponse = $this->api()->create('item_sets', $itemSetData);
                 $itemSetId = $itemSetResponse->getContent()->id();
 
-                // Now update the title to include the item set ID
+                /*// Now update the title to include the item set ID
                 $newTitle = "Excavation EXC-$itemSetId";
                 error_log('Updating item set with new title: ' . $newTitle, 3, OMEKA_PATH . '/logs/title-debug.log');
-
+*/
                 // Update the item set with the new title
-                $updateResult = $this->api()->update('item_sets', $itemSetId, [
+                /*$updateResult = $this->api()->update('item_sets', $itemSetId, [
                     'dcterms:title' => [
                         [
                             'type' => 'literal',
@@ -365,7 +365,7 @@ private function getItemIdentifier($item)
                             '@value' => $newTitle
                         ]
                     ]
-                ], [], ['isPartial' => true]);
+                ], [], ['isPartial' => true]);*/
                 // Store the mapping
                 $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
                 
@@ -803,109 +803,57 @@ private function getItemIdentifier($item)
     }
 
 
-    /**
- * Update item set metadata with excavation information
- * 
- * @param int $itemSetId The item set ID to update
- * @param array $excavationData The excavation data to add to the item set
- * @return bool Success status
- */
-private function updateItemSetWithExcavationInfo($itemSetId, $excavationData) {
-    if (!$itemSetId || empty($excavationData)) {
-        return false;
-    }
-    
-    try {
-        // First, retrieve the current item set data
-        $itemSet = $this->api()->read('item_sets', $itemSetId)->getContent();
-        
-        // Prepare the update data
-        $updateData = [
-            'dcterms:title' => [
-                [
-                    'type' => 'literal',
-                    'property_id' => 1,
-                    '@value' => "Excavation " . $excavationData['identifier']
-                ]
-            ]
-        ];
-        
-        // Add description if location is available
-        if (!empty($excavationData['location'])) {
-            $updateData['dcterms:description'] = [
-                [
-                    'type' => 'literal',
-                    'property_id' => 4,
-                    '@value' => "Archaeological excavation at " . $excavationData['location']
-                ]
-            ];
+    private function updateItemSetWithExcavationInfo($itemSetId, $excavationData) {
+        if (!$itemSetId || empty($excavationData)) {
+            return false;
         }
         
-        // Add archaeologist as creator if available
-        if (!empty($excavationData['archaeologist'])) {
-            $updateData['dcterms:creator'] = [
-                [
-                    'type' => 'literal',
-                    'property_id' => 7665, // Dublin Core Creator
-                    '@value' => $excavationData['archaeologist']
-                ]
-            ];
-        }
-        
-        // Add GPS coordinates if available
-        if (!empty($excavationData['gps'])) {
-            $updateData['dcterms:coverage'] = [
-                [
-                    'type' => 'literal',
-                    'property_id' => 18, // Dublin Core Coverage
-                    '@value' => $excavationData['gps']
-                ]
-            ];
-        }
-        
-        // Add location details if available
-        if (!empty($excavationData['location_details'])) {
-            if (!isset($updateData['dcterms:coverage'])) {
-                $updateData['dcterms:coverage'] = [];
+        try {
+            // Prepare the update data
+            $updateData = [];
+            
+            // Add description if location is available
+            if (!empty($excavationData['location'])) {
+                $updateData['dcterms:description'] = [
+                    [
+                        'type' => 'literal',
+                        'property_id' => 4,
+                        '@value' => "Archaeological excavation at " . $excavationData['location']
+                    ]
+                ];
             }
             
-            $updateData['dcterms:coverage'][] = [
-                'type' => 'literal',
-                'property_id' => 7664, // Dublin Core Coverage
-                '@value' => $excavationData['location_details']
-            ];
+            // Add archaeologist as creator if available
+            if (!empty($excavationData['archaeologist'])) {
+                $updateData['dcterms:creator'] = [
+                    [
+                        'type' => 'literal',
+                        'property_id' => 7, // Dublin Core Creator
+                        '@value' => $excavationData['archaeologist']
+                    ]
+                ];
+            }
+            
+            // Execute the update if we have data to update
+            if (!empty($updateData)) {
+                $updateResult = $this->api()->update(
+                    'item_sets', 
+                    $itemSetId, 
+                    $updateData, 
+                    [], 
+                    ['isPartial' => true]
+                );
+                
+                return $updateResult ? true : false;
+            }
+            
+        } catch (\Exception $e) {
+            error_log('Failed to update item set with excavation info: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-update.log');
+            return false;
         }
         
-        // Add date range if available
-        if (!empty($excavationData['date_range'])) {
-            $updateData['dcterms:temporal'] = [
-                [
-                    'type' => 'literal',
-                    'property_id' => 3, // Appropriate property ID for temporal
-                    '@value' => $excavationData['date_range']
-                ]
-            ];
-        }
-        
-        // Log what we're updating
-        error_log('Updating item set ' . $itemSetId . ' with excavation info: ' . print_r($updateData, true), 3, OMEKA_PATH . '/logs/excavation-update.log');
-        
-        // Execute the update
-        $updateResult = $this->api()->update(
-            'item_sets', 
-            $itemSetId, 
-            $updateData, 
-            [], 
-            ['isPartial' => true]
-        );
-        
-        return $updateResult ? true : false;
-        
-    } catch (\Exception $e) {
-        error_log('Failed to update item set with excavation info: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-update.log');
-        return false;
+        return true;
     }
-}
 
     private function getCollectingForm(): FormInterface
     {
@@ -1742,6 +1690,45 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
 
     // normalize also when is excavation
     if ($isExcavation && !$itemSetId) {
+        if ($excavationIdentifier) {
+            $excavationMetadata = $this->extractExcavationMetadataFromTtl($ttlData);
+            try {
+                // Create item set with proper metadata
+                $itemSetTitle = "Excavation $excavationIdentifier";
+                $itemSetDescription = $excavationMetadata['location'] ? 
+                    "Archaeological excavation at " . $excavationMetadata['location'] : 
+                    "Archaeological excavation with identifier $excavationIdentifier";
+                
+                $response = $this->api()->create('item_sets', [
+                    'dcterms:title' => [
+                        [
+                            'type' => 'literal',
+                            'property_id' => 1,
+                            '@value' => $itemSetTitle
+                        ]
+                    ],
+                    'dcterms:description' => [
+                        [
+                            'type' => 'literal',
+                            'property_id' => 4,
+                            '@value' => $itemSetDescription
+                        ]
+                    ],
+                    'dcterms:creator' => $excavationMetadata['archaeologist'] ? [
+                        [
+                            'type' => 'literal',
+                            'property_id' => 7,
+                            '@value' => $excavationMetadata['archaeologist']
+                        ]
+                    ] : [],
+                    'o:is_public' => true
+                ]);
+            }
+            catch (\Exception $e) {
+                error_log('Error creating item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+            }
+        
+        }
         try {
             // Create a new item set directly using the API manager
             $response = $this->api()->create('item_sets', [
@@ -1911,6 +1898,26 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
     } else {
         return 'Failed to upload data to GraphDB: ' . $graphDbResult;
     }
+}
+
+
+private function extractExcavationMetadataFromTtl($ttlData) {
+    $metadata = [
+        'location' => null,
+        'archaeologist' => null
+    ];
+    
+    // Extract location name
+    if (preg_match('/dbo:informationName\s+"([^"]+)"/i', $ttlData, $matches)) {
+        $metadata['location'] = $matches[1];
+    }
+    
+    // Extract archaeologist name  
+    if (preg_match('/foaf:name\s+"([^"]+)"/i', $ttlData, $matches)) {
+        $metadata['archaeologist'] = $matches[1];
+    }
+    
+    return $metadata;
 }
 
 
@@ -2673,7 +2680,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
         
         // Extract basic properties - start with the identifier
         $identifier = $this->extractIdentifier($rdfData, $subject);
-        if ($identifier) {
+        if ($identifier && !isset($itemData['dcterms:identifier'])) { // Add this check
             $itemData['dcterms:identifier'] = [
                 [
                     'type' => 'literal',
@@ -3630,6 +3637,28 @@ private function extractMeasurementUnit($rdfData, $typometryUri) {
 }
 
 
+private function findItemByIdentifier($identifier) {
+    try {
+        $response = $this->api()->search('items', [
+            'property' => [
+                [
+                    'property' => 10, // dcterms:identifier property ID
+                    'type' => 'eq',
+                    'text' => $identifier
+                ]
+            ],
+            'limit' => 1
+        ]);
+        
+        $items = $response->getContent();
+        return !empty($items) ? $items[0] : null;
+    } catch (\Exception $e) {
+        error_log('Error finding item by identifier: ' . $e->getMessage());
+        return null;
+    }
+}
+
+
 
 /**
  * Process excavation specific data
@@ -3637,6 +3666,99 @@ private function extractMeasurementUnit($rdfData, $typometryUri) {
 private function processExcavationData($rdfData, $subject, &$itemData) {
 
     
+// Extract location name for description
+if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
+    foreach ($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'] as $locObj) {
+        if ($locObj['type'] === 'uri' && isset($rdfData[$locObj['value']])) {
+            $locationUri = $locObj['value'];
+            $locationName = $this->extractLocationName($rdfData, $locationUri);
+            
+            if ($locationName) {
+                // Create description
+                if (!isset($itemData['dcterms:description'])) {
+                    $itemData['dcterms:description'] = [];
+                }
+                
+                $itemData['dcterms:description'][] = [
+                    'type' => 'literal',
+                    'property_id' => 4, // dcterms:description property ID
+                    '@value' => "Archaeological excavation at $locationName"
+                ];
+            }
+        }
+    }
+}
+    // Add links to contexts
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'] as $contextObj) {
+            if ($contextObj['type'] === 'uri') {
+                $contextId = $this->extractResourceIdentifier($rdfData, $contextObj['value']);
+                if ($contextId) {
+                    // Find the actual Omeka item with this identifier
+                    $linkedItem = $this->findItemByIdentifier($contextId);
+                    if ($linkedItem) {
+                        if (!isset($itemData['Excavation - hasContext'])) {
+                            $itemData['Excavation - hasContext'] = [];
+                        }
+                        
+                        $itemData['Excavation - hasContext'][] = [
+                            'type' => 'resource',
+                            'property_id' => 7672, // Use appropriate property ID
+                            'value_resource_id' => $linkedItem->id(),
+                            '@value' => $contextId
+                        ];
+                    } else {
+                        // Fallback to literal if no linked item found
+                        if (!isset($itemData['Excavation - hasContext'])) {
+                            $itemData['Excavation - hasContext'] = [];
+                        }
+                        
+                        $itemData['Excavation - hasContext'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7672,
+                            '@value' => $contextId
+                        ];
+                    }
+                }
+            }
+        }
+    }
+    
+    // Add links to squares
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSquare'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSquare'] as $squareObj) {
+            if ($squareObj['type'] === 'uri') {
+                $squareId = $this->extractResourceIdentifier($rdfData, $squareObj['value']);
+                if ($squareId) {
+                    // Find the actual Omeka item with this identifier
+                    $linkedItem = $this->findItemByIdentifier($squareId);
+                    if ($linkedItem) {
+                        if (!isset($itemData['The Square'])) {
+                            $itemData['The Square'] = [];
+                        }
+                        
+                        $itemData['The Square'][] = [
+                            'type' => 'resource',
+                            'property_id' => 7668, // Use appropriate property ID
+                            'value_resource_id' => $linkedItem->id(),
+                            '@value' => $squareId
+                        ];
+                    } else {
+                        // Fallback to literal if no linked item found
+                        if (!isset($itemData['The Square'])) {
+                            $itemData['The Square'] = [];
+                        }
+                        
+                        $itemData['The Square'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7668,
+                            '@value' => $squareId
+                        ];
+                    }
+                }
+            }
+        }
+    }
     // Extract location GPS coordinates
     if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
         foreach ($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'] as $locObj) {
