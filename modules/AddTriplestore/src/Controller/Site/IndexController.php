@@ -2604,6 +2604,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
         }
     }
 
+    
     // Add this after the existing property processing in processArrowheadData()
 
     // Process images/web resources
@@ -2665,7 +2666,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
             $excavationId = $mappedId;
         }
     }
-    
+
     // Process each main subject as a separate item
     foreach ($subjects as $subject => $subjectType) {
         $itemData = [
@@ -3662,7 +3663,7 @@ private function findItemByIdentifier($identifier) {
 
 /**
  * Process excavation specific data
- */
+ */ 
 private function processExcavationData($rdfData, $subject, &$itemData) {
 
     
@@ -4030,7 +4031,6 @@ private function processContextData($rdfData, $subject, &$itemData) {
     // Basic properties - direct mapping
     $propertyMap = [
         'http://purl.org/dc/terms/identifier' => ['Context ID', 10],
-        'https://purl.org/megalod/ms/excavation/hasSVU' => ['Stratigraphic Units', 7667]
     ];
     
     // Extract basic properties
@@ -4044,41 +4044,7 @@ private function processContextData($rdfData, $subject, &$itemData) {
             }
             
             foreach ($rdfData[$subject][$predicate] as $object) {
-                if ($object['type'] === 'uri') {
-                    // For SVU references, extract the identifier if available
-                    if ($predicate === 'https://purl.org/megalod/ms/excavation/hasSVU') {
-                        $svuUri = $object['value'];
-                        $svuId = $this->extractSVUIdentifier($rdfData, $svuUri);
-                        
-                        if ($svuId) {
-                            $itemData[$term][] = [
-                                'type' => 'literal',
-                                'property_id' => $propertyId,
-                                '@value' => $svuId
-                            ];
-                        } else {
-                            // Fall back to URI ID if identifier not found
-                            $parts = explode('/', $object['value']);
-                            $value = end($parts);
-                            
-                            $itemData[$term][] = [
-                                'type' => 'literal',
-                                'property_id' => $propertyId,
-                                '@value' => $value
-                            ];
-                        }
-                    } else {
-                        // For other URI properties, extract the ID part
-                        $parts = explode('/', $object['value']);
-                        $value = end($parts);
-                        
-                        $itemData[$term][] = [
-                            'type' => 'literal',
-                            'property_id' => $propertyId,
-                            '@value' => $value
-                        ];
-                    }
-                } else if ($object['type'] === 'literal') {
+                if ($object['type'] === 'literal') {
                     $itemData[$term][] = [
                         'type' => 'literal',
                         'property_id' => $propertyId,
@@ -4106,7 +4072,43 @@ private function processContextData($rdfData, $subject, &$itemData) {
         }
     }
     
-    // Extract SVU summaries for better context understanding
+    // Process SVU relationships - THIS IS THE KEY PART!
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'] as $svuObj) {
+            if ($svuObj['type'] === 'uri') {
+                $svuId = $this->extractResourceIdentifier($rdfData, $svuObj['value']);
+                if ($svuId) {
+                    // Find the actual Omeka item with this identifier
+                    $linkedItem = $this->findItemByIdentifier($svuId);
+                    if ($linkedItem) {
+                        if (!isset($itemData['Stratigraphic Volume Units'])) {
+                            $itemData['Stratigraphic Volume Units'] = [];
+                        }
+                        
+                        $itemData['Stratigraphic Volume Units'][] = [
+                            'type' => 'resource',
+                            'property_id' => 7667, // Use appropriate property ID for SVU
+                            'value_resource_id' => $linkedItem->id(),
+                            '@value' => $svuId
+                        ];
+                    } else {
+                        // Fallback to literal if no linked item found
+                        if (!isset($itemData['Stratigraphic Volume Units'])) {
+                            $itemData['Stratigraphic Volume Units'] = [];
+                        }
+                        
+                        $itemData['Stratigraphic Volume Units'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7671,
+                            '@value' => $svuId
+                        ];
+                    }
+                }
+            }
+        }
+    }
+    
+    // Extract SVU summaries for better context understanding (keep existing functionality)
     if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'])) {
         $svuSummaries = [];
         
@@ -4118,16 +4120,18 @@ private function processContextData($rdfData, $subject, &$itemData) {
                 
                 if ($svuId && $svuDesc) {
                     $svuSummaries[] = "$svuId: $svuDesc";
+                } else if ($svuId) {
+                    $svuSummaries[] = $svuId;
                 }
             }
         }
         
         if (!empty($svuSummaries)) {
-            if (!isset($itemData['Stratigraphic Unit Summaries'])) {
-                $itemData['Stratigraphic Unit Summaries'] = [];
+            if (!isset($itemData['SVU Details'])) {
+                $itemData['SVU Details'] = [];
             }
             
-            $itemData['Stratigraphic Unit Summaries'][] = [
+            $itemData['SVU Details'][] = [
                 'type' => 'literal',
                 'property_id' => 7, // Use appropriate property ID
                 '@value' => implode(" | ", $svuSummaries)
@@ -4137,79 +4141,37 @@ private function processContextData($rdfData, $subject, &$itemData) {
 }
 
 /**
- * Process SVU (Stratigraphic Volume Unit) specific data
+ * Process SVU (Stratigraphic Volume Unit) specific data - WORKING VERSION
  */
 private function processSVUData($rdfData, $subject, &$itemData) {
-    // Basic properties - direct mapping
-    $propertyMap = [
-        'http://purl.org/dc/terms/identifier' => ['SVU ID', 10],
-        'http://purl.org/dc/terms/description' => ['Description', 4],
-        'https://purl.org/megalod/ms/excavation/hasTimeline' => ['Timeline', 7669]
-    ];
+    // Debug log
+    error_log('Processing SVU subject: ' . $subject, 3, OMEKA_PATH . '/logs/svu-debug.log');
     
-    // Extract basic properties
-    foreach ($propertyMap as $predicate => $mapping) {
-        if (isset($rdfData[$subject][$predicate])) {
-            $term = $mapping[0];
-            $propertyId = $mapping[1];
-            
-            if (!isset($itemData[$term])) {
-                $itemData[$term] = [];
-            }
-            
-            foreach ($rdfData[$subject][$predicate] as $object) {
-                if ($object['type'] === 'uri') {
-                    // For timeline references, try to extract meaningful time range
-                    if ($predicate === 'https://purl.org/megalod/ms/excavation/hasTimeline') {
-                        $timelineUri = $object['value'];
-                        $timeRange = $this->extractTimelineRange($rdfData, $timelineUri);
-                        
-                        if ($timeRange) {
-                            $itemData[$term][] = [
-                                'type' => 'literal',
-                                'property_id' => $propertyId,
-                                '@value' => $timeRange
-                            ];
-                        } else {
-                            // Fall back to URI ID if time range not found
-                            $parts = explode('/', $object['value']);
-                            $value = end($parts);
-                            
-                            $itemData[$term][] = [
-                                'type' => 'literal',
-                                'property_id' => $propertyId,
-                                '@value' => $value
-                            ];
-                        }
-                    } else {
-                        // For other URI properties, extract the ID part
-                        $parts = explode('/', $object['value']);
-                        $value = end($parts);
-                        
-                        $itemData[$term][] = [
-                            'type' => 'literal',
-                            'property_id' => $propertyId,
-                            '@value' => $value
-                        ];
-                    }
-                } else if ($object['type'] === 'literal') {
-                    $itemData[$term][] = [
-                        'type' => 'literal',
-                        'property_id' => $propertyId,
-                        '@value' => $object['value']
-                    ];
-                }
+    // Process Description - DIRECT ACCESS
+    if (isset($rdfData[$subject]['http://purl.org/dc/terms/description'])) {
+        if (!isset($itemData['Description'])) {
+            $itemData['Description'] = [];
+        }
+        
+        foreach ($rdfData[$subject]['http://purl.org/dc/terms/description'] as $descObj) {
+            if ($descObj['type'] === 'literal') {
+                $itemData['Description'][] = [
+                    'type' => 'literal',
+                    'property_id' => 4,
+                    '@value' => $descObj['value']
+                ];
+                error_log('Added description: ' . $descObj['value'], 3, OMEKA_PATH . '/logs/svu-debug.log');
             }
         }
     }
     
-    // Extract timeline details
+    // Process Timeline - DIRECT ACCESS
     if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'])) {
         foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'] as $timelineObj) {
             if ($timelineObj['type'] === 'uri' && isset($rdfData[$timelineObj['value']])) {
                 $timelineUri = $timelineObj['value'];
+                error_log('Processing timeline: ' . $timelineUri, 3, OMEKA_PATH . '/logs/svu-debug.log');
                 
-                // Extract beginning and end points
                 $beginningYear = null;
                 $beginningBC = null;
                 $endYear = null;
@@ -4273,43 +4235,57 @@ private function processSVUData($rdfData, $subject, &$itemData) {
                     }
                 }
                 
-                // Add beginning and end as separate properties
+                // Create timeline display
+                if ($beginningYear && $endYear) {
+                    $beginText = $beginningYear . ($beginningBC ? ' BC' : ' AD');
+                    $endText = $endYear . ($endBC ? ' BC' : ' AD');
+                    
+                    if (!isset($itemData['Timeline'])) {
+                        $itemData['Timeline'] = [];
+                    }
+                    
+                    $itemData['Timeline'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7669,
+                        '@value' => "$beginText to $endText"
+                    ];
+                    
+                    error_log('Added timeline: ' . "$beginText to $endText", 3, OMEKA_PATH . '/logs/svu-debug.log');
+                }
+                
+                // Add individual beginning and end with correct property IDs
                 if ($beginningYear) {
+                    $beginText = $beginningYear . ($beginningBC ? ' BC' : ' AD');
+                    
                     if (!isset($itemData['Beginning'])) {
                         $itemData['Beginning'] = [];
                     }
                     
-                    $beginText = $beginningYear;
-                    if ($beginningBC !== null) {
-                        $beginText .= ' ' . ($beginningBC ? 'BC' : 'AC');
-                    }
-                    
                     $itemData['Beginning'][] = [
                         'type' => 'literal',
-                        'property_id' => 7, // Use appropriate property ID
+                        'property_id' => 7, // Use generic property ID for now
                         '@value' => $beginText
                     ];
                 }
                 
                 if ($endYear) {
+                    $endText = $endYear . ($endBC ? ' BC' : ' AD');
+                    
                     if (!isset($itemData['End'])) {
                         $itemData['End'] = [];
                     }
                     
-                    $endText = $endYear;
-                    if ($endBC !== null) {
-                        $endText .= ' ' . ($endBC ? 'BC' : 'AC');
-                    }
-                    
                     $itemData['End'][] = [
                         'type' => 'literal',
-                        'property_id' => 7, // Use appropriate property ID
+                        'property_id' => 8, // Use generic property ID for now
                         '@value' => $endText
                     ];
                 }
             }
         }
     }
+    
+    error_log('SVU processing complete for: ' . $subject, 3, OMEKA_PATH . '/logs/svu-debug.log');
 }
 
 /**
