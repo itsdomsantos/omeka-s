@@ -1654,6 +1654,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
     $isExcavation = false;
     $excavationIdentifier = "0"; // Default to "0" graph
 
+    // log ttl data
     try {
         $this->validateUploadType($ttlData, 'excavation');
         error_log('Upload excav validation passed', 3, OMEKA_PATH . '/logs/a.log');
@@ -1666,7 +1667,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
         error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug-final.log');
     } catch (\Exception $e) {
         // If validation fails, it means the data is not excavation data
-        error_log('Validation for excavation, this is an arrowhead', 3, OMEKA_PATH . '/logs/auxNew.log');
+        error_log('Validation for excavation, this is an arrwohead', 3, OMEKA_PATH . '/logs/auxNew.log');
         error_log('Validation for excavation failed: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
         
         // Check if this item belongs to an excavation item set
@@ -1687,97 +1688,159 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
         error_log('URIs normalized for item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
     }
 
+    // normalize also when is excavation
     if ($isExcavation && !$itemSetId) {
         if ($excavationIdentifier) {
+            $excavationMetadata = $this->extractExcavationMetadataFromTtl($ttlData);
             try {
-                // Create item set with proper metadata - ONLY ONCE
+                // Create item set with proper metadata
                 $itemSetTitle = "Excavation $excavationIdentifier";
-                error_log('Item set title: ' . $itemSetTitle, 3, OMEKA_PATH . '/logs/title.log');
-                $itemSetDescription = "Archaeological excavation with identifier $excavationIdentifier";
+                $itemSetDescription = $excavationMetadata['location'] ? 
+                    "Archaeological excavation at " . $excavationMetadata['location'] : 
+                    "Archaeological excavation with identifier $excavationIdentifier";
                 
-                $itemSetData = [
+                $response = $this->api()->create('item_sets', [
                     'dcterms:title' => [
                         [
                             'type' => 'literal',
+                            'property_id' => 1,
                             '@value' => $itemSetTitle
                         ]
                     ],
                     'dcterms:description' => [
                         [
                             'type' => 'literal',
+                            'property_id' => 4,
                             '@value' => $itemSetDescription
                         ]
                     ],
+                    'dcterms:creator' => $excavationMetadata['archaeologist'] ? [
+                        [
+                            'type' => 'literal',
+                            'property_id' => 7,
+                            '@value' => $excavationMetadata['archaeologist']
+                        ]
+                    ] : [],
                     'o:is_public' => true
-                ];
-
+                ]);
+            }
+            catch (\Exception $e) {
+                error_log('Error creating item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+            }
+        
+        }
+        try {
+            // Create a new item set directly using the API manager
+            $response = $this->api()->create('item_sets', [
+                'dcterms:title' => [
+                    [
+                        'type' => 'literal',
+                        'property_id' => 1,
+                        '@value' => "Excavation " . ($excavationIdentifier ?: "New")
+                    ]
+                ],
+                'dcterms:description' => [
+                    [
+                        'type' => 'literal',
+                        'property_id' => 4,
+                        '@value' => "Item set for excavation " . ($excavationIdentifier ?: "")
+                    ]
+                ],
+                'o:is_public' => true
+            ]);
+            
+            // If successful, get the new item set ID
+            if ($response) {
+                $newItemSet = $response->getContent();
+                $itemSetId = $newItemSet->id();
                 
-
-                error_log('Creating item set with data: ' . print_r($itemSetData, true), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+                error_log('Successfully created item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
                 
-                $response = $this->api()->create('item_sets', $itemSetData);
+                // Now normalize the URIs with the new item set ID
+                $ttlData = $this->normalizeUris($ttlData, $itemSetId);
+                error_log('URIs normalized for excavation with item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
+                
+                // Store the mapping between item set and excavation
+                if ($excavationIdentifier) {
+                    $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
+                }
+            }
+        } catch (\Exception $e) {
+            error_log('Error creating item set for excavation: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        }
+    }
+
+    if ($isExcavation && $excavationIdentifier) {
+        if ($this->excavationIdentifierExists($excavationIdentifier)) {
+            /*$errorMessage = 'An excavation with identifier "' . $excavationIdentifier . '" already exists. Please use a different identifier.';
+            error_log('Excavation identifier already exists: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+            
+            // Add error message to messenger
+            $messenger = $this->messenger();
+            $messenger->addError($errorMessage);
+            
+            // Return a simple error indicator
+            return 'Error: Duplicate excavation identifier';*/
+        }
+    }
+
+    error_log('is excavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+
+    // If it's excavation data and no itemSetId is provided, create an item set
+    if ($isExcavation && !$itemSetId) {
+        error_log('Attempting to extract excavation identifier', 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        
+        if ($excavationIdentifier) {
+            try {
+                // Create a new item set directly using the API manager
+                $response = $this->api()->create('item_sets', [
+                    'dcterms:title' => [
+                        [
+                            'type' => 'literal',
+                            'property_id' => 1,
+                            '@value' => "Excavation $excavationIdentifier"
+                        ]
+                    ],
+                    'dcterms:description' => [
+                        [
+                            'type' => 'literal',
+                            'property_id' => 4,
+                            '@value' => "Item set for excavation $excavationIdentifier containing all related findings"
+                        ]
+                    ],
+                    'o:is_public' => true
+                ]);
                 
                 // If successful, get the new item set ID
                 if ($response) {
                     $newItemSet = $response->getContent();
                     $itemSetId = $newItemSet->id();
-                    
                     error_log('Successfully created item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
                     
-                    // Double-check the title was set correctly, if not, update it
-                    $createdTitle = $newItemSet->displayTitle();
-                    error_log('Created item set title: ' . $createdTitle, 3, OMEKA_PATH . '/logs/excavation-debug.log');
-                    
-                    if ($createdTitle !== $itemSetTitle) {
-                        error_log('Title mismatch, updating item set title', 3, OMEKA_PATH . '/logs/excavation-debug.log');
-                        try {
-                            $this->api()->update('item_sets', $itemSetId, [
-                                'dcterms:title' => [
-                                    [
-                                        'type' => 'literal',
-                                        '@value' => $itemSetTitle
-                                    ]
-                                ]
-                            ], [], ['isPartial' => true]);
-                        } catch (\Exception $e) {
-                            error_log('Error updating item set title: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
-                        }
-                    }
-                    
-                    // Now normalize the URIs with the new item set ID
-                    $ttlData = $this->normalizeUris($ttlData, $itemSetId);
-                    error_log('URIs normalized for excavation with item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
-                    
-                    // Store the mapping between item set and excavation
-                    if ($excavationIdentifier) {
-                        $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
-                    }
+                    // Store the excavation identifier in a site setting or other persistent storage
+                    $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
+                } else {
+                    error_log('Empty response when creating item set', 3, OMEKA_PATH . '/logs/excavation-debug.log');
                 }
             } catch (\Exception $e) {
-                error_log('Error creating item set for excavation: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+                error_log('Error creating item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
             }
         }
     } else if (!$isExcavation && $itemSetId) {
-        error_log('This is an item that is not excavation', 3, OMEKA_PATH . '/logs/auxNew.log');
+        error_log(' this is an item that is not excavation', 3, OMEKA_PATH . '/logs/auxNew.log');
         // This is an arrowhead or other item being added to an existing excavation
         // Retrieve the excavation identifier associated with this item set
         error_log('Attempting to retrieve excavation identifier for item set: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
         $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
-        error_log('Retrieved excavation identifier for item set ' . $itemSetId . ': ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        error_log('Retrieved excavation identifier for item set ' . $itemSetId . ': ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
     }
-
-    if ($isExcavation && $excavationIdentifier) {
-        if ($this->excavationIdentifierExists($excavationIdentifier)) {
-            // Handle duplicate excavation identifiers if needed
-            // For now, we'll allow it to proceed
-        }
-    }
-
-    error_log('is excavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/excavation-debug.log');
     
     // Now proceed with the regular upload process
     // First, upload to GraphDB with the excavation identifier if available
     $graphDbResult = $this->sendToGraphDB($ttlData, $itemSetId);
+    error_log('GraphDB upload result: ' . $graphDbResult, 3, OMEKA_PATH . '/logs/auxNew.log');
+
+    // log ttl data
     error_log('GraphDB upload result: ' . $graphDbResult, 3, OMEKA_PATH . '/logs/auxNew.log');
     
     if (strpos($graphDbResult, 'successfully') !== false) {
@@ -1822,7 +1885,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             }
             
             if ($isExcavation && $itemSetId) {
-                return "Data uploaded successfully to both GraphDB and Omeka S. Created Item Set #{$itemSetId} for excavation '$excavationIdentifier' and " . 
+                return "Data uploaded successfully to both GraphDB and Omeka S. Created Item Set #{$itemSetId} for excavation 'EXC-{$itemSetId}' and " . 
                       count($createdItems) . " items with updated titles.";
             } else {
                 return 'Data uploaded successfully to both GraphDB and Omeka S. Created ' . 
@@ -1837,6 +1900,25 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
     }
 }
 
+
+private function extractExcavationMetadataFromTtl($ttlData) {
+    $metadata = [
+        'location' => null,
+        'archaeologist' => null
+    ];
+    
+    // Extract location name
+    if (preg_match('/dbo:informationName\s+"([^"]+)"/i', $ttlData, $matches)) {
+        $metadata['location'] = $matches[1];
+    }
+    
+    // Extract archaeologist name  
+    if (preg_match('/foaf:name\s+"([^"]+)"/i', $ttlData, $matches)) {
+        $metadata['archaeologist'] = $matches[1];
+    }
+    
+    return $metadata;
+}
 
 
 /**
@@ -2487,8 +2569,17 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
     
     // First pass: categorize all subjects
     foreach ($rdfData as $subject => $predicates) {
+        if (!is_array($predicates)) {
+            continue;
+        }
         foreach ($predicates as $predicate => $objects) {
+            if (!is_array($objects)) {
+                continue;
+            }
             foreach ($objects as $object) {
+                if (!is_array($object) || !isset($object['type']) || !isset($object['value'])) {
+                    continue;
+                }
                 if ($predicate === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' && $object['type'] === 'uri') {
                     // Arrowhead
                     if ($object['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' || 
@@ -2516,6 +2607,10 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
                     // Square
                     else if (strpos($object['value'], 'Square') !== false) {
                         $otherSubjects[$subject] = 'square';
+                    }
+                    else if ($object['value'] === 'https://purl.org/megalod/ms/excavation/Archaeologist' || 
+                                strpos($object['value'], 'Archaeologist') !== false) {
+                        $otherSubjects[$subject] = 'archaeologist';
                     }
                 }
             }
@@ -2639,14 +2734,17 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
         if ($subjectType == 'arrowhead' || $subjectType == 'item') {
             $this->processArrowheadData($rdfData, $subject, $itemData);
         } else if ($subjectType == 'excavation') {
-            $this->processExcavationDataWithArchaeologist($rdfData, $subject, $itemData);
+            $this->processExcavationData($rdfData, $subject, $itemData);
         } else if ($subjectType == 'context') {
             $this->processContextData($rdfData, $subject, $itemData);
         } else if ($subjectType == 'svu') {
-            $this->processSVUDataWithFixedTimeline($rdfData, $subject, $itemData);
+            $this->processSVUData($rdfData, $subject, $itemData);
         }
         else if ($subjectType == 'square') {
             $this->processSquareData($rdfData, $subject, $itemData);
+        }
+        else if ($subjectType == 'archaeologist') {  // ADD THIS
+            $this->processArchaeologistData($rdfData, $subject, $itemData);
         }
         
         // Add excavation context as spatial coverage
@@ -2726,6 +2824,67 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
     error_log('Transformed TTL to Omeka S data: ' . print_r($omekaData, true), 3, OMEKA_PATH . '/logs/transform.log');
     
     return $omekaData;
+}
+
+
+private function processArchaeologistData($rdfData, $subject, &$itemData) {
+    // Check if subject exists in rdfData first
+    if (!isset($rdfData[$subject])) {
+        error_log('Subject not found in RDF data: ' . $subject, 3, OMEKA_PATH . '/logs/archaeologist-debug.log');
+        return;
+    }
+    
+    // Basic properties - direct mapping
+    $propertyMap = [
+        'http://xmlns.com/foaf/0.1/name' => ['Name', 2086], // Use actual foaf:name property ID
+        'http://xmlns.com/foaf/0.1/mbox' => ['Email', 123], // Use actual foaf:mbox property ID
+        'http://xmlns.com/foaf/0.1/account' => ['ORCID', 176], // Use actual foaf:account property ID
+    ];
+    
+    // Extract basic properties with null checks
+    foreach ($propertyMap as $predicate => $mapping) {
+        if (isset($rdfData[$subject][$predicate]) && is_array($rdfData[$subject][$predicate])) {
+            $term = $mapping[0];
+            $propertyId = $mapping[1];
+            
+            if (!isset($itemData[$term])) {
+                $itemData[$term] = [];
+            }
+            
+            foreach ($rdfData[$subject][$predicate] as $object) {
+                // Add null check for object
+                if (!is_array($object) || !isset($object['type'])) {
+                    continue;
+                }
+                
+                if ($object['type'] === 'literal' && isset($object['value'])) {
+                    $itemData[$term][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $object['value']
+                    ];
+                } elseif ($object['type'] === 'uri' && isset($object['value'])) {
+                    if ($predicate === 'http://xmlns.com/foaf/0.1/account') {
+                        // Handle ORCID URIs specially
+                        $itemData[$term][] = [
+                            'type' => 'uri',
+                            'property_id' => $propertyId,
+                            '@id' => $object['value'],
+                            'o:label' => $object['value']
+                        ];
+                    } elseif ($predicate === 'http://xmlns.com/foaf/0.1/mbox') {
+                        // Handle email URIs (mailto:)
+                        $email = str_replace('mailto:', '', $object['value']);
+                        $itemData[$term][] = [
+                            'type' => 'literal',
+                            'property_id' => $propertyId,
+                            '@value' => $email
+                        ];
+                    }
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -3725,6 +3884,37 @@ if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.
                         }
                     }
                 }
+
+                // Add archaeologist reference if available
+if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'])) {
+    foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'] as $archObj) {
+        if ($archObj['type'] === 'uri') {
+            $archaeologistId = $this->extractResourceIdentifier($rdfData, $archObj['value']);
+            if ($archaeologistId) {
+                // Try to find the linked archaeologist item
+                $linkedItem = $this->findItemByIdentifier($archaeologistId);
+                if ($linkedItem) {
+                    $itemData['Person in Charge'][] = [
+                        'type' => 'resource',
+                        'property_id' => 7665, // Use appropriate property ID
+                        'value_resource_id' => $linkedItem->id(),
+                        '@value' => $archaeologistId
+                    ];
+                } else {
+                    // Fallback to literal
+                    $archaeologistName = $this->extractArchaeologistName($rdfData, $archObj['value']);
+                    if ($archaeologistName) {
+                        $itemData['Person in Charge'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7665,
+                            '@value' => $archaeologistName
+                        ];
+                    }
+                }
+            }
+        }
+    }
+}
                 
       
                 
@@ -4351,6 +4541,8 @@ private function determineItemType($subjectType) {
             return 'Archaeological Item';
         case 'square':
             return 'Square';
+        case 'archaeologist':  // ADD THIS
+            return 'Archaeologist';
         default:
             return 'Archaeological Object';
     }
@@ -4662,328 +4854,4 @@ private function processRelatedSubject($rdfData, $subject, &$itemData, $property
             error_log('Failed to create media: ' . $response->getBody());
         }
     }
-
-
-
-// Add this method to your IndexController.php in the AddTriplestore module
-
-/**
- * Create or find an archaeologist item
- */
-private function createOrFindArchaeologist($archaeologistData) {
-    // Use email as unique identifier
-    $email = $archaeologistData['email'] ?? null;
-    $name = $archaeologistData['name'] ?? null;
-    $orcid = $archaeologistData['orcid'] ?? null;
-    
-    if (!$email && !$orcid) {
-        return null; // Need at least email or ORCID
-    }
-    
-    // Try to find existing archaeologist by email or ORCID
-    $searchCriteria = [];
-    if ($email) {
-        $searchCriteria[] = [
-            'property' => 4, // dcterms:description or appropriate property
-            'type' => 'eq',
-            'text' => $email
-        ];
-    }
-    
-    try {
-        $response = $this->api()->search('items', [
-            'resource_class_id' => 1, // Default item class for now
-            'property' => $searchCriteria,
-            'limit' => 1
-        ]);
-        
-        $existingItems = $response->getContent();
-        if (!empty($existingItems)) {
-            return $existingItems[0]->id();
-        }
-    } catch (\Exception $e) {
-        error_log('Error searching for archaeologist: ' . $e->getMessage());
-    }
-    
-    // Create new archaeologist item
-    try {
-        $archaeologistItemData = [
-            'dcterms:title' => [
-                [
-                    'type' => 'literal',
-                    'property_id' => 1,
-                    '@value' => $name ? "Archaeologist: $name" : "Archaeologist: $email"
-                ]
-            ],
-            'dcterms:identifier' => [
-                [
-                    'type' => 'literal', 
-                    'property_id' => 10,
-                    '@value' => $email ?: $orcid
-                ]
-            ],
-            'o:is_public' => true
-        ];
-        
-        // Add name if provided
-        if ($name) {
-            $archaeologistItemData['foaf:name'] = [
-                [
-                    'type' => 'literal',
-                    'property_id' => 8, // Use appropriate property ID for foaf:name
-                    '@value' => $name
-                ]
-            ];
-        }
-        
-        // Add email if provided
-        if ($email) {
-            $archaeologistItemData['foaf:mbox'] = [
-                [
-                    'type' => 'literal',
-                    'property_id' => 4, // Use appropriate property ID for email
-                    '@value' => $email
-                ]
-            ];
-        }
-        
-        // Add ORCID if provided
-        if ($orcid) {
-            $archaeologistItemData['foaf:account'] = [
-                [
-                    'type' => 'uri',
-                    'property_id' => 22, // Use appropriate property ID for ORCID
-                    '@id' => "https://orcid.org/$orcid",
-                    '@value' => "https://orcid.org/$orcid"
-                ]
-            ];
-        }
-        
-        $response = $this->api()->create('items', $archaeologistItemData);
-        $archaeologist = $response->getContent();
-        
-        error_log('Created archaeologist item with ID: ' . $archaeologist->id());
-        return $archaeologist->id();
-        
-    } catch (\Exception $e) {
-        error_log('Error creating archaeologist item: ' . $e->getMessage());
-        return null;
-    }
-}
-
-/**
- * Extract archaeologist data from excavation TTL or form data
- */
-private function extractArchaeologistDataFromTtl($ttlData) {
-    $archaeologistData = [];
-    
-    // Extract name
-    if (preg_match('/foaf:name\s+"([^"]+)"/i', $ttlData, $matches)) {
-        $archaeologistData['name'] = $matches[1];
-    }
-    
-    // Extract email
-    if (preg_match('/foaf:mbox\s+<mailto:([^>]+)>/i', $ttlData, $matches)) {
-        $archaeologistData['email'] = $matches[1];
-    }
-    
-    // Extract ORCID
-    if (preg_match('/foaf:account\s+<https:\/\/orcid\.org\/([^>]+)>/i', $ttlData, $matches)) {
-        $archaeologistData['orcid'] = $matches[1];
-    }
-    
-    return $archaeologistData;
-}
-
-/**
- * Update the processExcavationData method to include archaeologist linking
- */
-private function processExcavationDataWithArchaeologist($rdfData, $subject, &$itemData) {
-    // Call the existing processExcavationData method first
-    $this->processExcavationData($rdfData, $subject, $itemData);
-    
-    // Extract archaeologist information
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'] as $archaeologistObj) {
-            if ($archaeologistObj['type'] === 'uri' && isset($rdfData[$archaeologistObj['value']])) {
-                $archaeologistUri = $archaeologistObj['value'];
-                
-                // Extract archaeologist data
-                $archaeologistData = [];
-                
-                // Get name
-                if (isset($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/name'])) {
-                    foreach ($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/name'] as $nameObj) {
-                        if ($nameObj['type'] === 'literal') {
-                            $archaeologistData['name'] = $nameObj['value'];
-                        }
-                    }
-                }
-                
-                // Get email
-                if (isset($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/mbox'])) {
-                    foreach ($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/mbox'] as $emailObj) {
-                        if ($emailObj['type'] === 'uri') {
-                            $archaeologistData['email'] = str_replace('mailto:', '', $emailObj['value']);
-                        }
-                    }
-                }
-                
-                // Get ORCID
-                if (isset($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/account'])) {
-                    foreach ($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/account'] as $orcidObj) {
-                        if ($orcidObj['type'] === 'uri' && strpos($orcidObj['value'], 'orcid.org') !== false) {
-                            $archaeologistData['orcid'] = str_replace('https://orcid.org/', '', $orcidObj['value']);
-                        }
-                    }
-                }
-                
-                // Create or find archaeologist item
-                $archaeologistItemId = $this->createOrFindArchaeologist($archaeologistData);
-                
-                if ($archaeologistItemId) {
-                    // Add resource link to excavation
-                    if (!isset($itemData['Person in Charge'])) {
-                        $itemData['Person in Charge'] = [];
-                    }
-                    
-                    $itemData['Person in Charge'][] = [
-                        'type' => 'resource',
-                        'property_id' => 7, // Use appropriate property ID
-                        'value_resource_id' => $archaeologistItemId,
-                        '@value' => $archaeologistData['name'] ?? $archaeologistData['email']
-                    ];
-                }
-            }
-        }
-    }
-}
-
-/**
- * Fix Timeline Structure - Update processSVUData method
- */
-private function processSVUDataWithFixedTimeline($rdfData, $subject, &$itemData) {
-    error_log('Processing SVU subject with fixed timeline: ' . $subject, 3, OMEKA_PATH . '/logs/svu-debug.log');
-    
-    // Process Description - DIRECT ACCESS
-    if (isset($rdfData[$subject]['http://purl.org/dc/terms/description'])) {
-        if (!isset($itemData['Description'])) {
-            $itemData['Description'] = [];
-        }
-        
-        foreach ($rdfData[$subject]['http://purl.org/dc/terms/description'] as $descObj) {
-            if ($descObj['type'] === 'literal') {
-                $itemData['Description'][] = [
-                    'type' => 'literal',
-                    'property_id' => 4,
-                    '@value' => $descObj['value']
-                ];
-            }
-        }
-    }
-    
-    // Process Timeline with proper structure
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'] as $timelineObj) {
-            if ($timelineObj['type'] === 'uri' && isset($rdfData[$timelineObj['value']])) {
-                $timelineUri = $timelineObj['value'];
-                
-                $beginningData = null;
-                $endData = null;
-                
-                // Extract beginning
-                if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'])) {
-                    foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'] as $beginObj) {
-                        if ($beginObj['type'] === 'uri' && isset($rdfData[$beginObj['value']])) {
-                            $beginUri = $beginObj['value'];
-                            $beginningData = $this->extractInstantData($rdfData, $beginUri);
-                        }
-                    }
-                }
-                
-                // Extract end
-                if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'])) {
-                    foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'] as $endObj) {
-                        if ($endObj['type'] === 'uri' && isset($rdfData[$endObj['value']])) {
-                            $endUri = $endObj['value'];
-                            $endData = $this->extractInstantData($rdfData, $endUri);
-                        }
-                    }
-                }
-                
-                // Create proper timeline display
-                if ($beginningData && $endData) {
-                    $timelineText = $beginningData['display'] . " to " . $endData['display'];
-                    
-                    if (!isset($itemData['Timeline'])) {
-                        $itemData['Timeline'] = [];
-                    }
-                    
-                    $itemData['Timeline'][] = [
-                        'type' => 'literal',
-                        'property_id' => 7669,
-                        '@value' => $timelineText
-                    ];
-                    
-                    // Add separate beginning and end properties
-                    if (!isset($itemData['Beginning'])) {
-                        $itemData['Beginning'] = [];
-                    }
-                    $itemData['Beginning'][] = [
-                        'type' => 'literal',
-                        'property_id' => 7670, // Use appropriate property ID
-                        '@value' => $beginningData['display']
-                    ];
-                    
-                    if (!isset($itemData['End'])) {
-                        $itemData['End'] = [];
-                    }
-                    $itemData['End'][] = [
-                        'type' => 'literal', 
-                        'property_id' => 7671, // Use appropriate property ID
-                        '@value' => $endData['display']
-                    ];
-                }
-            }
-        }
-    }
-}
-
-/**
- * Extract instant data (year + BC/AC) from RDF
- */
-private function extractInstantData($rdfData, $instantUri) {
-    $year = null;
-    $isBC = false;
-    
-    // Extract year
-    if (isset($rdfData[$instantUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
-        foreach ($rdfData[$instantUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
-            if ($yearObj['type'] === 'literal') {
-                $year = $yearObj['value'];
-            }
-        }
-    }
-    
-    // Extract BC/AC from controlled vocabulary
-    if (isset($rdfData[$instantUri]['https://purl.org/megalod/ms/excavation/bcac'])) {
-        foreach ($rdfData[$instantUri]['https://purl.org/megalod/ms/excavation/bcac'] as $bcObj) {
-            if ($bcObj['type'] === 'uri') {
-                $parts = explode('/', $bcObj['value']);
-                $bcacValue = end($parts);
-                $isBC = ($bcacValue === 'BC');
-            }
-        }
-    }
-    
-    if ($year) {
-        return [
-            'year' => $year,
-            'isBC' => $isBC,
-            'display' => $year . ($isBC ? ' BC' : ' AD')
-        ];
-    }
-    
-    return null;
-}
 }
