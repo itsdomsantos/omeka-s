@@ -4725,6 +4725,134 @@ private function processRelatedSubject($rdfData, $subject, &$itemData, $property
         error_log('DEBUG $_FILES: ' . print_r($_FILES, true), 3, OMEKA_PATH . '/logs/ddd.log');
         error_log('DEBUG item ID: ' . $itemId, 3, OMEKA_PATH . '/logs/ddd.log');
     }
+
+    public function searchAction()
+    {
+        $request = $this->getRequest();
+        $searchQuery = $request->getQuery('query', '');
+        $searchType = $request->getQuery('type', 'all'); // 'items', 'item_sets', or 'all'
+        $page = $request->getQuery('page', 1);
+        $perPage = 20;
+        
+        $results = [];
+        $totalItems = 0;
+        $totalItemSets = 0;
+        
+        if ($searchQuery) {
+            // Prepare search params
+            $searchParams = [
+                'page' => $page,
+                'per_page' => $perPage
+            ];
+            
+            // Add full-text search
+            if (strlen($searchQuery) > 2) {
+                $searchParams['fulltext_search'] = $searchQuery;
+            }
+            
+            // Search item sets
+            if ($searchType === 'all' || $searchType === 'item_sets') {
+                try {
+                    $itemSetResponse = $this->api()->search('item_sets', $searchParams);
+                    $results['item_sets'] = $itemSetResponse->getContent();
+                    $totalItemSets = $itemSetResponse->getTotalResults();
+                } catch (\Exception $e) {
+                    $this->logger()->err('Error searching item sets: ' . $e->getMessage());
+                    $results['item_sets'] = [];
+                    $totalItemSets = 0;
+                }
+            }
+            
+            // Search items
+            if ($searchType === 'all' || $searchType === 'items') {
+                try {
+                    $itemResponse = $this->api()->search('items', $searchParams);
+                    $results['items'] = $itemResponse->getContent();
+                    $totalItems = $itemResponse->getTotalResults();
+                } catch (\Exception $e) {
+                    $this->logger()->err('Error searching items: ' . $e->getMessage());
+                    $results['items'] = [];
+                    $totalItems = 0;
+                }
+            }
+        }
+        
+        $totalResults = $totalItems + $totalItemSets;
+        
+        return new ViewModel([
+            'searchQuery' => $searchQuery,
+            'searchType' => $searchType,
+            'results' => $results,
+            'totalResults' => $totalResults,
+            'totalItems' => $totalItems,
+            'totalItemSets' => $totalItemSets,
+            'page' => $page,
+            'perPage' => $perPage,
+            'site' => $this->currentSite()
+        ]);
+    }
+    
+    /**
+     * View details for a specific item or item set
+     */
+    public function viewDetailsAction()
+    {
+        $request = $this->getRequest();
+        $resourceType = $request->getQuery('type', 'item');
+        $id = $request->getQuery('id');
+        
+        if (!$id) {
+            return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
+        }
+        
+        $resource = null;
+        $properties = [];
+        $relatedItems = [];
+        
+        try {
+            if ($resourceType === 'item_set') {
+                $resource = $this->api()->read('item_sets', $id)->getContent();
+                
+                // Get items in this item set
+                $relatedItems = $this->api()->search('items', [
+                    'item_set_id' => $id,
+                    'sort_by' => 'created',
+                    'sort_order' => 'desc',
+                    'per_page' => 50
+                ])->getContent();
+            } else {
+                $resource = $this->api()->read('items', $id)->getContent();
+                
+                // Get item sets this item belongs to
+                $itemSets = $resource->itemSets();
+            }
+            
+            // Get all values for this resource
+            $values = $resource->values();
+            foreach ($values as $term => $propertyValues) {
+                $propertyId = $propertyValues[0]->property()->id();
+                $propertyLabel = $propertyValues[0]->property()->label();
+                
+                $properties[] = [
+                    'term' => $term,
+                    'label' => $propertyLabel,
+                    'values' => $propertyValues
+                ];
+            }
+        } catch (\Exception $e) {
+            $this->logger()->err('Error fetching resource details: ' . $e->getMessage());
+            $this->messenger()->addError('The requested resource could not be found.');
+            return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
+        }
+        
+        return new ViewModel([
+            'resource' => $resource,
+            'resourceType' => $resourceType,
+            'properties' => $properties,
+            'relatedItems' => $relatedItems,
+            'site' => $this->currentSite()
+        ]);
+    }
     
     private function createMediaForItem($itemId, $tempFile, $filename, $mimeType) {
         $omekaBaseUrl = 'http://localhost/api';
