@@ -431,7 +431,7 @@
     sh:property [
         sh:path schema:depth ;
         sh:name "Depth" ;
-        sh:class excav:Depth ;
+        sh:datatype xsd:decimal ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] .
