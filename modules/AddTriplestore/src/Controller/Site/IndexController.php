@@ -2721,11 +2721,11 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
         if ($subjectType == 'arrowhead' || $subjectType == 'item') {
             $this->processArrowheadData($rdfData, $subject, $itemData);
         } else if ($subjectType == 'excavation') {
-            $this->processExcavationData($rdfData, $subject, $itemData);
+            $this->processExcavationDataWithArchaeologist($rdfData, $subject, $itemData);
         } else if ($subjectType == 'context') {
             $this->processContextData($rdfData, $subject, $itemData);
         } else if ($subjectType == 'svu') {
-            $this->processSVUData($rdfData, $subject, $itemData);
+            $this->processSVUDataWithFixedTimeline($rdfData, $subject, $itemData);
         }
         else if ($subjectType == 'square') {
             $this->processSquareData($rdfData, $subject, $itemData);
@@ -4744,4 +4744,328 @@ private function processRelatedSubject($rdfData, $subject, &$itemData, $property
             error_log('Failed to create media: ' . $response->getBody());
         }
     }
+
+
+
+// Add this method to your IndexController.php in the AddTriplestore module
+
+/**
+ * Create or find an archaeologist item
+ */
+private function createOrFindArchaeologist($archaeologistData) {
+    // Use email as unique identifier
+    $email = $archaeologistData['email'] ?? null;
+    $name = $archaeologistData['name'] ?? null;
+    $orcid = $archaeologistData['orcid'] ?? null;
+    
+    if (!$email && !$orcid) {
+        return null; // Need at least email or ORCID
+    }
+    
+    // Try to find existing archaeologist by email or ORCID
+    $searchCriteria = [];
+    if ($email) {
+        $searchCriteria[] = [
+            'property' => 4, // dcterms:description or appropriate property
+            'type' => 'eq',
+            'text' => $email
+        ];
+    }
+    
+    try {
+        $response = $this->api()->search('items', [
+            'resource_class_id' => 1, // Default item class for now
+            'property' => $searchCriteria,
+            'limit' => 1
+        ]);
+        
+        $existingItems = $response->getContent();
+        if (!empty($existingItems)) {
+            return $existingItems[0]->id();
+        }
+    } catch (\Exception $e) {
+        error_log('Error searching for archaeologist: ' . $e->getMessage());
+    }
+    
+    // Create new archaeologist item
+    try {
+        $archaeologistItemData = [
+            'dcterms:title' => [
+                [
+                    'type' => 'literal',
+                    'property_id' => 1,
+                    '@value' => $name ? "Archaeologist: $name" : "Archaeologist: $email"
+                ]
+            ],
+            'dcterms:identifier' => [
+                [
+                    'type' => 'literal', 
+                    'property_id' => 10,
+                    '@value' => $email ?: $orcid
+                ]
+            ],
+            'o:is_public' => true
+        ];
+        
+        // Add name if provided
+        if ($name) {
+            $archaeologistItemData['foaf:name'] = [
+                [
+                    'type' => 'literal',
+                    'property_id' => 8, // Use appropriate property ID for foaf:name
+                    '@value' => $name
+                ]
+            ];
+        }
+        
+        // Add email if provided
+        if ($email) {
+            $archaeologistItemData['foaf:mbox'] = [
+                [
+                    'type' => 'literal',
+                    'property_id' => 4, // Use appropriate property ID for email
+                    '@value' => $email
+                ]
+            ];
+        }
+        
+        // Add ORCID if provided
+        if ($orcid) {
+            $archaeologistItemData['foaf:account'] = [
+                [
+                    'type' => 'uri',
+                    'property_id' => 22, // Use appropriate property ID for ORCID
+                    '@id' => "https://orcid.org/$orcid",
+                    '@value' => "https://orcid.org/$orcid"
+                ]
+            ];
+        }
+        
+        $response = $this->api()->create('items', $archaeologistItemData);
+        $archaeologist = $response->getContent();
+        
+        error_log('Created archaeologist item with ID: ' . $archaeologist->id());
+        return $archaeologist->id();
+        
+    } catch (\Exception $e) {
+        error_log('Error creating archaeologist item: ' . $e->getMessage());
+        return null;
+    }
+}
+
+/**
+ * Extract archaeologist data from excavation TTL or form data
+ */
+private function extractArchaeologistDataFromTtl($ttlData) {
+    $archaeologistData = [];
+    
+    // Extract name
+    if (preg_match('/foaf:name\s+"([^"]+)"/i', $ttlData, $matches)) {
+        $archaeologistData['name'] = $matches[1];
+    }
+    
+    // Extract email
+    if (preg_match('/foaf:mbox\s+<mailto:([^>]+)>/i', $ttlData, $matches)) {
+        $archaeologistData['email'] = $matches[1];
+    }
+    
+    // Extract ORCID
+    if (preg_match('/foaf:account\s+<https:\/\/orcid\.org\/([^>]+)>/i', $ttlData, $matches)) {
+        $archaeologistData['orcid'] = $matches[1];
+    }
+    
+    return $archaeologistData;
+}
+
+/**
+ * Update the processExcavationData method to include archaeologist linking
+ */
+private function processExcavationDataWithArchaeologist($rdfData, $subject, &$itemData) {
+    // Call the existing processExcavationData method first
+    $this->processExcavationData($rdfData, $subject, $itemData);
+    
+    // Extract archaeologist information
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'] as $archaeologistObj) {
+            if ($archaeologistObj['type'] === 'uri' && isset($rdfData[$archaeologistObj['value']])) {
+                $archaeologistUri = $archaeologistObj['value'];
+                
+                // Extract archaeologist data
+                $archaeologistData = [];
+                
+                // Get name
+                if (isset($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/name'])) {
+                    foreach ($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/name'] as $nameObj) {
+                        if ($nameObj['type'] === 'literal') {
+                            $archaeologistData['name'] = $nameObj['value'];
+                        }
+                    }
+                }
+                
+                // Get email
+                if (isset($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/mbox'])) {
+                    foreach ($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/mbox'] as $emailObj) {
+                        if ($emailObj['type'] === 'uri') {
+                            $archaeologistData['email'] = str_replace('mailto:', '', $emailObj['value']);
+                        }
+                    }
+                }
+                
+                // Get ORCID
+                if (isset($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/account'])) {
+                    foreach ($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/account'] as $orcidObj) {
+                        if ($orcidObj['type'] === 'uri' && strpos($orcidObj['value'], 'orcid.org') !== false) {
+                            $archaeologistData['orcid'] = str_replace('https://orcid.org/', '', $orcidObj['value']);
+                        }
+                    }
+                }
+                
+                // Create or find archaeologist item
+                $archaeologistItemId = $this->createOrFindArchaeologist($archaeologistData);
+                
+                if ($archaeologistItemId) {
+                    // Add resource link to excavation
+                    if (!isset($itemData['Person in Charge'])) {
+                        $itemData['Person in Charge'] = [];
+                    }
+                    
+                    $itemData['Person in Charge'][] = [
+                        'type' => 'resource',
+                        'property_id' => 7, // Use appropriate property ID
+                        'value_resource_id' => $archaeologistItemId,
+                        '@value' => $archaeologistData['name'] ?? $archaeologistData['email']
+                    ];
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Fix Timeline Structure - Update processSVUData method
+ */
+private function processSVUDataWithFixedTimeline($rdfData, $subject, &$itemData) {
+    error_log('Processing SVU subject with fixed timeline: ' . $subject, 3, OMEKA_PATH . '/logs/svu-debug.log');
+    
+    // Process Description - DIRECT ACCESS
+    if (isset($rdfData[$subject]['http://purl.org/dc/terms/description'])) {
+        if (!isset($itemData['Description'])) {
+            $itemData['Description'] = [];
+        }
+        
+        foreach ($rdfData[$subject]['http://purl.org/dc/terms/description'] as $descObj) {
+            if ($descObj['type'] === 'literal') {
+                $itemData['Description'][] = [
+                    'type' => 'literal',
+                    'property_id' => 4,
+                    '@value' => $descObj['value']
+                ];
+            }
+        }
+    }
+    
+    // Process Timeline with proper structure
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'] as $timelineObj) {
+            if ($timelineObj['type'] === 'uri' && isset($rdfData[$timelineObj['value']])) {
+                $timelineUri = $timelineObj['value'];
+                
+                $beginningData = null;
+                $endData = null;
+                
+                // Extract beginning
+                if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'])) {
+                    foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'] as $beginObj) {
+                        if ($beginObj['type'] === 'uri' && isset($rdfData[$beginObj['value']])) {
+                            $beginUri = $beginObj['value'];
+                            $beginningData = $this->extractInstantData($rdfData, $beginUri);
+                        }
+                    }
+                }
+                
+                // Extract end
+                if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'])) {
+                    foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'] as $endObj) {
+                        if ($endObj['type'] === 'uri' && isset($rdfData[$endObj['value']])) {
+                            $endUri = $endObj['value'];
+                            $endData = $this->extractInstantData($rdfData, $endUri);
+                        }
+                    }
+                }
+                
+                // Create proper timeline display
+                if ($beginningData && $endData) {
+                    $timelineText = $beginningData['display'] . " to " . $endData['display'];
+                    
+                    if (!isset($itemData['Timeline'])) {
+                        $itemData['Timeline'] = [];
+                    }
+                    
+                    $itemData['Timeline'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7669,
+                        '@value' => $timelineText
+                    ];
+                    
+                    // Add separate beginning and end properties
+                    if (!isset($itemData['Beginning'])) {
+                        $itemData['Beginning'] = [];
+                    }
+                    $itemData['Beginning'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7670, // Use appropriate property ID
+                        '@value' => $beginningData['display']
+                    ];
+                    
+                    if (!isset($itemData['End'])) {
+                        $itemData['End'] = [];
+                    }
+                    $itemData['End'][] = [
+                        'type' => 'literal', 
+                        'property_id' => 7671, // Use appropriate property ID
+                        '@value' => $endData['display']
+                    ];
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Extract instant data (year + BC/AC) from RDF
+ */
+private function extractInstantData($rdfData, $instantUri) {
+    $year = null;
+    $isBC = false;
+    
+    // Extract year
+    if (isset($rdfData[$instantUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
+        foreach ($rdfData[$instantUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
+            if ($yearObj['type'] === 'literal') {
+                $year = $yearObj['value'];
+            }
+        }
+    }
+    
+    // Extract BC/AC from controlled vocabulary
+    if (isset($rdfData[$instantUri]['https://purl.org/megalod/ms/excavation/bcac'])) {
+        foreach ($rdfData[$instantUri]['https://purl.org/megalod/ms/excavation/bcac'] as $bcObj) {
+            if ($bcObj['type'] === 'uri') {
+                $parts = explode('/', $bcObj['value']);
+                $bcacValue = end($parts);
+                $isBC = ($bcacValue === 'BC');
+            }
+        }
+    }
+    
+    if ($year) {
+        return [
+            'year' => $year,
+            'isBC' => $isBC,
+            'display' => $year . ($isBC ? ' BC' : ' AD')
+        ];
+    }
+    
+    return null;
+}
 }
