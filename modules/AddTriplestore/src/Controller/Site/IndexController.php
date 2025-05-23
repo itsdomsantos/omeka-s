@@ -4792,67 +4792,188 @@ private function processRelatedSubject($rdfData, $subject, &$itemData, $property
         ]);
     }
     
-    /**
-     * View details for a specific item or item set
-     */
-    public function viewDetailsAction()
-    {
-        $request = $this->getRequest();
-        $resourceType = $request->getQuery('type', 'item');
-        $id = $request->getQuery('id');
-        
-        if (!$id) {
-            return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
-        }
-        
-        $resource = null;
-        $properties = [];
-        $relatedItems = [];
-        
-        try {
-            if ($resourceType === 'item_set') {
-                $resource = $this->api()->read('item_sets', $id)->getContent();
-                
-                // Get items in this item set
-                $relatedItems = $this->api()->search('items', [
-                    'item_set_id' => $id,
-                    'sort_by' => 'created',
-                    'sort_order' => 'desc',
-                    'per_page' => 50
-                ])->getContent();
-            } else {
-                $resource = $this->api()->read('items', $id)->getContent();
-                
-                // Get item sets this item belongs to
-                $itemSets = $resource->itemSets();
-            }
-            
-            // Get all values for this resource
-            $values = $resource->values();
-            foreach ($values as $term => $propertyValues) {
-                $propertyId = $propertyValues[0]->property()->id();
-                $propertyLabel = $propertyValues[0]->property()->label();
-                
-                $properties[] = [
-                    'term' => $term,
-                    'label' => $propertyLabel,
-                    'values' => $propertyValues
-                ];
-            }
-        } catch (\Exception $e) {
-            $this->logger()->err('Error fetching resource details: ' . $e->getMessage());
-            $this->messenger()->addError('The requested resource could not be found.');
-            return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
-        }
-        
-        return new ViewModel([
-            'resource' => $resource,
-            'resourceType' => $resourceType,
-            'properties' => $properties,
-            'relatedItems' => $relatedItems,
-            'site' => $this->currentSite()
-        ]);
+/**
+ * View details for a specific item or item set
+ */
+public function viewDetailsAction()
+{
+    $request = $this->getRequest();
+    $resourceType = $request->getQuery('type', 'item');
+    $id = $request->getQuery('id');
+    
+    if (!$id) {
+        return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
     }
+    
+    $resource = null;
+    $properties = [];
+    $relatedItems = [];
+    
+    try {
+        if ($resourceType === 'item_set') {
+            $resource = $this->api()->read('item_sets', $id)->getContent();
+            
+            // Get items in this item set
+            $relatedItems = $this->api()->search('items', [
+                'item_set_id' => $id,
+                'sort_by' => 'created',
+                'sort_order' => 'desc',
+                'per_page' => 50
+            ])->getContent();
+        } else {
+            $resource = $this->api()->read('items', $id)->getContent();
+        }
+        
+        // Get all values using the proper Omeka S method
+        $values = $resource->values();
+        
+        // Debug: Let's see the actual structure for one property
+        if (!empty($values)) {
+            $firstTerm = array_keys($values)[0];
+            $firstProperty = $values[$firstTerm];
+        }
+        
+        foreach ($values as $term => $propertyData) {
+            try {
+                // Skip empty data
+                if (empty($propertyData)) {
+                    continue;
+                }
+                
+                $propertyLabel = $this->getHumanReadableLabel($term); // Create readable labels from terms
+                $propertyValues = [];
+                
+                // Handle different possible structures
+                if (is_array($propertyData)) {
+                    // Look for 'values' key specifically
+                    if (isset($propertyData['values']) && is_array($propertyData['values'])) {
+                        $propertyValues = $propertyData['values'];
+                        
+                        // Try to get better label from property object
+                        if (isset($propertyData['property']) && is_object($propertyData['property'])) {
+                            if (method_exists($propertyData['property'], 'label')) {
+                                $propertyLabel = $propertyData['property']->label();
+                            }
+                        }
+                    } else {
+                        // Try each item in the array
+                        foreach ($propertyData as $item) {
+                            if (is_object($item) && method_exists($item, 'value')) {
+                                $propertyValues[] = $item;
+                                
+                                // Try to get label from first value's property
+                                if (empty($propertyValues) && method_exists($item, 'property')) {
+                                    $prop = $item->property();
+                                    if ($prop && method_exists($prop, 'label')) {
+                                        $propertyLabel = $prop->label();
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else if (is_object($propertyData) && method_exists($propertyData, 'value')) {
+                    // Single value object
+                    $propertyValues = [$propertyData];
+                    
+                    if (method_exists($propertyData, 'property')) {
+                        $prop = $propertyData->property();
+                        if ($prop && method_exists($prop, 'label')) {
+                            $propertyLabel = $prop->label();
+                        }
+                    }
+                }
+                
+                // Only add if we have valid values
+                if (!empty($propertyValues)) {
+                    $properties[] = [
+                        'term' => $term,
+                        'label' => $propertyLabel,
+                        'values' => $propertyValues
+                    ];
+                }
+                
+            } catch (\Exception $e) {
+                error_log("Error processing property '$term': " . $e->getMessage(), 3, OMEKA_PATH . '/logs/property-debug.log');
+                continue;
+            }
+        }
+        
+        // Sort properties by label for better display
+        usort($properties, function($a, $b) {
+            return strcmp($a['label'], $b['label']);
+        });
+        
+    } catch (\Exception $e) {
+        error_log('Error fetching resource details: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/view-details-error.log');
+        $this->messenger()->addError('The requested resource could not be found.');
+        return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
+    }
+    
+    return new ViewModel([
+        'resource' => $resource,
+        'resourceType' => $resourceType,
+        'properties' => $properties,
+        'relatedItems' => $relatedItems,
+        'site' => $this->currentSite()
+    ]);
+}
+
+/**
+ * Convert a property term to a human-readable label
+ */
+private function getHumanReadableLabel($term)
+{
+    // Common property mappings
+    $labelMappings = [
+        'dcterms:title' => 'Title',
+        'dcterms:identifier' => 'Identifier',
+        'dcterms:description' => 'Description',
+        'bibo:annotates' => 'Annotations',
+        'crm:P44_has_condition' => 'Condition',
+        'crm:P2_has_type' => 'Type',
+        'crm:P43_has_dimension' => 'Dimension',
+        'geo:lat' => 'Latitude',
+        'geo:long' => 'Longitude',
+        'ah:shape' => 'Shape',
+        'ah:variant' => 'Variant',
+        'ah:base' => 'Base',
+        'ah:point' => 'Point',
+        'ah:body' => 'Body',
+        'ah:chippingMode' => 'Chipping Mode',
+        'ah:chippingAmplitude' => 'Chipping Amplitude',
+        'ah:chippingDirection' => 'Chipping Direction',
+        'ah:chippingOrientation' => 'Chipping Orientation',
+        'ah:chippingDelineation' => 'Chipping Delineation',
+        'ah:chippingShape' => 'Chipping Shape',
+        'excav:elongationIndex' => 'Elongation Index',
+        'excav:thicknessIndex' => 'Thickness Index',
+        'schema:height' => 'Height',
+        'schema:width' => 'Width',
+        'schema:depth' => 'Thickness',
+        'schema:weight' => 'Weight',
+    ];
+    
+    // Return mapped label if exists
+    if (isset($labelMappings[$term])) {
+        return $labelMappings[$term];
+    }
+    
+    // Otherwise, create a readable label from the term
+    // Remove namespace prefix
+    $label = $term;
+    if (strpos($label, ':') !== false) {
+        $parts = explode(':', $label);
+        $label = end($parts);
+    }
+    
+    // Convert camelCase to Title Case
+    $label = preg_replace('/([a-z])([A-Z])/', '$1 $2', $label);
+    
+    // Capitalize first letter of each word
+    $label = ucwords($label);
+    
+    return $label;
+}
     
     private function createMediaForItem($itemId, $tempFile, $filename, $mimeType) {
         $omekaBaseUrl = 'http://localhost/api';
