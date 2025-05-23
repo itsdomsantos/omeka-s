@@ -656,13 +656,11 @@ private function getItemIdentifier($item)
         
         // Add morphology reference
         $ttl .= "    ah:hasMorphology <$morphologyUri>;\n";
-        
-        // Close the main arrowhead resource
-        $ttl .= "    .\n\n";
 
         if (!empty($formData['x_coordinate']) && !empty($formData['y_coordinate'])) {
-            $coordinatesUri = "$baseUri/coordinates/" . substr($arrowheadId, 3);
-            
+            $coordinatesUri = "$baseUri/coordinatesInSquare/" . substr($arrowheadId, 3);
+            $ttl .= "    excav:hasCoordinatesInSquare <$coordinatesUri>;\n";
+
             $coordinatesData = [
                 'uri' => $coordinatesUri,
                 'x' => $formData['x_coordinate'],
@@ -670,6 +668,11 @@ private function getItemIdentifier($item)
                 'z' => !empty($formData['z_coordinate']) ? $formData['z_coordinate'] : null
             ];
         }
+        
+        // Close the main arrowhead resource
+        $ttl .= "    .\n\n";
+
+        
 
         // Add coordinates definition
         error_log('Coordinates data: ' . print_r($coordinatesData, true), 3, OMEKA_PATH . '/logs/coordinates-debug.log');
@@ -2804,7 +2807,7 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         'https://purl.org/megalod/ms/excavation/thicknessIndex' => ['Thickness Index', 7677],
         // Separate square reference from coordinates
         'https://purl.org/megalod/ms/excavation/foundInSquare' => ['Found in Square', 7668],
-        'https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare' => ['Coordinates', 7674], // New property for actual coordinates
+        //'https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare' => ['Coordinates', 7674], // New property for actual coordinates
         'https://purl.org/megalod/ms/excavation/foundInContext' => ['Context', 7672],
         'https://purl.org/megalod/ms/excavation/foundInSVU' => ['Stratigraphic Unit', 7671],
         'https://purl.org/megalod/ms/excavation/foundInExcavation' => ['Excavation', 7673],
@@ -2813,6 +2816,7 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         'https://purl.org/megalod/ms/ah/bodyLength' => ['Body Length', 7649],
         'https://purl.org/megalod/ms/ah/baseLength' => ['Base Length', 7650],
         'http://schema.org/depth' => ['Thickness', 7244], // Since thickness is missing
+
     ];
 
     error_log('Processing arrowhead data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/checkProp.log');
@@ -2973,7 +2977,7 @@ foreach ($datePredicates as $datePredicate) {
                             if ($depthObj['type'] === 'literal') {
                                 $itemData['Encounter Depth'][] = [
                                     'type' => 'literal',
-                                    'property_id' => 7675,
+                                    'property_id' => 7674,
                                     '@value' => $depthObj['value'] . (isset($depthObj['datatype']) && $depthObj['datatype'] === 'http://www.w3.org/2001/XMLSchema#decimal' ? ' m' : '')
                                 ];
                             }
@@ -3096,12 +3100,12 @@ if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordina
         if ($coordObj['type'] === 'uri' && isset($rdfData[$coordObj['value']])) {
             $coordUri = $coordObj['value'];
             
-            // Extract X, Y coordinates within the square
+            // Extract X, Y, Z coordinates
             $x = null;
             $y = null;
-            $depth = null;
+            $z = null;
             
-            // X coordinate is stored as longitude in this context
+            // X coordinate is stored as longitude
             if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'])) {
                 foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'] as $xObj) {
                     if ($xObj['type'] === 'literal') {
@@ -3110,7 +3114,7 @@ if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordina
                 }
             }
             
-            // Y coordinate is stored as latitude in this context  
+            // Y coordinate is stored as latitude
             if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'])) {
                 foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'] as $yObj) {
                     if ($yObj['type'] === 'literal') {
@@ -3119,34 +3123,36 @@ if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordina
                 }
             }
             
-            // Z/Depth coordinate - check for schema:depth with URI reference
+            // Z coordinate
             if (isset($rdfData[$coordUri]['http://schema.org/depth'])) {
                 foreach ($rdfData[$coordUri]['http://schema.org/depth'] as $depthObj) {
-                    if ($depthObj['type'] === 'uri' && isset($rdfData[$depthObj['value']])) {
-                        // Extract depth value from the depth resource
-                        $depthUri = $depthObj['value'];
-                        $depth = $this->extractMeasurementValue($rdfData, $depthUri);
+                    if ($depthObj['type'] === 'literal') {
+                        $z = $depthObj['value'];
                     }
                 }
             }
             
-            // Add square coordinates as separate property
-            if ($x !== null || $y !== null || $depth !== null) {
-                if (!isset($itemData['Square Coordinates'])) {
-                    $itemData['Square Coordinates'] = [];
-                }
-                
+            // ONLY add the literal coordinate text, NO URI
+            if ($x !== null || $y !== null || $z !== null) {
                 $coordText = "";
                 if ($x !== null) $coordText .= "X: $x";
                 if ($y !== null) $coordText .= ($coordText ? ", " : "") . "Y: $y";
-                if ($depth !== null) $coordText .= ($coordText ? ", " : "") . "Z: $depth";
+                if ($z !== null) $coordText .= ($coordText ? ", " : "") . "Z: $z";
                 
-                $itemData['Square Coordinates'][] = [
-                    'type' => 'literal',
-                    'property_id' => 7675,
-                    '@value' => $coordText
+                // Make sure we ONLY have the literal value
+                $itemData['Square Coordinates'] = [
+                    [
+                        'type' => 'literal',
+                        'property_id' => 7674,
+                        '@value' => $coordText
+                    ]
                 ];
+                error_log('Square Coordinates: ' . $coordText, 3, OMEKA_PATH . '/logs/jfjfjf.log');
+                error_log('Square Coordinates property ID: ' . 7674, 3, OMEKA_PATH . '/logs/jfjfjf.log');
             }
+            
+            // SKIP processing this property as a URI anywhere else
+            break; // Exit the loop to prevent further processing
         }
     }
 }
@@ -3288,19 +3294,16 @@ foreach ($typometryMap as $predicate => $mapping) {
                 $value = $this->extractMeasurementValue($rdfData, $typometryUri);
                 $unit = $this->extractMeasurementUnit($rdfData, $typometryUri);
                 
-                // Combine value and unit into a single property
-                // Combine value and unit into a single property for all measurements
+                // ONLY add the literal measurement, NO URI references
                 if ($value) {
-                    if (!isset($itemData[$term])) {
-                        $itemData[$term] = [];
-                    }
-                    $itemData[$term][] = [
-                        'type' => 'literal',
-                        'property_id' => $propertyId,
-                        '@value' => $value . ' ' . ($unit ?: '')
+                    // REPLACE any existing entries with ONLY the literal value
+                    $itemData[$term] = [
+                        [
+                            'type' => 'literal',
+                            'property_id' => $propertyId,
+                            '@value' => $value . ' ' . ($unit ?: '')
+                        ]
                     ];
-                    
-                    error_log('Added measurement: ' . $term . ' = ' . $value . ' ' . ($unit ?: ''), 3, OMEKA_PATH . '/logs/measurements.log');
                 }
             }
         }
@@ -3334,64 +3337,7 @@ foreach ($typometryMap as $predicate => $mapping) {
             }
         }
     }
-    
-    // Extract coordinates
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excav/hasCoordinatesInSquare'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excav/hasCoordinatesInSquare'] as $coordObj) {
-            if ($coordObj['type'] === 'uri' && isset($rdfData[$coordObj['value']])) {
-                $coordUri = $coordObj['value'];
-                
-                // Extract latitude and longitude
-                $lat = null;
-                $long = null;
-                $depth = null;
-                
-                if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'])) {
-                    foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'] as $latObj) {
-                        if ($latObj['type'] === 'literal') {
-                            $lat = $latObj['value'];
-                        }
-                    }
-                }
-                
-                if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'])) {
-                    foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'] as $longObj) {
-                        if ($longObj['type'] === 'literal') {
-                            $long = $longObj['value'];
-                        }
-                    }
-                }
-                
-                // Extract depth if present
-                if (isset($rdfData[$coordUri]['http://schema.org/depth'])) {
-                    foreach ($rdfData[$coordUri]['http://schema.org/depth'] as $depthObj) {
-                        if ($depthObj['type'] === 'uri') {
-                            $depthUri = $depthObj['value'];
-                            $depth = $this->extractMeasurementValue($rdfData, $depthUri);
-                        }
-                    }
-                }
-                
-                // Add coordinates to spatial information
-                if ($lat && $long) {
-                    if (!isset($itemData['dcterms:spatial'])) {
-                        $itemData['dcterms:spatial'] = [];
-                    }
-                    
-                    $coordText = "Latitude: $lat, Longitude: $long";
-                    if ($depth) {
-                        $coordText .= ", Depth: $depth";
-                    }
-                    
-                    $itemData['dcterms:spatial'][] = [
-                        'type' => 'literal',
-                        'property_id' => 18,
-                        '@value' => $coordText
-                    ];
-                }
-            }
-        }
-    }
+
 }
 
 /**
