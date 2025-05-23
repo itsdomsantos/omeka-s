@@ -20,6 +20,9 @@ class IndexController extends AbstractActionController
     private $baseDataGraphUri = "https://purl.org/megalod/";
     private $router;
     private $httpClient;
+
+    private $uploadedFiles = null;
+
     private $excavationData = null;
 
     private $excavationIdentifier = "0"; // Default to the "0" graph
@@ -668,6 +671,21 @@ private function getItemIdentifier($item)
                 'z' => !empty($formData['z_coordinate']) ? $formData['z_coordinate'] : null
             ];
         }
+
+        // Add images/web resources - add this before the final $ttl .= "    .\n\n";
+        if (!empty($formData['images'])) {
+            $images = $formData['images'];
+            error_log('Images data: ' . print_r($images, true), 3, OMEKA_PATH . '/logs/images-debug.log');
+            if (is_array($images)) {
+                foreach ($images as $image) {
+                    if (!empty($image)) {
+                        $ttl .= "    edm:Webresource <$image>;\n";
+                    }
+                }
+            } else if (!empty($images)) {
+                $ttl .= "    edm:Webresource <$images>;\n";
+            }
+        }
         
         // Close the main arrowhead resource
         $ttl .= "    .\n\n";
@@ -903,27 +921,42 @@ private function updateItemSetWithExcavationInfo($itemSetId, $excavationData) {
             return new \Laminas\Form\Form('error-form'); // Or return null;
         }
     }
+    
 
-public function processCollectingFormAction()
-{
-    
-    // Get the item set ID and upload type from query parameters
-    $itemSetId = $this->params()->fromQuery('item_set_id');
-    $uploadType = $this->params()->fromQuery('upload_type', 'arrowhead');
-    
-    // Get all POST data from the collecting form
-    $formData = $this->params()->fromPost();
-    
-    error_log('Received collecting form data: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/collecting-form.log');
-    
-    // Transform collecting form data to format expected by processArrowheadFormData
-    $arrowheadData = $this->transformCollectingFormToArrowheadData($formData);
-    
+    private function uploadTtlDataWithMedia($ttlData, $itemSetId, $uploadedFiles) {
+        // Store files temporarily
+        $this->uploadedFiles = $uploadedFiles;
+        
+        // Call the regular upload method
+        return $this->uploadTtlData($ttlData, $itemSetId);
+    }
+
+    public function processCollectingFormAction()
+    {
+        // Get the item set ID and upload type from query parameters
+        $itemSetId = $this->params()->fromQuery('item_set_id');
+        $uploadType = $this->params()->fromQuery('upload_type', 'arrowhead');
+        
+        // Get all POST data from the collecting form
+        $formData = $this->params()->fromPost();
+        
+        error_log('Received collecting form data: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/collecting-form.log');
+        
+        // STORE UPLOADED FILES IMMEDIATELY
+        $uploadedFiles = null;
+        if (isset($_FILES['file']['54'])) {
+            $uploadedFiles = $_FILES['file']['54'];
+            error_log('Found uploaded files: ' . print_r($uploadedFiles, true), 3, OMEKA_PATH . '/logs/collecting-form.log');
+        }
+        
+        // Transform collecting form data to format expected by processArrowheadFormData
+        $arrowheadData = $this->transformCollectingFormToArrowheadData($formData);
+        
     // Process the transformed data
     if (!empty($arrowheadData)) {
         $ttlData = $this->processArrowheadFormData($arrowheadData, $itemSetId);
-        $result = $this->uploadTtlData($ttlData, $itemSetId);
-        
+        // MODIFY THIS LINE - pass the uploaded files
+        $result = $this->uploadTtlDataWithMedia($ttlData, $itemSetId, $uploadedFiles);        
         error_log('Processed collecting form data: ' . $result, 3, OMEKA_PATH . '/logs/collecting-form.log');
         
         // Redirect back to excavation context with success message
@@ -967,6 +1000,7 @@ private function transformCollectingFormToArrowheadData($formData)
     // Updated field mappings based on your actual form structure
     $fieldMappings = [
         'prompt_53' => 'arrowhead_identifier',    // ID field 
+        'prompt_54' => 'images',          // Type field
         'prompt_55' => 'arrowhead_annotation',    // Observations/annotations
         'prompt_56' => 'condition_state',         // Complete/Broken
         'prompt_65' => 'arrowhead_type',          // Elongate/Short
@@ -1030,6 +1064,30 @@ private function transformCollectingFormToArrowheadData($formData)
             }
         }
     }
+
+    // Add this after the main foreach loop in transformCollectingFormToArrowheadData()
+
+// Handle file uploads for images
+if (isset($formData['file']['54']) && is_array($formData['file']['54'])) {
+    $imageFiles = $formData['file']['54'];
+    error_log('Image files: ' . print_r($imageFiles, true), 3, OMEKA_PATH . '/logs/image-files.log');
+    $imageUrls = [];
+    
+    foreach ($imageFiles as $imageFile) {
+        if (!empty($imageFile)) {
+            // Process uploaded file and create URL
+            // For now, we'll create a placeholder URL structure
+            $baseUrl = "https://purl.org/megalod/images/";
+            $filename = basename($imageFile);
+            $imageUrls[] = $baseUrl . $filename;
+        }
+    }
+    
+    if (!empty($imageUrls)) {
+        $arrowheadData['images'] = $imageUrls;
+    }
+}
+
 
     // ADD THIS: Remove unit fields if their corresponding value fields are empty
     $valuesToCheck = [
@@ -2535,6 +2593,26 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
                         $otherSubjects[$subject] = 'square';
                     }
                 }
+            }
+        }
+    }
+
+    // Add this after the existing property processing in processArrowheadData()
+
+    // Process images/web resources
+    if (isset($rdfData[$subject]['http://www.europeana.eu/schemas/edm/Webresource'])) {
+        foreach ($rdfData[$subject]['http://www.europeana.eu/schemas/edm/Webresource'] as $imageObj) {
+            if ($imageObj['type'] === 'uri') {
+                if (!isset($itemData['Images'])) {
+                    $itemData['Images'] = [];
+                }
+                
+                $itemData['Images'][] = [
+                    'type' => 'uri',
+                    'property_id' => 100, // Use the property ID for edm:Webresource 
+                    '@id' => $imageObj['value'],
+                    'o:label' => basename($imageObj['value']) // Show filename as label
+                ];
             }
         }
     }
@@ -4485,12 +4563,17 @@ private function processRelatedSubject($rdfData, $subject, &$itemData, $property
                              $response->getStatusCode() . ' - ' . $response->getBody();
                 error_log('Omeka S API Error: ' . $response->getBody());
             } else {
-                $createdItems[] = json_decode($response->getBody(), true);
-                error_log('Omeka S Item Created Successfully: ID=' . 
-                           json_decode($response->getBody(), true)['o:id']);
+                $createdItem = json_decode($response->getBody(), true);
+                $itemId = $createdItem['o:id'];
+                
+                // Handle media files if they exist
+                $this->attachMediaToItem($itemId);
+                
+                $createdItems[] = $createdItem;
+                error_log('Omeka S Item Created Successfully: ID=' . $itemId);
             }
         }
-
+    
         if ($itemSetId && !empty($createdItems) && $this->excavationData) {
             // Update the item set with excavation info
             $this->updateItemSetWithExcavationInfo($itemSetId, $this->excavationData);
@@ -4501,137 +4584,66 @@ private function processRelatedSubject($rdfData, $subject, &$itemData, $property
             'created_items' => $createdItems
         ];
     }
-
-
-    // SEARCH AND VIEW 
-    public function searchAction()
-{
-    $request = $this->getRequest();
-    $searchQuery = $request->getQuery('query', '');
-    $searchType = $request->getQuery('type', 'all'); // 'items', 'item_sets', or 'all'
-    $page = $request->getQuery('page', 1);
-    $perPage = 20;
     
-    $results = [];
-    $totalItems = 0;
-    $totalItemSets = 0;
+    private function attachMediaToItem($itemId) {
+        // Use stored files instead of $_FILES
+        if ($this->uploadedFiles && isset($this->uploadedFiles['name']) && is_array($this->uploadedFiles['name'])) {
+            $files = $this->uploadedFiles;
+            
+            foreach ($files['name'] as $index => $filename) {
+                if (!empty($filename) && $files['error'][$index] === UPLOAD_ERR_OK) {
+                    $tempFile = $files['tmp_name'][$index];
+                    $mimeType = $files['type'][$index];
+                    
+                    // Create media via Omeka S API
+                    $this->createMediaForItem($itemId, $tempFile, $filename, $mimeType);
+                }
+            }
+        }
+        error_log('DEBUG $_FILES: ' . print_r($_FILES, true), 3, OMEKA_PATH . '/logs/ddd.log');
+        error_log('DEBUG item ID: ' . $itemId, 3, OMEKA_PATH . '/logs/ddd.log');
+    }
     
-    if ($searchQuery) {
-        // Prepare search params
-        $searchParams = [
-            'page' => $page,
-            'per_page' => $perPage
+    private function createMediaForItem($itemId, $tempFile, $filename, $mimeType) {
+        $omekaBaseUrl = 'http://localhost/api';
+        $omekaKeyIdentity = '2TGK0xT9tEMCUQs1178OyCnyRcIQpv5B';
+        $omekaKeyCredential = '9IFd207Y8D5yG1bmtnCllmbgZweuMfQA';
+        
+        // Read file content
+        $fileContent = file_get_contents($tempFile);
+        $base64Content = base64_encode($fileContent);
+        
+        $mediaData = [
+            'o:item' => ['o:id' => $itemId],
+            'o:ingester' => 'upload',
+            'dcterms:title' => [
+                [
+                    'type' => 'literal',
+                    'property_id' => 1,
+                    '@value' => $filename
+                ]
+            ],
+            'o:source' => $filename,
+            'ingest_file_data' => $base64Content,
+            'ingest_filename' => $filename
         ];
         
-        // Add full-text search
-        if (strlen($searchQuery) > 2) {
-            $searchParams['fulltext_search'] = $searchQuery;
-        }
+        $client = new Client();
+        $fullUrl = rtrim($omekaBaseUrl, '/') . '/media' . 
+                   '?key_identity=' . urlencode($omekaKeyIdentity) .
+                   '&key_credential=' . urlencode($omekaKeyCredential);
         
-        // Search item sets
-        if ($searchType === 'all' || $searchType === 'item_sets') {
-            try {
-                $itemSetResponse = $this->api()->search('item_sets', $searchParams);
-                $results['item_sets'] = $itemSetResponse->getContent();
-                $totalItemSets = $itemSetResponse->getTotalResults();
-            } catch (\Exception $e) {
-                $this->logger()->err('Error searching item sets: ' . $e->getMessage());
-                $results['item_sets'] = [];
-                $totalItemSets = 0;
-            }
-        }
+        $client->setUri($fullUrl);
+        $client->setMethod('POST');
+        $client->setHeaders(['Content-Type' => 'application/json']);
+        $client->setRawBody(json_encode($mediaData));
         
-        // Search items
-        if ($searchType === 'all' || $searchType === 'items') {
-            try {
-                $itemResponse = $this->api()->search('items', $searchParams);
-                $results['items'] = $itemResponse->getContent();
-                $totalItems = $itemResponse->getTotalResults();
-            } catch (\Exception $e) {
-                $this->logger()->err('Error searching items: ' . $e->getMessage());
-                $results['items'] = [];
-                $totalItems = 0;
-            }
-        }
-    }
-    
-    $totalResults = $totalItems + $totalItemSets;
-    
-    return new ViewModel([
-        'searchQuery' => $searchQuery,
-        'searchType' => $searchType,
-        'results' => $results,
-        'totalResults' => $totalResults,
-        'totalItems' => $totalItems,
-        'totalItemSets' => $totalItemSets,
-        'page' => $page,
-        'perPage' => $perPage,
-        'site' => $this->currentSite()
-    ]);
-}
-
-/**
- * View details for a specific item or item set
- */
-public function viewDetailsAction()
-{
-    $request = $this->getRequest();
-    $resourceType = $request->getQuery('type', 'item');
-    $id = $request->getQuery('id');
-    
-    if (!$id) {
-        return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
-    }
-    
-    $resource = null;
-    $properties = [];
-    $relatedItems = [];
-    
-    try {
-        if ($resourceType === 'item_set') {
-            $resource = $this->api()->read('item_sets', $id)->getContent();
-            
-            // Get items in this item set
-            $relatedItems = $this->api()->search('items', [
-                'item_set_id' => $id,
-                'sort_by' => 'created',
-                'sort_order' => 'desc',
-                'per_page' => 50
-            ])->getContent();
+        $response = $client->send();
+        
+        if ($response->isSuccess()) {
+            error_log('Media created successfully for item ' . $itemId . ': ' . $filename);
         } else {
-            $resource = $this->api()->read('items', $id)->getContent();
-            
-            // Get item sets this item belongs to
-            $itemSets = $resource->itemSets();
+            error_log('Failed to create media: ' . $response->getBody());
         }
-        
-        // Get all values for this resource
-        $values = $resource->values();
-        foreach ($values as $term => $propertyValues) {
-            if (!empty($propertyValues) && isset($propertyValues[0]) && $propertyValues[0]->property()) {
-                $propertyLabel = $propertyValues[0]->property()->label();
-                
-                $properties[] = [
-                    'term' => $term,
-                    'label' => $propertyLabel,
-                    'values' => $propertyValues
-                ];
-            }
-        }
-    } catch (\Exception $e) {
-        $this->logger()->err('Error fetching resource details: ' . $e->getMessage());
-        $this->messenger()->addError('The requested resource could not be found.');
-        return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
     }
-    
-    return new ViewModel([
-        'resource' => $resource,
-        'resourceType' => $resourceType,
-        'properties' => $properties,
-        'relatedItems' => $relatedItems,
-        'site' => $this->currentSite()
-    ]);
-}
-
-
 }
