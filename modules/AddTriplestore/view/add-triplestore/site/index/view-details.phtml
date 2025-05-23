@@ -78,8 +78,9 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
             <?php else: ?>
                 <div class="artifact-details">
                     <div class="artifact-media">
-                        <?php $mediaList = $resource->media(); ?>
-                        <?php if (count($mediaList) > 0): ?>
+                        <?php if ($resourceType === 'Artifact'): ?>
+                            <?php $mediaList = $resource->media(); ?>
+                            <?php if (count($mediaList) > 0): ?>
                             <div class="media-gallery">
                                 <?php foreach ($mediaList as $media): ?>
                                     <div class="media-item">
@@ -90,13 +91,16 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
                                 <?php endforeach; ?>
                             </div>
                         <?php endif; ?>
+                        <?php endif; ?>
                     </div>
                     
                     <div class="artifact-context">
                         <h3>Archaeological Context</h3>
                         <div class="context-info">
-                            <?php $itemSets = $resource->itemSets(); ?>
-                            <?php if (count($itemSets) > 0): ?>
+                            <?php 
+                            $itemSets = ($resourceType === 'Artifact') ? $resource->itemSets() : [];
+                            if (count($itemSets) > 0): 
+                            ?>
                                 <div class="excavation-info">
                                     <span class="label">Excavation:</span>
                                     <?php foreach ($itemSets as $index => $itemSet): ?>
@@ -171,7 +175,7 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
                     <?php endif; ?>
                     
                     <li>
-                        <a href="<?php echo $this->url('admin/default', [], ['query' => ['resource-id' => $resource->id(), 'resource-type' => ($resourceType === 'Excavation' ? 'item_set' : 'item')]]); ?>" class="action-link" target="_blank">
+                        <a href="<?php echo $this->url('admin/default', ['controller' => ($resourceType === 'Excavation' ? 'item-set' : 'item')], ['query' => ['resource-id' => $resource->id(), 'resource-type' => ($resourceType === 'Excavation' ? 'item_set' : 'item')]]); ?>" class="action-link" target="_blank">
                             <span class="icon">✏️</span> Edit in Admin (Requires Login)
                         </a>
                     </li>

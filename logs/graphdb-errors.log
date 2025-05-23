@@ -32628,3 +32628,9 @@ _:247efcb0-db02-4048-81be-c68aab471e5c-40 <http://www.w3.org/ns/shacl#class> <ht
 2025-05-23T01:25:39+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-05-23T01:25:39+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-05-23T01:27:07+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-23T10:16:11+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Expected ':', found '
+' [line 27]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected ':', found '
+' [line 27]2025-05-23T10:16:11+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected ':', found '
+' [line 27]
+2025-05-23T10:16:42+00:00 INFO (6): Response Status: 204 | Response Body:

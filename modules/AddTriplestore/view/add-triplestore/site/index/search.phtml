@@ -39,11 +39,101 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
                     <h3>Excavations (<?php echo $totalItemSets; ?>)</h3>
                     <div class="result-cards">
                         <?php foreach ($results['item_sets'] as $itemSet): ?>
-                            <div class="result-card">
+                            <div class="result-card excavation-card">
                                 <h4><?php echo $this->escapeHtml($itemSet->displayTitle()); ?></h4>
+                                
                                 <?php if ($itemSet->displayDescription()): ?>
-                                    <div class="description"><?php echo $this->escapeHtml(substr($itemSet->displayDescription(), 0, 150)); ?>...</div>
+                                    <div class="description"><?php echo $this->escapeHtml(substr($itemSet->displayDescription(), 0, 120)); ?>...</div>
                                 <?php endif; ?>
+                                
+                                <!-- Location Information -->
+                                <div class="location-info">
+                                    <?php
+                                    // Extract location data from item set values
+                                    $values = $itemSet->values();
+                                    $locationParts = [];
+                                    $gpsCoords = null;
+                                    
+                                    // Look for location-related properties
+                                    foreach ($values as $term => $propertyValues) {
+                                        if (!empty($propertyValues) && isset($propertyValues[0]) && $propertyValues[0]->property()) {
+                                            $propertyLabel = $propertyValues[0]->property()->label();
+                                            $value = $propertyValues[0]->value();
+                                            
+                                            // Check for different location properties
+                                            if (stripos($propertyLabel, 'parish') !== false) {
+                                                $locationParts['parish'] = $value;
+                                            } elseif (stripos($propertyLabel, 'district') !== false) {
+                                                $locationParts['district'] = $value;
+                                            } elseif (stripos($propertyLabel, 'country') !== false) {
+                                                $locationParts['country'] = $value;
+                                            } elseif (stripos($propertyLabel, 'location') !== false && stripos($propertyLabel, 'gps') === false) {
+                                                $locationParts['site'] = $value;
+                                            } elseif (stripos($propertyLabel, 'gps') !== false || stripos($propertyLabel, 'coordinates') !== false) {
+                                                $gpsCoords = $value;
+                                            }
+                                        }
+                                    }
+                                    
+                                    // Display location information
+                                    if (!empty($locationParts) || $gpsCoords): ?>
+                                        <div class="location-details">
+                                            <span class="location-icon">📍</span>
+                                            <div class="location-text">
+                                                <?php
+                                                // Create a nice location string
+                                                $displayLocation = [];
+                                                
+                                                if (isset($locationParts['site'])) {
+                                                    $displayLocation[] = $locationParts['site'];
+                                                }
+                                                if (isset($locationParts['parish'])) {
+                                                    $displayLocation[] = $locationParts['parish'];
+                                                }
+                                                if (isset($locationParts['district'])) {
+                                                    $displayLocation[] = $locationParts['district'];
+                                                }
+                                                if (isset($locationParts['country'])) {
+                                                    $displayLocation[] = $locationParts['country'];
+                                                }
+                                                
+                                                if (!empty($displayLocation)) {
+                                                    echo '<div class="location-address">' . $this->escapeHtml(implode(', ', array_slice($displayLocation, 0, 2))) . '</div>';
+                                                    if (count($displayLocation) > 2) {
+                                                        echo '<div class="location-region">' . $this->escapeHtml(implode(', ', array_slice($displayLocation, 2))) . '</div>';
+                                                    }
+                                                }
+                                                
+                                                if ($gpsCoords): ?>
+                                                    <div class="gps-coords"><?php echo $this->escapeHtml($gpsCoords); ?></div>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                                
+                                <!-- Additional metadata -->
+                                <div class="excavation-metadata">
+                                    <?php
+                                    // Show some key metadata
+                                    foreach ($values as $term => $propertyValues) {
+                                        if (!empty($propertyValues)&& isset($propertyValues[0]) && $propertyValues[0]->property()) {
+                                            $propertyLabel = $propertyValues[0]->property()->label();
+                                            $value = $propertyValues[0]->value();
+                                            
+                                            // Show archaeologist info
+                                            if (stripos($propertyLabel, 'person in charge') !== false || stripos($propertyLabel, 'archaeologist') !== false) {
+                                                echo '<div class="metadata-item"><span class="meta-icon">👤</span> ' . $this->escapeHtml($value) . '</div>';
+                                            }
+                                            // Show timeline info
+                                            elseif (stripos($propertyLabel, 'timeline') !== false || stripos($propertyLabel, 'period') !== false) {
+                                                echo '<div class="metadata-item"><span class="meta-icon">📅</span> ' . $this->escapeHtml($value) . '</div>';
+                                            }
+                                        }
+                                    }
+                                    ?>
+                                </div>
+                                
                                 <div class="actions">
                                     <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()], ['query' => ['id' => $itemSet->id(), 'type' => 'item_set']]); ?>" class="details-button">View Details</a>
                                     <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $itemSet->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add Artifacts</a>
@@ -193,7 +283,7 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
 
 .result-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     gap: 20px;
 }
 
@@ -211,12 +301,80 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
     margin-top: 0;
     color: #333;
     font-size: 18px;
+    margin-bottom: 10px;
 }
 
 .description {
     margin: 10px 0;
     color: #666;
     font-size: 14px;
+}
+
+/* New styles for excavation cards with location info */
+.excavation-card {
+    min-height: 200px;
+}
+
+.location-info {
+    margin: 15px 0;
+    padding: 12px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    border-left: 3px solid #4CAF50;
+}
+
+.location-details {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.location-icon {
+    font-size: 16px;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.location-text {
+    flex: 1;
+}
+
+.location-address {
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+
+.location-region {
+    color: #666;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.gps-coords {
+    color: #888;
+    font-size: 12px;
+    font-family: monospace;
+}
+
+.excavation-metadata {
+    margin: 10px 0;
+}
+
+.metadata-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 6px;
+    font-size: 13px;
+    color: #555;
+}
+
+.meta-icon {
+    font-size: 14px;
+    width: 16px;
+    text-align: center;
 }
 
 .thumbnail {
@@ -259,6 +417,7 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
     text-decoration: none;
     font-size: 14px;
     text-align: center;
+    flex: 1;
 }
 
 .details-button {
@@ -299,6 +458,10 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
     
     .result-cards {
         grid-template-columns: 1fr;
+    }
+    
+    .actions {
+        flex-direction: column;
     }
 }
 </style>

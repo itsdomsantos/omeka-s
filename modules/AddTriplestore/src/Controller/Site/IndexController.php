@@ -4608,14 +4608,15 @@ public function viewDetailsAction()
         // Get all values for this resource
         $values = $resource->values();
         foreach ($values as $term => $propertyValues) {
-            $propertyId = $propertyValues[0]->property()->id();
-            $propertyLabel = $propertyValues[0]->property()->label();
-            
-            $properties[] = [
-                'term' => $term,
-                'label' => $propertyLabel,
-                'values' => $propertyValues
-            ];
+            if (!empty($propertyValues) && isset($propertyValues[0]) && $propertyValues[0]->property()) {
+                $propertyLabel = $propertyValues[0]->property()->label();
+                
+                $properties[] = [
+                    'term' => $term,
+                    'label' => $propertyLabel,
+                    'values' => $propertyValues
+                ];
+            }
         }
     } catch (\Exception $e) {
         $this->logger()->err('Error fetching resource details: ' . $e->getMessage());
