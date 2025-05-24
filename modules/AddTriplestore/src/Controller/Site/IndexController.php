@@ -3628,6 +3628,140 @@ private function findItemByIdentifier($identifier) {
         return null;
     }
 }
+/**
+ * Find or create an archaeologist item
+ * This prevents duplicates by using ORCID or name as unique identifiers
+ */
+private function findOrCreateArchaeologist($archaeologistData) {
+    $orcid = $archaeologistData['orcid'] ?? null;
+    $name = $archaeologistData['name'] ?? null;
+    $email = $archaeologistData['email'] ?? null;
+    
+    if (!$name && !$orcid) {
+        return null; // No archaeologist data to work with
+    }
+    
+    // First, try to find existing archaeologist by ORCID (most reliable)
+    if ($orcid) {
+        try {
+            $response = $this->api()->search('items', [
+                'resource_class_id' => 94, // Person class (adjust ID as needed)
+                'property' => [
+                    [
+                        'property' => 176, // foaf:account property ID (adjust as needed)
+                        'type' => 'eq',
+                        'text' => $orcid
+                    ]
+                ],
+                'limit' => 1
+            ]);
+            
+            $items = $response->getContent();
+            if (!empty($items)) {
+                error_log("Found existing archaeologist by ORCID: {$items[0]->id()}", 3, OMEKA_PATH . '/logs/archaeologist.log');
+                return $items[0];
+            }
+        } catch (\Exception $e) {
+            error_log('Error searching for archaeologist by ORCID: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/archaeologist.log');
+        }
+    }
+    
+    // If not found by ORCID, try by name
+    if ($name) {
+        try {
+            $response = $this->api()->search('items', [
+                'resource_class_id' => 94, // Person class (adjust ID as needed)
+                'property' => [
+                    [
+                        'property' => 8, // foaf:name property ID (adjust as needed)
+                        'type' => 'eq',
+                        'text' => $name
+                    ]
+                ],
+                'limit' => 1
+            ]);
+            
+            $items = $response->getContent();
+            if (!empty($items)) {
+                error_log("Found existing archaeologist by name: {$items[0]->id()}", 3, OMEKA_PATH . '/logs/archaeologist.log');
+                return $items[0];
+            }
+        } catch (\Exception $e) {
+            error_log('Error searching for archaeologist by name: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/archaeologist.log');
+        }
+    }
+    
+    // If not found, create new archaeologist item
+    try {
+        $itemData = [
+            'o:resource_class' => ['o:id' => 94], // Person class (adjust ID as needed)
+            'dcterms:title' => [
+                [
+                    'type' => 'literal',
+                    'property_id' => 1,
+                    '@value' => $name ?: 'Archaeologist ' . ($orcid ?: 'Unknown')
+                ]
+            ],
+            'o:is_public' => true
+        ];
+        
+        // Add name if available
+        if ($name) {
+            $itemData['foaf:name'] = [
+                [
+                    'type' => 'literal',
+                    'property_id' => 8, // foaf:name property ID
+                    '@value' => $name
+                ]
+            ];
+        }
+        
+        // Add ORCID if available
+        if ($orcid) {
+            $itemData['foaf:account'] = [
+                [
+                    'type' => 'uri',
+                    'property_id' => 176, // foaf:account property ID
+                    '@id' => "https://orcid.org/$orcid",
+                    'o:label' => "ORCID: $orcid"
+                ]
+            ];
+        }
+        
+        // Add email if available
+        if ($email) {
+            $itemData['foaf:mbox'] = [
+                [
+                    'type' => 'uri',
+                    'property_id' => 123, // foaf:mbox property ID
+                    '@id' => "mailto:$email",
+                    'o:label' => $email
+                ]
+            ];
+        }
+        
+        // Add archaeologist-specific type
+        $itemData['dcterms:type'] = [
+            [
+                'type' => 'literal',
+                'property_id' => 8,
+                '@value' => 'Archaeologist'
+            ]
+        ];
+        
+        $response = $this->api()->create('items', $itemData);
+        if ($response) {
+            $newItem = $response->getContent();
+            error_log("Created new archaeologist item: {$newItem->id()} ($name)", 3, OMEKA_PATH . '/logs/archaeologist.log');
+            return $newItem;
+        }
+        
+    } catch (\Exception $e) {
+        error_log('Error creating archaeologist item: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/archaeologist.log');
+    }
+    
+    return null;
+}
 
 
 /**
@@ -3887,6 +4021,48 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
             }
         }
     }
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'] as $archaeologistObj) {
+            if ($archaeologistObj['type'] === 'uri' && isset($rdfData[$archaeologistObj['value']])) {
+                $archaeologistUri = $archaeologistObj['value'];
+                
+                // Extract archaeologist data
+                $archaeologistData = $this->extractArchaeologistData($rdfData, $archaeologistUri);
+                
+                if ($archaeologistData) {
+                    // Find or create archaeologist item
+                    $archaeologistItem = $this->findOrCreateArchaeologist($archaeologistData);
+                    
+                    if ($archaeologistItem) {
+                        if (!isset($itemData['Person in Charge'])) {
+                            $itemData['Person in Charge'] = [];
+                        }
+                        
+                        $itemData['Person in Charge'][] = [
+                            'type' => 'resource',
+                            'property_id' => 7665, // Use appropriate property ID
+                            'value_resource_id' => $archaeologistItem->id(),
+                            'o:label' => $archaeologistData['name'] ?: $archaeologistData['orcid']
+                        ];
+                        
+                        error_log("Linked archaeologist {$archaeologistItem->id()} to excavation", 3, OMEKA_PATH . '/logs/archaeologist.log');
+                    } else {
+                        // Fallback to literal
+                        if (!isset($itemData['Person in Charge'])) {
+                            $itemData['Person in Charge'] = [];
+                        }
+                        
+                        $itemData['Person in Charge'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7665,
+                            '@value' => $archaeologistData['name'] ?: $archaeologistData['orcid']
+                        ];
+                    }
+                }
+            }
+        }
+    }
+    
 }
 
 
@@ -3996,17 +4172,53 @@ private function processSquareData($rdfData, $subject, &$itemData) {
 }
 
 /**
- * Extract archaeologist name from URI
+ * Helper method to extract archaeologist data from RDF
  */
-private function extractArchaeologistName($rdfData, $archaeologistUri) {
+private function extractArchaeologistData($rdfData, $archaeologistUri) {
+    $data = [
+        'name' => null,
+        'orcid' => null,
+        'email' => null
+    ];
+    
+    // Extract name
     if (isset($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/name'])) {
         foreach ($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/name'] as $nameObj) {
             if ($nameObj['type'] === 'literal') {
-                return $nameObj['value'];
+                $data['name'] = $nameObj['value'];
+                break;
             }
         }
     }
-    return null;
+    
+    // Extract ORCID
+    if (isset($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/account'])) {
+        foreach ($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/account'] as $accountObj) {
+            if ($accountObj['type'] === 'uri') {
+                $orcidUrl = $accountObj['value'];
+                if (strpos($orcidUrl, 'orcid.org') !== false) {
+                    $parts = explode('/', $orcidUrl);
+                    $data['orcid'] = end($parts);
+                    break;
+                }
+            }
+        }
+    }
+    
+    // Extract email
+    if (isset($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/mbox'])) {
+        foreach ($rdfData[$archaeologistUri]['http://xmlns.com/foaf/0.1/mbox'] as $emailObj) {
+            if ($emailObj['type'] === 'uri') {
+                $emailUrl = $emailObj['value'];
+                if (strpos($emailUrl, 'mailto:') === 0) {
+                    $data['email'] = substr($emailUrl, 7);
+                    break;
+                }
+            }
+        }
+    }
+    
+    return ($data['name'] || $data['orcid']) ? $data : null;
 }
 
 /**
