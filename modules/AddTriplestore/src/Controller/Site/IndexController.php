@@ -1654,7 +1654,6 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
     $isExcavation = false;
     $excavationIdentifier = "0"; // Default to "0" graph
 
-    // log ttl data
     try {
         $this->validateUploadType($ttlData, 'excavation');
         error_log('Upload excav validation passed', 3, OMEKA_PATH . '/logs/a.log');
@@ -1667,85 +1666,63 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
         error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug-final.log');
     } catch (\Exception $e) {
         // If validation fails, it means the data is not excavation data
-        error_log('Validation for excavation, this is an arrwohead', 3, OMEKA_PATH . '/logs/auxNew.log');
-        error_log('Validation for excavation failed: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        error_log('Validation for excavation failed, this is an arrowhead', 3, OMEKA_PATH . '/logs/auxNew.log');
         
         // Check if this item belongs to an excavation item set
         if ($itemSetId) {
             error_log('Item set ID provided: ' . $itemSetId, 3, OMEKA_PATH . '/logs/auxNew.log');
             $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
-            error_log('Item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/bbbbbbbb.log');
             if ($excavationId) {
                 $excavationIdentifier = $excavationId;
-                $graphUri = $this->baseDataGraphUri . $excavationId . "/";
                 error_log('Using excavation ID from item set: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
             }
         }
     }
 
-    if ($itemSetId) { // If itemSetId is provided, normalize URIs of the data which is not excavation
+    // Normalize URIs based on context
+    if ($itemSetId) {
         $ttlData = $this->normalizeUris($ttlData, $itemSetId);
         error_log('URIs normalized for item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
-    }
-
-    // normalize also when is excavation
-    if ($isExcavation && !$itemSetId) {
-        if ($excavationIdentifier) {
-            $excavationMetadata = $this->extractExcavationMetadataFromTtl($ttlData);
-            try {
-                // Create item set with proper metadata
-                $itemSetTitle = "Excavation $excavationIdentifier";
-                $itemSetDescription = $excavationMetadata['location'] ? 
-                    "Archaeological excavation at " . $excavationMetadata['location'] : 
-                    "Archaeological excavation with identifier $excavationIdentifier";
-                
-                $response = $this->api()->create('item_sets', [
-                    'dcterms:title' => [
-                        [
-                            'type' => 'literal',
-                            'property_id' => 1,
-                            '@value' => $itemSetTitle
-                        ]
-                    ],
-                    'dcterms:description' => [
-                        [
-                            'type' => 'literal',
-                            'property_id' => 4,
-                            '@value' => $itemSetDescription
-                        ]
-                    ],
-                    'dcterms:creator' => $excavationMetadata['archaeologist'] ? [
-                        [
-                            'type' => 'literal',
-                            'property_id' => 7,
-                            '@value' => $excavationMetadata['archaeologist']
-                        ]
-                    ] : [],
-                    'o:is_public' => true
-                ]);
-            }
-            catch (\Exception $e) {
-                error_log('Error creating item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
-            }
-        
+    } elseif ($isExcavation && $excavationIdentifier) {
+        // SINGLE POINT OF ITEM SET CREATION FOR EXCAVATIONS
+        if ($this->excavationIdentifierExists($excavationIdentifier)) {
+            // Optionally handle duplicate excavation identifiers
+            // For now, we'll proceed but log a warning
+            error_log('Warning: Excavation identifier already exists: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
         }
+        
+        // Extract excavation metadata
+        $excavationMetadata = $this->extractExcavationMetadataFromTtl($ttlData);
+        
         try {
-            // Create a new item set directly using the API manager
+            // Create item set with proper metadata - SINGLE CREATION POINT
+            $itemSetTitle = "Excavation $excavationIdentifier";
+            $itemSetDescription = $excavationMetadata['location'] ? 
+                "Archaeological excavation at " . $excavationMetadata['location'] : 
+                "Archaeological excavation with identifier $excavationIdentifier";
+            
             $response = $this->api()->create('item_sets', [
                 'dcterms:title' => [
                     [
                         'type' => 'literal',
                         'property_id' => 1,
-                        '@value' => "Excavation " . ($excavationIdentifier ?: "New")
+                        '@value' => $itemSetTitle
                     ]
                 ],
                 'dcterms:description' => [
                     [
                         'type' => 'literal',
                         'property_id' => 4,
-                        '@value' => "Item set for excavation " . ($excavationIdentifier ?: "")
+                        '@value' => $itemSetDescription
                     ]
                 ],
+                'dcterms:creator' => $excavationMetadata['archaeologist'] ? [
+                    [
+                        'type' => 'literal',
+                        'property_id' => 7665,
+                        '@value' => $excavationMetadata['archaeologist']
+                    ]
+                ] : [],
                 'o:is_public' => true
             ]);
             
@@ -1754,98 +1731,30 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
                 $newItemSet = $response->getContent();
                 $itemSetId = $newItemSet->id();
                 
-                error_log('Successfully created item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+                error_log('Successfully created single item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
                 
                 // Now normalize the URIs with the new item set ID
                 $ttlData = $this->normalizeUris($ttlData, $itemSetId);
                 error_log('URIs normalized for excavation with item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
                 
                 // Store the mapping between item set and excavation
-                if ($excavationIdentifier) {
-                    $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
-                }
+                $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
             }
         } catch (\Exception $e) {
             error_log('Error creating item set for excavation: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
-        }
-    }
-
-    if ($isExcavation && $excavationIdentifier) {
-        if ($this->excavationIdentifierExists($excavationIdentifier)) {
-            /*$errorMessage = 'An excavation with identifier "' . $excavationIdentifier . '" already exists. Please use a different identifier.';
-            error_log('Excavation identifier already exists: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
-            
-            // Add error message to messenger
-            $messenger = $this->messenger();
-            $messenger->addError($errorMessage);
-            
-            // Return a simple error indicator
-            return 'Error: Duplicate excavation identifier';*/
+            return 'Error: Failed to create excavation item set - ' . $e->getMessage();
         }
     }
 
     error_log('is excavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/excavation-debug.log');
 
-    // If it's excavation data and no itemSetId is provided, create an item set
-    if ($isExcavation && !$itemSetId) {
-        error_log('Attempting to extract excavation identifier', 3, OMEKA_PATH . '/logs/excavation-debug.log');
-        
-        if ($excavationIdentifier) {
-            try {
-                // Create a new item set directly using the API manager
-                $response = $this->api()->create('item_sets', [
-                    'dcterms:title' => [
-                        [
-                            'type' => 'literal',
-                            'property_id' => 1,
-                            '@value' => "Excavation $excavationIdentifier"
-                        ]
-                    ],
-                    'dcterms:description' => [
-                        [
-                            'type' => 'literal',
-                            'property_id' => 4,
-                            '@value' => "Item set for excavation $excavationIdentifier containing all related findings"
-                        ]
-                    ],
-                    'o:is_public' => true
-                ]);
-                
-                // If successful, get the new item set ID
-                if ($response) {
-                    $newItemSet = $response->getContent();
-                    $itemSetId = $newItemSet->id();
-                    error_log('Successfully created item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
-                    
-                    // Store the excavation identifier in a site setting or other persistent storage
-                    $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
-                } else {
-                    error_log('Empty response when creating item set', 3, OMEKA_PATH . '/logs/excavation-debug.log');
-                }
-            } catch (\Exception $e) {
-                error_log('Error creating item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
-            }
-        }
-    } else if (!$isExcavation && $itemSetId) {
-        error_log(' this is an item that is not excavation', 3, OMEKA_PATH . '/logs/auxNew.log');
-        // This is an arrowhead or other item being added to an existing excavation
-        // Retrieve the excavation identifier associated with this item set
-        error_log('Attempting to retrieve excavation identifier for item set: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
-        $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
-        error_log('Retrieved excavation identifier for item set ' . $itemSetId . ': ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
-    }
-    
     // Now proceed with the regular upload process
     // First, upload to GraphDB with the excavation identifier if available
     $graphDbResult = $this->sendToGraphDB($ttlData, $itemSetId);
     error_log('GraphDB upload result: ' . $graphDbResult, 3, OMEKA_PATH . '/logs/auxNew.log');
-
-    // log ttl data
-    error_log('GraphDB upload result: ' . $graphDbResult, 3, OMEKA_PATH . '/logs/auxNew.log');
     
     if (strpos($graphDbResult, 'successfully') !== false) {
         // If GraphDB upload is successful, then process in Omeka S
-        $omekaResult = $this->transformTtlToOmekaSData($ttlData, $itemSetId);
         $omekaData = $this->transformTtlToOmekaSData($ttlData, $itemSetId);
 
         $omekaResponse = $this->sendToOmekaS($omekaData, $itemSetId);
@@ -1885,7 +1794,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             }
             
             if ($isExcavation && $itemSetId) {
-                return "Data uploaded successfully to both GraphDB and Omeka S. Created Item Set #{$itemSetId} for excavation 'EXC-{$itemSetId}' and " . 
+                return "Data uploaded successfully to both GraphDB and Omeka S. Created Item Set #{$itemSetId} for excavation '$excavationIdentifier' and " . 
                       count($createdItems) . " items with updated titles.";
             } else {
                 return 'Data uploaded successfully to both GraphDB and Omeka S. Created ' . 

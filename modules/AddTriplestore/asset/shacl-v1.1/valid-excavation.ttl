@@ -38,7 +38,7 @@
 # ==========================================================================
 
 <https://purl.org/megalod/example/excavation/CasteloVelho> a excav:Excavation ;
-    dct:identifier "EXC23"^^xsd:literal ;
+    dct:identifier "EXC1"^^xsd:literal ;
     excav:hasPersonInCharge <https://purl.org/megalod/example/archaeologist/JoaoMuralha> ;
     dul:hasLocation <https://purl.org/megalod/example/location/CasteloVelho> ;
     excav:hasSquare <https://purl.org/megalod/example/square/CV-A1>,
