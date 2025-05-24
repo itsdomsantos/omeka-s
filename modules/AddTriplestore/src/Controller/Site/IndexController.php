@@ -2817,18 +2817,55 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     error_log('Available predicates: ' . print_r(array_keys($rdfData[$subject]), true), 3, OMEKA_PATH . '/logs/checkProp.log');
     
     // Check specifically for the properties we're looking for
-    $targetProperties = [
-        'https://purl.org/megalod/ms/excavation/foundInSquare',
-        'https://purl.org/megalod/ms/excavation/foundInContext', 
-        'https://purl.org/megalod/ms/excavation/foundInSVU',
-        'https://purl.org/megalod/ms/excavation/foundInExcavation'
+    $resourceLinkMap = [
+        'https://purl.org/megalod/ms/excavation/foundInSquare' => ['Found in Square', 7668],
+        'https://purl.org/megalod/ms/excavation/foundInContext' => ['Context', 7672], 
+        'https://purl.org/megalod/ms/excavation/foundInSVU' => ['Stratigraphic Unit', 7671],
+        'https://purl.org/megalod/ms/excavation/foundInExcavation' => ['Excavation', 7673],
     ];
     
-    foreach ($targetProperties as $prop) {
-        if (isset($rdfData[$subject][$prop])) {
-            error_log('Found property: ' . $prop . ' with value: ' . print_r($rdfData[$subject][$prop], true), 3, OMEKA_PATH . '/logs/checkProp.log');
-        } else {
-            error_log('Missing property: ' . $prop, 3, OMEKA_PATH . '/logs/checkProp.log');
+    foreach ($resourceLinkMap as $predicate => $mapping) {
+        if (isset($rdfData[$subject][$predicate])) {
+            $term = $mapping[0];
+            $propertyId = $mapping[1];
+            
+            foreach ($rdfData[$subject][$predicate] as $obj) {
+                if ($obj['type'] === 'uri') {
+                    $resourceId = $this->extractResourceIdentifier($rdfData, $obj['value']);
+                    if ($resourceId) {
+                        // Try to find the linked Omeka item
+                        $linkedItem = $this->findItemByIdentifier($resourceId);
+                        if ($linkedItem) {
+                            // Create resource link
+                            if (!isset($itemData[$term])) {
+                                $itemData[$term] = [];
+                            }
+                            
+                            $itemData[$term][] = [
+                                'type' => 'resource',
+                                'property_id' => $propertyId,
+                                'value_resource_id' => $linkedItem->id(),
+                                'o:label' => $resourceId
+                            ];
+                            
+                            error_log("Created resource link: $term -> Item ID {$linkedItem->id()} ($resourceId)", 3, OMEKA_PATH . '/logs/resource-links.log');
+                        } else {
+                            // Fallback to literal if resource not found
+                            if (!isset($itemData[$term])) {
+                                $itemData[$term] = [];
+                            }
+                            
+                            $itemData[$term][] = [
+                                'type' => 'literal',
+                                'property_id' => $propertyId,
+                                '@value' => $resourceId
+                            ];
+                            
+                            error_log("Resource not found, using literal: $term -> $resourceId", 3, OMEKA_PATH . '/logs/resource-links.log');
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -3545,9 +3582,9 @@ private function extractMeasurementUnit($rdfData, $typometryUri) {
     return null;
 }
 
-
 private function findItemByIdentifier($identifier) {
     try {
+        // Search for items with the given identifier
         $response = $this->api()->search('items', [
             'property' => [
                 [
@@ -3560,44 +3597,67 @@ private function findItemByIdentifier($identifier) {
         ]);
         
         $items = $response->getContent();
-        return !empty($items) ? $items[0] : null;
+        if (!empty($items)) {
+            error_log("Found item with identifier '$identifier': ID " . $items[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
+            return $items[0];
+        }
+        
+        // Also try searching item sets in case it's an excavation reference
+        $itemSetResponse = $this->api()->search('item_sets', [
+            'property' => [
+                [
+                    'property' => 10, // dcterms:identifier property ID
+                    'type' => 'eq', 
+                    'text' => $identifier
+                ]
+            ],
+            'limit' => 1
+        ]);
+        
+        $itemSets = $itemSetResponse->getContent();
+        if (!empty($itemSets)) {
+            error_log("Found item set with identifier '$identifier': ID " . $itemSets[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
+            return $itemSets[0];
+        }
+        
+        error_log("No item or item set found with identifier '$identifier'", 3, OMEKA_PATH . '/logs/resource-links.log');
+        return null;
+        
     } catch (\Exception $e) {
-        error_log('Error finding item by identifier: ' . $e->getMessage());
+        error_log('Error finding item by identifier: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/resource-links.log');
         return null;
     }
 }
-
 
 
 /**
  * Process excavation specific data
  */
 private function processExcavationData($rdfData, $subject, &$itemData) {
-
-    
-// Extract location name for description
-if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
-    foreach ($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'] as $locObj) {
-        if ($locObj['type'] === 'uri' && isset($rdfData[$locObj['value']])) {
-            $locationUri = $locObj['value'];
-            $locationName = $this->extractLocationName($rdfData, $locationUri);
-            
-            if ($locationName) {
-                // Create description
-                if (!isset($itemData['dcterms:description'])) {
-                    $itemData['dcterms:description'] = [];
-                }
+    // Extract location name for description
+    if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
+        foreach ($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'] as $locObj) {
+            if ($locObj['type'] === 'uri' && isset($rdfData[$locObj['value']])) {
+                $locationUri = $locObj['value'];
+                $locationName = $this->extractLocationName($rdfData, $locationUri);
                 
-                $itemData['dcterms:description'][] = [
-                    'type' => 'literal',
-                    'property_id' => 4, // dcterms:description property ID
-                    '@value' => "Archaeological excavation at $locationName"
-                ];
+                if ($locationName) {
+                    // Create description
+                    if (!isset($itemData['dcterms:description'])) {
+                        $itemData['dcterms:description'] = [];
+                    }
+                    
+                    $itemData['dcterms:description'][] = [
+                        'type' => 'literal',
+                        'property_id' => 4, // dcterms:description property ID
+                        '@value' => "Archaeological excavation at $locationName"
+                    ];
+                }
             }
         }
     }
-}
-    // Add links to contexts
+
+    // Add links to contexts with resource linking
     if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'])) {
         foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'] as $contextObj) {
             if ($contextObj['type'] === 'uri') {
@@ -3612,9 +3672,9 @@ if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.
                         
                         $itemData['Excavation - hasContext'][] = [
                             'type' => 'resource',
-                            'property_id' => 7672, // Use appropriate property ID
+                            'property_id' => 7666, // Use appropriate property ID
                             'value_resource_id' => $linkedItem->id(),
-                            '@value' => $contextId
+                            'o:label' => $contextId
                         ];
                     } else {
                         // Fallback to literal if no linked item found
@@ -3624,7 +3684,7 @@ if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.
                         
                         $itemData['Excavation - hasContext'][] = [
                             'type' => 'literal',
-                            'property_id' => 7672,
+                            'property_id' => 7666,
                             '@value' => $contextId
                         ];
                     }
@@ -3633,7 +3693,7 @@ if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.
         }
     }
     
-    // Add links to squares
+    // Add links to squares with resource linking
     if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSquare'])) {
         foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSquare'] as $squareObj) {
             if ($squareObj['type'] === 'uri') {
@@ -3650,7 +3710,7 @@ if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.
                             'type' => 'resource',
                             'property_id' => 7668, // Use appropriate property ID
                             'value_resource_id' => $linkedItem->id(),
-                            '@value' => $squareId
+                            'o:label' => $squareId
                         ];
                     } else {
                         // Fallback to literal if no linked item found
@@ -3668,6 +3728,43 @@ if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.
             }
         }
     }
+
+    // NEW: Add links to StratigraphicVolumeUnits with resource linking
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'] as $svuObj) {
+            if ($svuObj['type'] === 'uri') {
+                $svuId = $this->extractResourceIdentifier($rdfData, $svuObj['value']);
+                if ($svuId) {
+                    // Find the actual Omeka item with this identifier
+                    $linkedItem = $this->findItemByIdentifier($svuId);
+                    if ($linkedItem) {
+                        if (!isset($itemData['Stratigraphic Volume Unit'])) {
+                            $itemData['Stratigraphic Volume Unit'] = [];
+                        }
+                        
+                        $itemData['Stratigraphic Volume Unit'][] = [
+                            'type' => 'resource',
+                            'property_id' => 7667, // Use appropriate property ID for SVU
+                            'value_resource_id' => $linkedItem->id(),
+                            'o:label' => $svuId
+                        ];
+                    } else {
+                        // Fallback to literal if no linked item found
+                        if (!isset($itemData['Stratigraphic Volume Unit'])) {
+                            $itemData['Stratigraphic Volume Unit'] = [];
+                        }
+                        
+                        $itemData['Stratigraphic Volume Unit'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7667,
+                            '@value' => $svuId
+                        ];
+                    }
+                }
+            }
+        }
+    }
+
     // Extract location GPS coordinates
     if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
         foreach ($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'] as $locObj) {
@@ -3716,9 +3813,6 @@ if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.
                     }
                 }
                 
-      
-                
-                // Modify this section in processExcavationData() method
                 // District
                 if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/district'])) {
                     foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/district'] as $distObj) {
@@ -3790,9 +3884,6 @@ if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.
                         }
                     }
                 }
-
-
-
             }
         }
     }
@@ -3939,7 +4030,6 @@ private function processContextData($rdfData, $subject, &$itemData) {
     // Basic properties - direct mapping
     $propertyMap = [
         'http://purl.org/dc/terms/identifier' => ['Context ID', 10],
-        'https://purl.org/megalod/ms/excavation/hasSVU' => ['Stratigraphic Units', 7667]
     ];
     
     // Extract basic properties
@@ -3953,46 +4043,48 @@ private function processContextData($rdfData, $subject, &$itemData) {
             }
             
             foreach ($rdfData[$subject][$predicate] as $object) {
-                if ($object['type'] === 'uri') {
-                    // For SVU references, extract the identifier if available
-                    if ($predicate === 'https://purl.org/megalod/ms/excavation/hasSVU') {
-                        $svuUri = $object['value'];
-                        $svuId = $this->extractSVUIdentifier($rdfData, $svuUri);
-                        
-                        if ($svuId) {
-                            $itemData[$term][] = [
-                                'type' => 'literal',
-                                'property_id' => $propertyId,
-                                '@value' => $svuId
-                            ];
-                        } else {
-                            // Fall back to URI ID if identifier not found
-                            $parts = explode('/', $object['value']);
-                            $value = end($parts);
-                            
-                            $itemData[$term][] = [
-                                'type' => 'literal',
-                                'property_id' => $propertyId,
-                                '@value' => $value
-                            ];
-                        }
-                    } else {
-                        // For other URI properties, extract the ID part
-                        $parts = explode('/', $object['value']);
-                        $value = end($parts);
-                        
-                        $itemData[$term][] = [
-                            'type' => 'literal',
-                            'property_id' => $propertyId,
-                            '@value' => $value
-                        ];
-                    }
-                } else if ($object['type'] === 'literal') {
+                if ($object['type'] === 'literal') {
                     $itemData[$term][] = [
                         'type' => 'literal',
                         'property_id' => $propertyId,
                         '@value' => $object['value']
                     ];
+                }
+            }
+        }
+    }
+    
+    // NEW: Process SVU relationships with resource linking
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'] as $svuObj) {
+            if ($svuObj['type'] === 'uri') {
+                $svuId = $this->extractResourceIdentifier($rdfData, $svuObj['value']);
+                if ($svuId) {
+                    // Find the actual Omeka item with this identifier
+                    $linkedItem = $this->findItemByIdentifier($svuId);
+                    if ($linkedItem) {
+                        if (!isset($itemData['Stratigraphic Units'])) {
+                            $itemData['Stratigraphic Units'] = [];
+                        }
+                        
+                        $itemData['Stratigraphic Units'][] = [
+                            'type' => 'resource',
+                            'property_id' => 7667, // Use appropriate property ID for SVU
+                            'value_resource_id' => $linkedItem->id(),
+                            'o:label' => $svuId
+                        ];
+                    } else {
+                        // Fallback to literal if no linked item found
+                        if (!isset($itemData['Stratigraphic Units'])) {
+                            $itemData['Stratigraphic Units'] = [];
+                        }
+                        
+                        $itemData['Stratigraphic Units'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7667,
+                            '@value' => $svuId
+                        ];
+                    }
                 }
             }
         }
@@ -4015,7 +4107,7 @@ private function processContextData($rdfData, $subject, &$itemData) {
         }
     }
     
-    // Extract SVU summaries for better context understanding
+    // Extract SVU summaries for better context understanding (keep as additional literal info)
     if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'])) {
         $svuSummaries = [];
         
@@ -4038,7 +4130,7 @@ private function processContextData($rdfData, $subject, &$itemData) {
             
             $itemData['Stratigraphic Unit Summaries'][] = [
                 'type' => 'literal',
-                'property_id' => 7, // Use appropriate property ID
+                'property_id' => 19, 
                 '@value' => implode(" | ", $svuSummaries)
             ];
         }
