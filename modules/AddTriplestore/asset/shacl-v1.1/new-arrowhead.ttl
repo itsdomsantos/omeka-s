@@ -21,8 +21,8 @@
     dct:identifier "EXC-1871"^^xsd:literal;
     .
 
-<https://purl.org/megalod/1871/item/41fw> a ah:Arrowhead, excav:Item;
-    dct:identifier "41fw"^^xsd:literal;
+<https://purl.org/megalod/1871/item/testeArrowhead> a ah:Arrowhead, excav:Item;
+    dct:identifier "testeArrowhead"^^xsd:literal;
     excav:foundInExcavation <https://purl.org/megalod/1871>;
     geo:lat "134.2"^^xsd:decimal;
     geo:long "124.1"^^xsd:decimal;
@@ -33,14 +33,14 @@
     crm:E57_Material <http://collection.britishmuseum.org/id/thesaurus/material/flint>;
     ah:shape <https://purl.org/megalod/kos/ah-shape/lozenge-shaped>;
     ah:variant <https://purl.org/megalod/kos/ah-variant/raised>;
-    schema:height <https://purl.org/megalod/1871/typometry/41fw-height>;
-    schema:width <https://purl.org/megalod/1871/typometry/41fw-width>;
-    schema:weight <https://purl.org/megalod/1871/typometry/41fw-weight>;
-    schema:depth <https://purl.org/megalod/1871/typometry/41fw-thickness>;
-    ah:hasBodyLength <https://purl.org/megalod/1871/typometry/41fw-bodyLength>;
-    ah:hasBaseLength <https://purl.org/megalod/1871/typometry/41fw-baseLength>;
-    ah:hasChipping <https://purl.org/megalod/1871/chipping/41fw>;
-    ah:hasMorphology <https://purl.org/megalod/1871/morphology/41fw>;
+    schema:height <https://purl.org/megalod/1871/typometry/testeArrowhead-height>;
+    schema:width <https://purl.org/megalod/1871/typometry/testeArrowhead-width>;
+    schema:weight <https://purl.org/megalod/1871/typometry/testeArrowhead-weight>;
+    schema:depth <https://purl.org/megalod/1871/typometry/testeArrowhead-thickness>;
+    ah:hasBodyLength <https://purl.org/megalod/1871/typometry/testeArrowhead-bodyLength>;
+    ah:hasBaseLength <https://purl.org/megalod/1871/typometry/testeArrowhead-baseLength>;
+    ah:hasChipping <https://purl.org/megalod/1871/chipping/testeArrowhead>;
+    ah:hasMorphology <https://purl.org/megalod/1871/morphology/testeArrowhead>;
     excav:hasCoordinatesInSquare <https://purl.org/megalod/1871/coordinatesInSquare/w>;
     .
 
@@ -50,13 +50,13 @@
     schema:value "3 8"^^xsd:literal;
     .
 
-<https://purl.org/megalod/1871/morphology/41fw> a ah:Morphology;
+<https://purl.org/megalod/1871/morphology/testeArrowhead> a ah:Morphology;
     ah:point "false"^^xsd:boolean;
     ah:body "true"^^xsd:boolean;
     ah:base <https://purl.org/megalod/kos/ah-base/straight>;
     .
 
-<https://purl.org/megalod/1871/chipping/41fw> a ah:Chipping;
+<https://purl.org/megalod/1871/chipping/testeArrowhead> a ah:Chipping;
     ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/sub-parallel>;
     ah:chippingAmplitude "true"^^xsd:boolean;
     ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/reverse>;
@@ -67,38 +67,38 @@
     ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex>;
     .
 
-<https://purl.org/megalod/1871/encounter/41fw> a excav:EncounterEvent;
+<https://purl.org/megalod/1871/encounter/testeArrowhead> a excav:EncounterEvent;
     dct:date "2025-05-25"^^xsd:literal;
-    crmsci:O19_encountered_object <https://purl.org/megalod/1871/item/41fw>;
+    crmsci:O19_encountered_object <https://purl.org/megalod/1871/item/testeArrowhead>;
     excav:foundInExcavation <https://purl.org/megalod/1871>;
     .
 
-<https://purl.org/megalod/1871/typometry/41fw-height> a excav:TypometryValue;
+<https://purl.org/megalod/1871/typometry/testeArrowhead-height> a excav:TypometryValue;
     schema:value "22"^^xsd:decimal;
     schema:UnitCode <GRM>;
     .
 
-<https://purl.org/megalod/1871/typometry/41fw-width> a excav:TypometryValue;
+<https://purl.org/megalod/1871/typometry/testeArrowhead-width> a excav:TypometryValue;
     schema:value "32"^^xsd:decimal;
     schema:UnitCode <MMT>;
     .
 
-<https://purl.org/megalod/1871/typometry/41fw-weight> a excav:Weight;
+<https://purl.org/megalod/1871/typometry/testeArrowhead-weight> a excav:Weight;
     schema:value "11"^^xsd:decimal;
     schema:UnitCode <05>;
     .
 
-<https://purl.org/megalod/1871/typometry/41fw-thickness> a excav:TypometryValue;
+<https://purl.org/megalod/1871/typometry/testeArrowhead-thickness> a excav:TypometryValue;
     schema:value "12"^^xsd:decimal;
     schema:UnitCode <MMQ>;
     .
 
-<https://purl.org/megalod/1871/typometry/41fw-bodyLength> a excav:TypometryValue;
+<https://purl.org/megalod/1871/typometry/testeArrowhead-bodyLength> a excav:TypometryValue;
     schema:value "15"^^xsd:decimal;
     schema:UnitCode <25>;
     .
 
-<https://purl.org/megalod/1871/typometry/41fw-baseLength> a excav:TypometryValue;
+<https://purl.org/megalod/1871/typometry/testeArrowhead-baseLength> a excav:TypometryValue;
     schema:value "16"^^xsd:decimal;
     schema:UnitCode <08>;
     .
