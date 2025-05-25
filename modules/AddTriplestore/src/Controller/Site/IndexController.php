@@ -238,7 +238,7 @@ private function getItemIdentifier($item)
                 // log ttl data for debugging
                 error_log('TTL data: ' . $ttlData, 3, OMEKA_PATH . '/logs/new-aux-ttl.log');
                 // Upload TTL data to triplestore
-                $result = $this->uploadTtlData($ttlData, $itemSetId);
+                $result = $this->uploadTtlData($ttlData, $itemSetId) ?? 'Unknown error occurred during upload';
                 error_log('Arrowhead upload result: ' . $result, 3, OMEKA_PATH . '/logs/new-aux.log');
                 
                 // Redirect to success page
@@ -630,37 +630,42 @@ private function processArrowheadFormData($formData, $itemSetId)
     $measurements = [
         'height' => 'height',
         'width' => 'width', 
-        'weight' => 'weight'
+        'weight' => 'weight', 
+
     ];
 
     foreach ($measurements as $measurement => $property) {
         $valueKey = $measurement;
         $unitKey = $measurement . '_unit';
-        
         if (!empty($formData[$valueKey])) {
             $measurementUri = "$baseUri/typometry/$arrowheadId-$measurement";
             
             // Add property to main resource
             if ($measurement === 'weight') {
                 $ttl .= "    schema:weight <$measurementUri>;\n";
-            } else {
-                $ttl .= "    schema:$property <$measurementUri>;\n";
-            }
-            
-            // Collect the resource block to add later
-            if ($measurement === 'weight') {
+                
+                // SPECIAL HANDLING FOR WEIGHT
                 $measurementBlocks .= "<$measurementUri> a excav:Weight;\n";
+                $measurementBlocks .= "    schema:value \"" . $formData[$valueKey] . "\"^^xsd:decimal;\n";
+                
+                // FIX: Ensure proper unit mapping
+                $weightUnit = !empty($formData[$unitKey]);
+
+                $measurementBlocks .= "    schema:UnitCode \"$weightUnit\";\n";
+                $measurementBlocks .= "    .\n\n";
             } else {
+                // REGULAR HANDLING FOR OTHER MEASUREMENTS
+                $ttl .= "    schema:$property <$measurementUri>;\n";
+                
                 $measurementBlocks .= "<$measurementUri> a excav:TypometryValue;\n";
+                $measurementBlocks .= "    schema:value \"" . $formData[$valueKey] . "\"^^xsd:decimal;\n";
+                if (!empty($formData[$unitKey])) {
+                    $measurementBlocks .= "    schema:UnitCode <" . $formData[$unitKey] . ">;\n";
+                }
+                $measurementBlocks .= "    .\n\n";
             }
-            $measurementBlocks .= "    schema:value \"" . $formData[$valueKey] . "\"^^xsd:decimal;\n";
-            if (!empty($formData[$unitKey])) {
-                $measurementBlocks .= "    schema:UnitCode <" . $formData[$unitKey] . ">;\n";
-            }
-            $measurementBlocks .= "    .\n\n";
         }
     }
-    
     // Add thickness (separate because it uses schema:depth)
     if (!empty($formData['thickness'])) {
         $thicknessUri = "$baseUri/typometry/$arrowheadId-thickness";
@@ -677,7 +682,7 @@ private function processArrowheadFormData($formData, $itemSetId)
     // Add body length and base length (SHACL requirement)
     if (!empty($formData['body_length'])) {
         $bodyLengthUri = "$baseUri/typometry/$arrowheadId-bodyLength";
-        $ttl .= "    ah:bodyLength <$bodyLengthUri>;\n";
+        $ttl .= "    ah:hasBodyLength <$bodyLengthUri>;\n";
         
         $measurementBlocks .= "<$bodyLengthUri> a excav:TypometryValue;\n";
         $measurementBlocks .= "    schema:value \"" . $formData['body_length'] . "\"^^xsd:decimal;\n";
@@ -689,7 +694,7 @@ private function processArrowheadFormData($formData, $itemSetId)
     
     if (!empty($formData['base_length'])) {
         $baseLengthUri = "$baseUri/typometry/$arrowheadId-baseLength";
-        $ttl .= "    ah:baseLength <$baseLengthUri>;\n";
+        $ttl .= "    ah:hasBaseLength <$baseLengthUri>;\n";
         
         $measurementBlocks .= "<$baseLengthUri> a excav:TypometryValue;\n";
         $measurementBlocks .= "    schema:value \"" . $formData['base_length'] . "\"^^xsd:decimal;\n";
@@ -714,16 +719,19 @@ private function processArrowheadFormData($formData, $itemSetId)
     if (!empty($formData['x_coordinate']) && !empty($formData['y_coordinate'])) {
         $coordinatesUri = "$baseUri/coordinatesInSquare/" . substr($arrowheadId, 3);
         $ttl .= "    excav:hasCoordinatesInSquare <$coordinatesUri>;\n";
-
-        // Store for later processing - coordinates are now direct decimals
+    
+        // Store for later processing - now with units
         $coordinatesData = [
             'uri' => $coordinatesUri,
             'x' => $formData['x_coordinate'],
+            'x_unit' => !empty($formData['x_coordinate_unit']) ? $formData['x_coordinate_unit'] : 'CMT',
             'y' => $formData['y_coordinate'],
-            'z' => !empty($formData['z_coordinate']) ? $formData['z_coordinate'] : null
+            'y_unit' => !empty($formData['y_coordinate_unit']) ? $formData['y_coordinate_unit'] : 'CMT',
+            'z' => !empty($formData['z_coordinate']) ? $formData['z_coordinate'] : null,
+            'z_unit' => !empty($formData['z_coordinate_unit']) ? $formData['z_coordinate_unit'] : 'CMT'
         ];
     }
-
+    
     // Add images/web resources
     if (!empty($formData['images'])) {
         $images = $formData['images'];
@@ -742,23 +750,50 @@ private function processArrowheadFormData($formData, $itemSetId)
     // Close the main arrowhead resource
     $ttl .= "    .\n\n";
 
-    // Add coordinates definition
     if (!empty($coordinatesData)) {
         $ttl .= "<{$coordinatesData['uri']}> a excav:Coordinates;\n";
-        $ttl .= "    geo:longitude \"{$coordinatesData['x']}\"^^xsd:decimal;\n";
-        $ttl .= "    geo:latitude \"{$coordinatesData['y']}\"^^xsd:decimal;\n";
-        $ttl .= "    schema:depth \"{$coordinatesData['z']}\"^^xsd:decimal;\n";
+        
+        // Create TypometryValue resources for coordinates
+        $xUri = "$baseUri/typometry/$arrowheadId-X";
+        $yUri = "$baseUri/typometry/$arrowheadId-Y";
+        
+        $ttl .= "    geo:longitude <$xUri>;\n";
+        $ttl .= "    geo:latitude <$yUri>;\n";
+        
+        if ($coordinatesData['z']) {
+            $zUri = "$baseUri/typometry/$arrowheadId-depth";
+            $ttl .= "    schema:depth <$zUri>;\n";
+        }
         $ttl .= "    .\n\n";
+        
+        // Add the TypometryValue resources with units
+        $measurementBlocks .= "<$xUri> a excav:TypometryValue;\n";
+        $measurementBlocks .= "    schema:value \"{$coordinatesData['x']}\"^^xsd:decimal;\n";
+        $measurementBlocks .= "    schema:UnitCode \"{$coordinatesData['x_unit']}\";\n";
+        $measurementBlocks .= "    .\n\n";
+        
+        $measurementBlocks .= "<$yUri> a excav:TypometryValue;\n";
+        $measurementBlocks .= "    schema:value \"{$coordinatesData['y']}\"^^xsd:decimal;\n";
+        $measurementBlocks .= "    schema:UnitCode \"{$coordinatesData['y_unit']}\";\n";
+        $measurementBlocks .= "    .\n\n";
+        
+        if ($coordinatesData['z']) {
+            $measurementBlocks .= "<$zUri> a excav:TypometryValue;\n";
+            $measurementBlocks .= "    schema:value \"{$coordinatesData['z']}\"^^xsd:decimal;\n";
+            $measurementBlocks .= "    schema:UnitCode \"{$coordinatesData['z_unit']}\";\n";
+            $measurementBlocks .= "    .\n\n";
+        }
     }
     
     // Add morphology
     $ttl .= "<$morphologyUri> a ah:Morphology;\n";
     
-    // Add point definition
-    if (!empty($formData['point_definition'])) {
-        $value = (stripos($formData['point_definition'], 'true') !== false) ? "true" : "false";
-        $ttl .= "    ah:point \"$value\"^^xsd:boolean;\n";
-    }
+// Add point definition  
+if (!empty($formData['point_definition'])) {
+    $value = (stripos($formData['point_definition'], 'true') !== false) ? "true" : "false";
+    $ttl .= "    ah:point \"$value\"^^xsd:boolean;\n";
+}
+
     
     // Add body symmetry
     if (!empty($formData['body_symmetry'])) {
@@ -865,10 +900,12 @@ private function processArrowheadFormData($formData, $itemSetId)
     }
     
     // Debug log the final TTL
-    error_log('Generated TTL: ' . $ttl, 3, OMEKA_PATH . '/logs/ttl-debug.log');
-    
+// At the end of processArrowheadFormData(), add:
+error_log('FINAL TTL GENERATED: ' . $ttl, 3, OMEKA_PATH . '/logs/final-ttl-debug.log');    
     return $ttl;
+
 }
+
 
 
 
@@ -1064,6 +1101,10 @@ private function transformCollectingFormToArrowheadData($formData)
         'prompt_90' => 'x_coordinate',
         'prompt_91' => 'y_coordinate',
         'prompt_92' => 'z_coordinate',
+
+        'prompt_94' => 'x_coordinate_unit',     // X coordinate unit
+        'prompt_95' => 'y_coordinate_unit',     // Y coordinate unit  
+        'prompt_96' => 'z_coordinate_unit',     // Z coordinate unit
     ];
     
     // Process the mapping
@@ -1191,7 +1232,7 @@ private function prepareTtlFromExcavationData($excavationId, $excavationData, $c
     $ttl = $this->getTtlPrefixes();
     
     // Add excavation with required link to context
-    $ttl .= "<$excavationUri> a crmarchaeo:A9_Archaeological_Excavation;\n";
+    $ttl .= "<$excavationUri> a excav:Excavation;\n";
     $ttl .= "    dct:identifier \"$excavationId\"^^xsd:literal;\n";
     $ttl .= "    excav:hasContext <$contextUri>;\n";
     
@@ -1213,7 +1254,7 @@ private function prepareTtlFromExcavationData($excavationId, $excavationData, $c
     $ttl .= "    .\n\n";
     
     // Add context with required ID and link to SVU (if provided)
-    $ttl .= "<$contextUri> a crmarchaeo:A1_Excavation_Processing_Unit;\n";
+    $ttl .= "<$contextUri> a excav:Context;\n"; 
     $ttl .= "    dct:identifier \"$contextId\"^^xsd:literal;\n";
     
     // Only add hasSVU if SVU data exists
@@ -1307,7 +1348,7 @@ private function prepareTtlFromExcavationData($excavationId, $excavationData, $c
     
     // Add SVU if provided
     if ($svuData) {
-        $ttl .= "<$svuUri> a crmarchaeo:A2_Stratigraphic_Volume_Unit;\n";
+        $ttl .= "<$svuUri> a excav:StratigraphicVolumeUnit;\n";
         $ttl .= "    dct:identifier \"$svuId\"^^xsd:literal;\n";
         
         // Add description if available
@@ -2879,9 +2920,14 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         'https://purl.org/megalod/ms/excavation/elongationIndex' => ['Elongation Index', 7676],
         'https://purl.org/megalod/ms/excavation/thicknessIndex' => ['Thickness Index', 7677],
         'http://www.cidoc-crm.org/cidoc-crm/E57_Material' => ['Material', 480], 
-        'https://purl.org/megalod/ms/ah/bodyLength' => ['Body Length', 7649],
-        'https://purl.org/megalod/ms/ah/baseLength' => ['Base Length', 7650],
+        'https://purl.org/megalod/ms/ah/hasBodyLength' => ['Body Length', 7678], // Changed from ah:bodyLength
+        'https://purl.org/megalod/ms/ah/hasBaseLength' => ['Base Length', 7679], // Changed from ah:baseLength
         'http://schema.org/depth' => ['Thickness', 7244],
+        'https://purl.org/megalod/ms/ah/hasMorphology' => ['Morphology', 7647], // ADD
+        'https://purl.org/megalod/ms/ah/hasChipping' => ['Chipping', 7648], // ADD
+        'http://schema.org/height' => ['Height', 5616], // ADD
+        'http://schema.org/width' => ['Width', 5688], // ADD  
+        'http://schema.org/weight' => ['Weight', 5779], // ADD
     ];
 
     error_log('Processing arrowhead data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/checkProp.log');
@@ -2986,7 +3032,170 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
             }
         }
     }
+
+
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/ah/hasMorphology'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/ah/hasMorphology'] as $morphObj) {
+            if ($morphObj['type'] === 'uri' && isset($rdfData[$morphObj['value']])) {
+                $morphUri = $morphObj['value'];
+                
+                // Extract morphology properties
+                if (isset($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/point'])) {
+                    $itemData['Point Definition'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7653, // Adjust ID
+                        '@value' => $rdfData[$morphUri]['https://purl.org/megalod/ms/ah/point'][0]['value']
+                    ];
+                }
+                
+                if (isset($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/body'])) {
+                    $itemData['Body Symmetry'][] = [
+                        'type' => 'literal', 
+                        'property_id' => 7654, // Adjust ID
+                        '@value' => $rdfData[$morphUri]['https://purl.org/megalod/ms/ah/body'][0]['value']
+                    ];
+                }
+                
+                if (isset($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/base'])) {
+                    $baseUri = $rdfData[$morphUri]['https://purl.org/megalod/ms/ah/base'][0]['value'];
+                    $baseName = basename($baseUri);
+                    $itemData['Base Type'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7655, // Adjust ID
+                        '@value' => ucfirst($baseName)
+                    ];
+                }
+            }
+        }
+    }
     
+    // Process chipping data  
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/ah/hasChipping'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/ah/hasChipping'] as $chipObj) {
+            if ($chipObj['type'] === 'uri' && isset($rdfData[$chipObj['value']])) {
+                $chipUri = $chipObj['value'];
+                
+                // Extract chipping properties
+                $chippingProps = [
+                    'https://purl.org/megalod/ms/ah/chippingMode' => ['Chipping Mode', 7656],
+                    'https://purl.org/megalod/ms/ah/chippingAmplitude' => ['Chipping Amplitude', 7657],
+                    'https://purl.org/megalod/ms/ah/chippingDirection' => ['Chipping Direction', 7658],
+                    // Add more as needed
+                ];
+                
+                foreach ($chippingProps as $predicate => $mapping) {
+                    if (isset($rdfData[$chipUri][$predicate])) {
+                        $value = $rdfData[$chipUri][$predicate][0]['value'];
+                        if (strpos($predicate, 'Mode') || strpos($predicate, 'Direction')) {
+                            $value = basename($value); // Extract from URI
+                        }
+                        
+                        $itemData[$mapping[0]][] = [
+                            'type' => 'literal',
+                            'property_id' => $mapping[1],
+                            '@value' => $value
+                        ];
+                    }
+                }
+            }
+        }
+    }
+
+    $measurementProps = [
+        'http://schema.org/height' => 'Height Value',
+        'http://schema.org/width' => 'Width Value', 
+        'http://schema.org/weight' => 'Weight Value',
+        'http://schema.org/depth' => 'Thickness Value'
+    ];
+    
+    foreach ($measurementProps as $predicate => $label) {
+        if (isset($rdfData[$subject][$predicate])) {
+            foreach ($rdfData[$subject][$predicate] as $measObj) {
+                if ($measObj['type'] === 'uri' && isset($rdfData[$measObj['value']])) {
+                    $measUri = $measObj['value'];
+                    
+                    // Extract value and unit
+                    $value = $this->extractMeasurementValue($rdfData, $measUri);
+                    $unit = $this->extractMeasurementUnit($rdfData, $measUri);
+                    
+                    if ($value !== null) {
+                        $displayValue = $value . ($unit ? " $unit" : "");
+                        $itemData[$label][] = [
+                            'type' => 'literal',
+                            'property_id' => 5550, // Adjust ID
+                            '@value' => $displayValue
+                        ];
+                    }
+                }
+            }
+        }
+    }
+    
+// Process coordinates
+if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare'])) {
+    foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasCoordinatesInSquare'] as $coordObj) {
+        if ($coordObj['type'] === 'uri' && isset($rdfData[$coordObj['value']])) {
+            $coordUri = $coordObj['value'];
+            
+            // Extract X coordinate (longitude)
+            if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'])) {
+                foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'] as $xObj) {
+                    if ($xObj['type'] === 'uri' && isset($rdfData[$xObj['value']])) {
+                        $xValue = $this->extractMeasurementValue($rdfData, $xObj['value']);
+                        $xUnit = $this->extractMeasurementUnit($rdfData, $xObj['value']);
+                        
+                        if ($xValue !== null) {
+                            $displayValue = $xValue . ($xUnit ? " $xUnit" : "");
+                            $itemData['X Coordinate'][] = [
+                                'type' => 'literal',
+                                'property_id' => 5550, // Adjust ID
+                                '@value' => $displayValue
+                            ];
+                        }
+                    }
+                }
+            }
+            
+            // Extract Y coordinate (latitude)  
+            if (isset($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'])) {
+                foreach ($rdfData[$coordUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'] as $yObj) {
+                    if ($yObj['type'] === 'uri' && isset($rdfData[$yObj['value']])) {
+                        $yValue = $this->extractMeasurementValue($rdfData, $yObj['value']);
+                        $yUnit = $this->extractMeasurementUnit($rdfData, $yObj['value']);
+                        
+                        if ($yValue !== null) {
+                            $displayValue = $yValue . ($yUnit ? " $yUnit" : "");
+                            $itemData['Y Coordinate'][] = [
+                                'type' => 'literal',
+                                'property_id' => 5550, // Adjust ID
+                                '@value' => $displayValue
+                            ];
+                        }
+                    }
+                }
+            }
+            
+            // Extract Z coordinate (depth)
+            if (isset($rdfData[$coordUri]['http://schema.org/depth'])) {
+                foreach ($rdfData[$coordUri]['http://schema.org/depth'] as $zObj) {
+                    if ($zObj['type'] === 'uri' && isset($rdfData[$zObj['value']])) {
+                        $zValue = $this->extractMeasurementValue($rdfData, $zObj['value']);
+                        $zUnit = $this->extractMeasurementUnit($rdfData, $zObj['value']);
+                        
+                        if ($zValue !== null) {
+                            $displayValue = $zValue . ($zUnit ? " $zUnit" : "");
+                            $itemData['Z Coordinate'][] = [
+                                'type' => 'literal',
+                                'property_id' => 5550, // Adjust ID
+                                '@value' => $displayValue
+                            ];
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
     // Continue with existing basic property extraction...
     foreach ($propertyMap as $predicate => $mapping) {
         if (isset($rdfData[$subject][$predicate])) {
