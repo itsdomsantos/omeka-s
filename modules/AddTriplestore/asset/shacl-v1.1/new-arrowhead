@@ -1,0 +1,105 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
+@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+<https://purl.org/megalod/1871> a excav:Excavation;
+    dct:identifier "EXC-1871"^^xsd:literal;
+    .
+
+<https://purl.org/megalod/1871/item/41fw> a ah:Arrowhead, excav:Item;
+    dct:identifier "41fw"^^xsd:literal;
+    excav:foundInExcavation <https://purl.org/megalod/1871>;
+    geo:lat "134.2"^^xsd:decimal;
+    geo:long "124.1"^^xsd:decimal;
+    dbo:Annotation "fjkakefjbajef"^^xsd:literal;
+    crm:E3_Condition_State "true"^^xsd:boolean;
+    crm:E55_Type "false"^^xsd:boolean;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Medium>;
+    crm:E57_Material <http://collection.britishmuseum.org/id/thesaurus/material/flint>;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/lozenge-shaped>;
+    ah:variant <https://purl.org/megalod/kos/ah-variant/raised>;
+    schema:height <https://purl.org/megalod/1871/typometry/41fw-height>;
+    schema:width <https://purl.org/megalod/1871/typometry/41fw-width>;
+    schema:weight <https://purl.org/megalod/1871/typometry/41fw-weight>;
+    schema:depth <https://purl.org/megalod/1871/typometry/41fw-thickness>;
+    ah:hasBodyLength <https://purl.org/megalod/1871/typometry/41fw-bodyLength>;
+    ah:hasBaseLength <https://purl.org/megalod/1871/typometry/41fw-baseLength>;
+    ah:hasChipping <https://purl.org/megalod/1871/chipping/41fw>;
+    ah:hasMorphology <https://purl.org/megalod/1871/morphology/41fw>;
+    excav:hasCoordinatesInSquare <https://purl.org/megalod/1871/coordinatesInSquare/w>;
+    .
+
+<https://purl.org/megalod/1871/coordinatesInSquare/w> a excav:Coordinates;
+    schema:value "34 8"^^xsd:literal;
+    schema:value "22 8"^^xsd:literal;
+    schema:value "3 8"^^xsd:literal;
+    .
+
+<https://purl.org/megalod/1871/morphology/41fw> a ah:Morphology;
+    ah:point "false"^^xsd:boolean;
+    ah:body "true"^^xsd:boolean;
+    ah:base <https://purl.org/megalod/kos/ah-base/straight>;
+    .
+
+<https://purl.org/megalod/1871/chipping/41fw> a ah:Chipping;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/sub-parallel>;
+    ah:chippingAmplitude "true"^^xsd:boolean;
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/reverse>;
+    ah:chippingOrientation "true"^^xsd:boolean;
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/composite>;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/distal>;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/proximal>;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex>;
+    .
+
+<https://purl.org/megalod/1871/encounter/41fw> a excav:EncounterEvent;
+    dct:date "2025-05-25"^^xsd:literal;
+    crmsci:O19_encountered_object <https://purl.org/megalod/1871/item/41fw>;
+    excav:foundInExcavation <https://purl.org/megalod/1871>;
+    .
+
+<https://purl.org/megalod/1871/typometry/41fw-height> a excav:TypometryValue;
+    schema:value "22"^^xsd:decimal;
+    schema:UnitCode <GRM>;
+    .
+
+<https://purl.org/megalod/1871/typometry/41fw-width> a excav:TypometryValue;
+    schema:value "32"^^xsd:decimal;
+    schema:UnitCode <MMT>;
+    .
+
+<https://purl.org/megalod/1871/typometry/41fw-weight> a excav:Weight;
+    schema:value "11"^^xsd:decimal;
+    schema:UnitCode <05>;
+    .
+
+<https://purl.org/megalod/1871/typometry/41fw-thickness> a excav:TypometryValue;
+    schema:value "12"^^xsd:decimal;
+    schema:UnitCode <MMQ>;
+    .
+
+<https://purl.org/megalod/1871/typometry/41fw-bodyLength> a excav:TypometryValue;
+    schema:value "15"^^xsd:decimal;
+    schema:UnitCode <25>;
+    .
+
+<https://purl.org/megalod/1871/typometry/41fw-baseLength> a excav:TypometryValue;
+    schema:value "16"^^xsd:decimal;
+    schema:UnitCode <08>;
+    .
+
