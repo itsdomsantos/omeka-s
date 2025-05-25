@@ -23,7 +23,7 @@
     sh:targetClass excav:Excavation, excav:Location, excav:GPSCoordinates, 
                    excav:Archaeologist, excav:Context, excav:StratigraphicVolumeUnit,
                    excav:TimeLine, excav:Instant, excav:Square, excav:EncounterEvent,
-                   excav:Item, excav:Coordinates, excav:Depth, excav:TypometryValue,
+                   excav:Item, excav:Coordinates, excav:TypometryValue,
                    excav:Weight, ah:Arrowhead, ah:Morphology, ah:Chipping ;
     rdfs:label "MegaLOD SHACL Shapes"@en ;
     dct:creator "Developed by the MegaLOD project team" ;
@@ -74,14 +74,14 @@
     sh:property [
         sh:path dbo:district ;
         sh:name "Has District" ;
-        sh:class dbo:District ;
+        sh:class dbo:district ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path dbo:parish ;
         sh:name "Has Parish" ;
-        sh:class dbo:Parish ;
+        sh:class dbo:parish ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
@@ -417,44 +417,25 @@
     sh:property [
         sh:path geo:longitude ;
         sh:name "X coordinate" ;
-        sh:datatype xsd:decimal ;
+        sh:class excav:TypometryValue ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path geo:latitude ;
         sh:name "Y Coordinate" ;
-        sh:datatype xsd:decimal ;
+        sh:class excav:TypometryValue ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path schema:depth ;
         sh:name "Depth" ;
-        sh:datatype xsd:decimal ;
+        sh:class excav:TypometryValue ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] .
 
-# =========== Depth Shape ===========
-
-<https://purl.org/megalod/shapes/DepthShape> a sh:NodeShape ;
-    sh:targetClass excav:Depth ;
-    sh:property [
-        sh:path schema:value ;
-        sh:name "Value" ;
-        sh:datatype xsd:decimal ;
-        sh:minCount 0 ;
-        sh:maxCount 1 ;
-    ] ;
-    sh:property [
-        sh:path schema:UnitCode ;
-        sh:name "Unit" ;
-        sh:nodeKind sh:IRI ;
-        sh:minCount 0 ;
-        sh:maxCount 1 ;
-        sh:description "Use a UN/CEFACT Code (e.g. 'MTR' for meter, 'CMNT' for centimetre, or 'MMT' for milimetre)." ;
-    ] .
 
 # =========== TypometryValue Shape ===========
 
@@ -501,6 +482,11 @@
 <https://purl.org/megalod/shapes/ArrowheadShape> a sh:NodeShape ;
     sh:targetClass ah:Arrowhead ;
     sh:property [
+        sh:path rdf:type ;
+        sh:hasValue ah:Arrowhead ;
+        sh:minCount 1 ;
+    ] ;
+    sh:property [
         sh:path ah:shape ;
         sh:name "Shape of the arrowhead" ;
         sh:nodeKind sh:IRI ;
@@ -508,7 +494,7 @@
         sh:maxCount 1 ;
         sh:in (
             <https://purl.org/megalod/kos/ah-shape/triangle>
-            <https://purl.org/megalod/kos/ah-shape/losangular>
+            <https://purl.org/megalod/kos/ah-shape/lozenge-shaped>
             <https://purl.org/megalod/kos/ah-shape/stemmed>
         ) ;
     ] ;

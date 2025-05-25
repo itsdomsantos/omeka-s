@@ -16,21 +16,6 @@
 @prefix ah: <https://purl.org/megalod/ms/ah/> .
 @prefix excav: <https://purl.org/megalod/ms/excavation/> .
 @prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
-@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
-@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix sh: <http://www.w3.org/ns/shacl#> .
-@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
-@prefix dct: <http://purl.org/dc/terms/> .
-@prefix foaf: <http://xmlns.com/foaf/0.1/> .
-@prefix dbo: <http://dbpedia.org/ontology/> .
-@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
-@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
-@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
-@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
-@prefix time: <http://www.w3.org/2006/time#> .
-@prefix excav: <https://purl.org/megalod/ms/excavation/> .
-@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
 
 
 # ==========================================================================
@@ -60,8 +45,8 @@
     excav:hasGPSCoordinates <https://purl.org/megalod/example/gps/CasteloVelho> .
 
 <https://purl.org/megalod/example/gps/CasteloVelho> a excav:GPSCoordinates ;
-    geo:lat 41.0578 ;
-    geo:long -7.2233 .
+    geo:lat "41.0578"^^xsd:decimal ;
+    geo:long "-7.2233"^^xsd:decimal ;
 
 # Archaeologist
 <https://purl.org/megalod/example/archaeologist/JoaoMuralha> a excav:Archaeologist ;
@@ -125,7 +110,7 @@
 
 <https://purl.org/megalod/example/instant/CV-001-1-begin> a excav:Instant ;
     excav:bcac <https://purl.org/megalod/kos/MegaLOD-BCAC/BC> ;
-    time:inXSDgYear "3200"^^xsd:gYear .
+    time:inXSDgYear "-3200"^^xsd:gYear .
 
 <https://purl.org/megalod/example/instant/CV-001-1-end> a excav:Instant ;
     excav:bcac <https://purl.org/megalod/kos/MegaLOD-BCAC/BC> ;
@@ -137,7 +122,7 @@
 
 <https://purl.org/megalod/example/instant/CV-001-2-end> a excav:Instant ;
     excav:bcac <https://purl.org/megalod/kos/MegaLOD-BCAC/BC> ;
-    time:inXSDgYear "3200"^^xsd:gYear .
+    time:inXSDgYear "-3200"^^xsd:gYear .
 
 <https://purl.org/megalod/example/instant/CV-002-1-begin> a excav:Instant ;
     excav:bcac <https://purl.org/megalod/kos/MegaLOD-BCAC/BC> ;
