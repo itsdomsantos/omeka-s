@@ -217,14 +217,14 @@
 <https://purl.org/megalod/shapes/InstantShape> a sh:NodeShape ;
     sh:targetClass excav:Instant ;
     sh:property [
-        sh:path excav:bcac ;
+        sh:path excav:bcad ;
         sh:name "Before or After Christ" ;
         sh:nodeKind sh:IRI ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
         sh:in (
-            <https://purl.org/megalod/kos/MegaLOD-BCAC/BC>
-            <https://purl.org/megalod/kos/MegaLOD-BCAC/AC>
+            <https://purl.org/megalod/kos/MegaLOD-BCAD/BC>
+            <https://purl.org/megalod/kos/MegaLOD-BCAD/AC>
         ) ;
     ] ;
     sh:property [
