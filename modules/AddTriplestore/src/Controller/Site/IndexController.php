@@ -602,9 +602,18 @@ private function processArrowheadFormData($formData, $itemSetId)
         $ttl .= "    crm:E57_Material <" . $formData['arrowhead_material'] . ">;\n";
     }
     
-    // Add shape if selected
     if (!empty($formData['arrowhead_shape'])) {
-        $shapeSafe = strtolower(str_replace('-', '', $formData['arrowhead_shape']));
+        $shapeMapping = [
+            'triangle' => 'triangle',
+            'lozenge-shaped' => 'losangular',  // CHANGED: Fixed vocabulary term
+            'losangular' => 'losangular',      // Support both forms
+            'stemmed' => 'stemmed'
+        ];
+        
+        $shapeSafe = isset($shapeMapping[$formData['arrowhead_shape']]) 
+            ? $shapeMapping[$formData['arrowhead_shape']] 
+            : strtolower(str_replace('-', '', $formData['arrowhead_shape']));
+            
         $ttl .= "    ah:shape <https://purl.org/megalod/kos/ah-shape/$shapeSafe>;\n";
     }
     
@@ -706,6 +715,7 @@ private function processArrowheadFormData($formData, $itemSetId)
         $coordinatesUri = "$baseUri/coordinatesInSquare/" . substr($arrowheadId, 3);
         $ttl .= "    excav:hasCoordinatesInSquare <$coordinatesUri>;\n";
 
+        // Store for later processing - coordinates are now direct decimals
         $coordinatesData = [
             'uri' => $coordinatesUri,
             'x' => $formData['x_coordinate'],
