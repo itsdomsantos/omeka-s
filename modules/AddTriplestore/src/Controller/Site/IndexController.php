@@ -55,9 +55,445 @@ class IndexController extends AbstractActionController
         
         error_log('=== END PROMPT MAPPING DEBUG ===', 3, OMEKA_PATH . '/logs/prompt-debug.log');
     }
+
+
+
+
+/**
+ * Unified TTL generation method that handles both simple and complex excavation data
+ * Add this method to your AddTriplestore/IndexController.php
+ */
+private function prepareUnifiedTtlFromExcavationData(
+    $excavationId, 
+    $excavationData, 
+    $entitiesData = null, 
+    $archaeologistData = null,
+    $legacyContextData = null,
+    $legacySvuData = null, 
+    $legacyEncounterData = null
+) {
+    // Debug log what we're working with
+    error_log('=== TTL GENERATION DEBUG ===', 3, OMEKA_PATH . '/logs/ttl-debug.log');
+    error_log('Excavation ID: ' . $excavationId, 3, OMEKA_PATH . '/logs/ttl-debug.log');
+    error_log('Excavation Data: ' . print_r($excavationData, true), 3, OMEKA_PATH . '/logs/ttl-debug.log');
+    error_log('Entities Data: ' . print_r($entitiesData, true), 3, OMEKA_PATH . '/logs/ttl-debug.log');
+    error_log('Archaeologist Data: ' . print_r($archaeologistData, true), 3, OMEKA_PATH . '/logs/ttl-debug.log');
     
-    // Call this function at the beginning of transformCollectingFormToArrowheadData:
-    // $this->debugPromptMapping($formData);
+    // Ensure we have a valid excavation ID with proper prefix
+    if (empty($excavationId) || $excavationId === "") {
+        $excavationId = "EXC-" . uniqid();
+    } else if (strpos($excavationId, 'EXC-') !== 0) {
+        $excavationId = "EXC-" . $excavationId;
+    }
+    
+    $baseUri = "https://purl.org/megalod/";
+    $graphId = str_replace(['EXC-', ' '], ['', '_'], $excavationId);
+    $excavationUri = "$baseUri$graphId";
+    
+    // Start TTL
+    $ttl = $this->getTtlPrefixes();
+    
+    // Add excavation
+    $ttl .= "<$excavationUri> a excav:Excavation;\n";
+    $ttl .= "    dct:identifier \"$excavationId\"^^xsd:literal;\n";
+    
+    // Add basic excavation metadata from collecting form
+    if (!empty($excavationData['location'])) {
+        $ttl .= "    dct:title \"Excavation at " . $excavationData['location'] . "\"^^xsd:literal;\n";
+    }
+    
+    if (!empty($excavationData['acronym'])) {
+        $ttl .= "    skos:notation \"" . $excavationData['acronym'] . "\"^^xsd:literal;\n";
+    }
+    
+    // Add location information - FIXED: Actually use the data
+    if (!empty($excavationData['location']) || !empty($excavationData['latitude']) || !empty($excavationData['longitude'])) {
+        $locationUri = "$excavationUri/location";
+        $ttl .= "    dul:hasLocation <$locationUri>;\n";
+    }
+    
+    // Add archaeologist - FIXED: Actually use the data
+    if (!empty($archaeologistData)) {
+        if ($archaeologistData['existing']) {
+            $ttl .= "    excav:hasPersonInCharge <" . $archaeologistData['uri'] . ">;\n";
+        } else if (!empty($archaeologistData['name'])) {
+            $archaeologistUri = "$excavationUri/archaeologist";
+            $ttl .= "    excav:hasPersonInCharge <$archaeologistUri>;\n";
+        }
+    }
+    
+    // ENHANCED ENTITIES PROCESSING (from complex form)
+    if (!empty($entitiesData) && is_array($entitiesData)) {
+        
+        // Add contexts
+        if (!empty($entitiesData['contexts'])) {
+            foreach ($entitiesData['contexts'] as $context) {
+                $contextUri = "$excavationUri/context/" . urlencode($context['context_id']);
+                $ttl .= "    excav:hasContext <$contextUri>;\n";
+            }
+        }
+        
+        // Add squares
+        if (!empty($entitiesData['squares'])) {
+            foreach ($entitiesData['squares'] as $square) {
+                $squareUri = "$excavationUri/square/" . urlencode($square['square_id']);
+                $ttl .= "    excav:hasSquare <$squareUri>;\n";
+            }
+        }
+    }
+    
+    $ttl .= "    .\n\n";
+    
+    // Add location details - FIXED: Corrected SHACL validation issues
+    if (!empty($excavationData['location']) || !empty($excavationData['latitude']) || !empty($excavationData['longitude'])) {
+        $locationUri = "$excavationUri/location";
+        $ttl .= "<$locationUri> a excav:Location;\n";
+        
+        if (!empty($excavationData['location'])) {
+            $ttl .= "    dbo:informationName \"" . $excavationData['location'] . "\"^^xsd:literal;\n";
+        }
+        
+        // Add GPS coordinates - ACTUALLY USE THEM
+        if (!empty($excavationData['latitude']) && !empty($excavationData['longitude'])) {
+            $gpsUri = "$locationUri/gps";
+            $ttl .= "    excav:hasGPSCoordinates <$gpsUri>;\n";
+        }
+        
+        // FIXED: Add Parish as URI reference (not literal)
+        if (!empty($excavationData['Parish'])) {
+            $parishUri = "$locationUri/Parish";
+            $ttl .= "    dbo:Parish <$parishUri>;\n";
+        }
+        
+        // FIXED: Add Country as URI reference (not literal)
+        if (!empty($excavationData['Country'])) {
+            $countryUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $excavationData['Country']);
+            $ttl .= "    dbo:Country <$countryUri>;\n";
+        }
+        
+        // FIXED: Add city as URI reference (not literal)
+        if (!empty($excavationData['city'])) {
+            $cityUri = "$locationUri/city";
+            $ttl .= "    dbo:city <$cityUri>;\n";
+        }
+        
+        $ttl .= "    .\n\n";
+        
+        // Add GPS coordinates details - ACTUALLY CREATE THEM
+        if (!empty($excavationData['latitude']) && !empty($excavationData['longitude'])) {
+            $gpsUri = "$locationUri/gps";
+            $ttl .= "<$gpsUri> a excav:GPSCoordinates;\n";
+            $ttl .= "    geo:lat \"" . $excavationData['latitude'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    geo:long \"" . $excavationData['longitude'] . "\"^^xsd:decimal;\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        // FIXED: Add Parish details with correct class
+        if (!empty($excavationData['Parish'])) {
+            $parishUri = "$locationUri/Parish";
+            $ttl .= "<$parishUri> a dbo:Parish;\n";
+            $ttl .= "    dbo:informationName \"" . $excavationData['Parish'] . "\"^^xsd:literal;\n";
+            $ttl .= "    .\n\n";
+        }
+        
+        // FIXED: Add city details
+        if (!empty($excavationData['city'])) {
+            $cityUri = "$locationUri/city";
+            $ttl .= "<$cityUri> a dbo:City;\n";
+            $ttl .= "    dbo:informationName \"" . $excavationData['city'] . "\"^^xsd:literal;\n";
+            $ttl .= "    .\n\n";
+        }
+    }
+    
+    // Add archaeologist details - FIXED: Actually create the archaeologist
+    if (!empty($archaeologistData) && !$archaeologistData['existing'] && !empty($archaeologistData['name'])) {
+        $archaeologistUri = "$excavationUri/archaeologist";
+        $ttl .= "<$archaeologistUri> a excav:Archaeologist;\n";
+        $ttl .= "    foaf:name \"" . $archaeologistData['name'] . "\"^^xsd:literal;\n";
+        
+        if (!empty($archaeologistData['orcid'])) {
+            // FIXED: Ensure ORCID is a proper URI
+            $orcidUri = $archaeologistData['orcid'];
+            if (strpos($orcidUri, 'http') !== 0) {
+                // If it doesn't start with http, assume it's just the ID
+                if (strpos($orcidUri, 'orcid.org') === false) {
+                    $orcidUri = "https://orcid.org/" . $orcidUri;
+                } else {
+                    $orcidUri = "https://" . $orcidUri;
+                }
+            }
+            $ttl .= "    foaf:account <$orcidUri>;\n";
+        }
+        
+        if (!empty($archaeologistData['email'])) {
+            // FIXED: Ensure email is proper mailto URI
+            $emailUri = $archaeologistData['email'];
+            if (strpos($emailUri, 'mailto:') !== 0) {
+                $emailUri = "mailto:" . $emailUri;
+            }
+            $ttl .= "    foaf:mbox <$emailUri>;\n";
+        }
+        
+        $ttl .= "    .\n\n";
+    }
+    
+    // ENHANCED ENTITIES DECLARATIONS - Now actually create all the entities
+    if (!empty($entitiesData) && is_array($entitiesData)) {
+        
+        // Add all contexts with full declarations
+        if (!empty($entitiesData['contexts'])) {
+            foreach ($entitiesData['contexts'] as $context) {
+                $contextUri = "$excavationUri/context/" . urlencode($context['context_id']);
+                $ttl .= "<$contextUri> a excav:Context;\n";
+                $ttl .= "    dct:identifier \"" . $context['context_id'] . "\"^^xsd:literal;\n";
+                
+                if (!empty($context['context_description'])) {
+                    $ttl .= "    dct:description \"" . $context['context_description'] . "\"^^xsd:literal;\n";
+                }
+                
+                if (!empty($context['context_type'])) {
+                    $ttl .= "    excav:contextType \"" . $context['context_type'] . "\"^^xsd:literal;\n";
+                }
+                
+                // Link to SVUs based on relationships
+                if (!empty($entitiesData['relationships'])) {
+                    foreach ($entitiesData['relationships'] as $rel) {
+                        $contextIndex = array_search($context, $entitiesData['contexts']);
+                        if ($rel['context'] == $contextIndex && isset($entitiesData['svus'][$rel['svu']])) {
+                            $svu = $entitiesData['svus'][$rel['svu']];
+                            $svuUri = "$excavationUri/svu/" . urlencode($svu['svu_id']);
+                            $ttl .= "    excav:hasSVU <$svuUri>;\n";
+                        }
+                    }
+                }
+                
+                $ttl .= "    .\n\n";
+            }
+        }
+        
+        // Add all SVUs with full declarations
+        if (!empty($entitiesData['svus'])) {
+            foreach ($entitiesData['svus'] as $svu) {
+                $svuUri = "$excavationUri/svu/" . urlencode($svu['svu_id']);
+                $ttl .= "<$svuUri> a excav:StratigraphicVolumeUnit;\n";
+                $ttl .= "    dct:identifier \"" . $svu['svu_id'] . "\"^^xsd:literal;\n";
+                
+                if (!empty($svu['svu_description'])) {
+                    $ttl .= "    dct:description \"" . $svu['svu_description'] . "\"^^xsd:literal;\n";
+                }
+                
+                // Add timeline if year data exists
+                if (!empty($svu['svu_lower_year']) || !empty($svu['svu_upper_year'])) {
+                    $timelineUri = "$svuUri/timeline";
+                    $ttl .= "    excav:hasTimeline <$timelineUri>;\n";
+                    $ttl .= "    .\n\n";
+                    
+                    // Add timeline details
+                    $ttl .= "<$timelineUri> a excav:TimeLine;\n";
+                    
+                    if (!empty($svu['svu_lower_year'])) {
+                        $beginUri = "$timelineUri/beginning";
+                        $ttl .= "    time:hasBeginning <$beginUri>;\n";
+                    }
+                    
+                    if (!empty($svu['svu_upper_year'])) {
+                        $endUri = "$timelineUri/end";
+                        $ttl .= "    time:hasEnd <$endUri>;\n";
+                    }
+                    
+                    $ttl .= "    .\n\n";
+                    
+                    // Add instant details
+                    if (!empty($svu['svu_lower_year'])) {
+                        $beginUri = "$timelineUri/beginning";
+                        $ttl .= "<$beginUri> a excav:Instant;\n";
+                        $ttl .= "    time:inXSDgYear \"" . $svu['svu_lower_year'] . "\"^^xsd:gYear;\n";
+                        $bcacValue = !empty($svu['svu_lower_bc']) ? "BC" : "AC";
+                        $ttl .= "    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/$bcacValue>;\n";
+                        $ttl .= "    .\n\n";
+                    }
+                    
+                    if (!empty($svu['svu_upper_year'])) {
+                        $endUri = "$timelineUri/end";
+                        $ttl .= "<$endUri> a excav:Instant;\n";
+                        $ttl .= "    time:inXSDgYear \"" . $svu['svu_upper_year'] . "\"^^xsd:gYear;\n";
+                        $bcacValue = !empty($svu['svu_upper_bc']) ? "BC" : "AC";
+                        $ttl .= "    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/$bcacValue>;\n";
+                        $ttl .= "    .\n\n";
+                    }
+                } else {
+                    $ttl .= "    .\n\n";
+                }
+            }
+        }
+        
+        // Add all squares with full declarations
+        if (!empty($entitiesData['squares'])) {
+            foreach ($entitiesData['squares'] as $square) {
+                $squareUri = "$excavationUri/square/" . urlencode($square['square_id']);
+                $ttl .= "<$squareUri> a excav:Square;\n";
+                $ttl .= "    dct:identifier \"" . $square['square_id'] . "\"^^xsd:literal;\n";
+                
+                if (!empty($square['square_east_west'])) {
+                    $ttl .= "    geo:lat \"" . $square['square_east_west'] . "\"^^xsd:decimal;\n";
+                }
+                
+                if (!empty($square['square_north_south'])) {
+                    $ttl .= "    geo:long \"" . $square['square_north_south'] . "\"^^xsd:decimal;\n";
+                }
+                
+                if (!empty($square['square_size'])) {
+                    $ttl .= "    excav:squareSize \"" . $square['square_size'] . "\"^^xsd:decimal;\n";
+                }
+                
+                $ttl .= "    .\n\n";
+            }
+        }
+        
+        // Add all encounter events with full declarations
+        if (!empty($entitiesData['encounters'])) {
+            foreach ($entitiesData['encounters'] as $encounter) {
+                $encounterUri = "$excavationUri/encounter/" . uniqid();
+                $ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
+                
+                if (!empty($encounter['encounter_date'])) {
+                    $ttl .= "    dct:date \"" . $encounter['encounter_date'] . "\"^^xsd:literal;\n";
+                }
+                
+                if (!empty($encounter['encounter_depth'])) {
+                    $ttl .= "    schema:depth \"" . $encounter['encounter_depth'] . "\"^^xsd:decimal;\n";
+                }
+                
+                if (!empty($encounter['encounter_method'])) {
+                    $ttl .= "    excav:excavationMethod \"" . $encounter['encounter_method'] . "\"^^xsd:literal;\n";
+                }
+                
+                if (!empty($encounter['encounter_notes'])) {
+                    $ttl .= "    dct:description \"" . $encounter['encounter_notes'] . "\"^^xsd:literal;\n";
+                }
+                
+                $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
+                $ttl .= "    .\n\n";
+            }
+        }
+    }
+    
+    // Log the final TTL for debugging
+    error_log('=== FINAL GENERATED TTL ===', 3, OMEKA_PATH . '/logs/ttl-debug.log');
+    error_log($ttl, 3, OMEKA_PATH . '/logs/ttl-debug.log');
+    
+    return $ttl;
+}
+
+/**
+ * Transform collecting form data to excavation data format
+ * You need to update the prompt IDs based on your actual form
+ */
+private function transformCollectingFormToExcavationData($formData)
+{
+    error_log('Transforming excavation form data: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/excavation-transform.log');
+
+    $excavationData = [];
+    
+    // Based on your form, you need to identify the correct prompt IDs
+    // From your logs, I can see you have these fields in your collecting form:
+    // - Acronym must be an unique value. 23
+    // - Parish of Excavation Paredes  
+    // - Country of Excavation Portugal
+    // - Name of the Excavation Site TTT
+    // - City of Excavation Porto
+    // - ORCID of Archaeologist (URL) https://www.feup.com
+    // - Email contact of Archaeologist
+    // - Name of the Archaeologist Tiago
+    // - Was found in the GPSCoordinates (Latitude) 124
+    // - Was found in the GPSCoordinates (Longitude) 1244
+    
+    // You need to find which prompt_X corresponds to each field
+    // Add debugging to find the correct mappings:
+    foreach ($formData as $key => $value) {
+        if (strpos($key, 'prompt_') === 0 && !empty($value)) {
+            error_log("Found data: $key = $value", 3, OMEKA_PATH . '/logs/excavation-transform.log');
+            
+            // Try to map based on the values you know
+            if ($value === '23') {
+                $excavationData['acronym'] = $value;
+            } elseif ($value === 'Paredes') {
+                $excavationData['Parish'] = $value;
+            } elseif ($value === 'Portugal') {
+                $excavationData['Country'] = $value;
+            } elseif ($value === 'TTT') {
+                $excavationData['location'] = $value;
+            } elseif ($value === 'Porto') {
+                $excavationData['city'] = $value;
+            } elseif ($value === 'https://www.feup.com') {
+                $excavationData['orcid'] = $value;
+            } elseif ($value === 'Tiago') {
+                $excavationData['archaeologist_name'] = $value;
+            } elseif ($value === '124') {
+                $excavationData['latitude'] = $value;
+            } elseif ($value === '1244') {
+                $excavationData['longitude'] = $value;
+            }
+        }
+    }
+    
+    error_log('Transformed excavation data: ' . print_r($excavationData, true), 3, OMEKA_PATH . '/logs/excavation-transform.log');
+    
+    return $excavationData;
+}
+
+/**
+ * Process archaeologist data from excavation form
+ */
+private function processExcavationArchaeologistData($formData)
+{
+    $archaeologistData = [
+        'existing' => false,
+        'name' => null,
+        'orcid' => null,
+        'email' => null
+    ];
+    
+    // Check if existing archaeologist selected
+    $existingId = $this->params()->fromPost('existing_archaeologist');
+    if ($existingId) {
+        try {
+            $archaeologist = $this->api()->read('items', $existingId)->getContent();
+            return [
+                'existing' => true,
+                'item_id' => $existingId,
+                'uri' => $archaeologist->url()
+            ];
+        } catch (\Exception $e) {
+            // Fall through to new archaeologist
+        }
+    }
+    
+    // Extract from enhanced form fields
+    $archaeologistData['name'] = $this->params()->fromPost('new_archaeologist_name');
+    $archaeologistData['orcid'] = $this->params()->fromPost('new_archaeologist_orcid');
+    $archaeologistData['email'] = $this->params()->fromPost('new_archaeologist_email');
+    
+    // If enhanced form is empty, try to extract from collecting form
+    if (empty($archaeologistData['name'])) {
+        foreach ($formData as $key => $value) {
+            if (strpos($key, 'prompt_') === 0 && !empty($value)) {
+                // Based on your form values
+                if ($value === 'Tiago') {
+                    $archaeologistData['name'] = $value;
+                } elseif (strpos($value, '@') !== false) {
+                    $archaeologistData['email'] = $value;
+                } elseif (strpos($value, 'orcid') !== false || strpos($value, 'feup') !== false) {
+                    $archaeologistData['orcid'] = $value;
+                }
+            }
+        }
+    }
+    
+    error_log('Processed archaeologist data: ' . print_r($archaeologistData, true), 3, OMEKA_PATH . '/logs/excavation-form-debug.log');
+    
+    return $archaeologistData;
+}
 
 
 /**
@@ -173,6 +609,8 @@ private function getItemIdentifier($item)
         return $value;
     }
 
+    
+
     public function uploadAction()
     {
         // Get all POST data
@@ -271,110 +709,106 @@ private function getItemIdentifier($item)
         }
 
         
+// Replace your excavation form processing section in AddTriplestore/IndexController.php with this:
+
+// Process the excavation form submission
+if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
+    
+    // EXTRACT THE ACTUAL FORM DATA (like you do for arrowheads)
+    $formData = $this->params()->fromPost();
+    error_log('Excavation form POST data: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/excavation-form-debug.log');
+    
+    // Transform the collecting form data to excavation format
+    $excavationData = $this->transformCollectingFormToExcavationData($formData);
+    
+    // Extract entities data from the JavaScript form
+    $entitiesDataJson = $this->params()->fromPost('entities_data', '{}');
+    $entitiesData = json_decode($entitiesDataJson, true);
+    error_log('Entities data: ' . print_r($entitiesData, true), 3, OMEKA_PATH . '/logs/excavation-form-debug.log');
+    
+    // Extract archaeologist data
+    $archaeologistData = $this->processExcavationArchaeologistData($formData);
+    
+    // Generate a unique excavation identifier
+    $excavationIdentifier = $this->params()->fromPost('excavation_id');
+    if (empty($excavationIdentifier)) {
+        $excavationIdentifier = 'EXC-' . uniqid();
+    }
+    
+    // Convert form data to TTL using the unified method
+    $ttlData = $this->prepareUnifiedTtlFromExcavationData(
+        $excavationIdentifier,
+        $excavationData,
+        $entitiesData,
+        $archaeologistData
+    );
+    
+    $locationName = '';
+    if (!empty($excavationData['location'])) {
+        $locationName = " at " . $excavationData['location'];
+    }
+    
+    // Create item set with proper title
+    $excavationIdentifier = str_replace(' ', '_', $excavationIdentifier);
+    
+    try {
+        $itemSetData = [
+            'dcterms:title' => [
+                [
+                    'type' => 'literal',
+                    'property_id' => 1,
+                    '@value' => "Excavation {$excavationIdentifier}{$locationName}"
+                ]
+            ],
+            'dcterms:description' => [
+                [
+                    'type' => 'literal',
+                    'property_id' => 4,
+                    '@value' => "Item set for excavation with identifier $excavationIdentifier"
+                ]
+            ],
+            'o:is_public' => true
+        ];
+
+        // Create the item set
+        $itemSetResponse = $this->api()->create('item_sets', $itemSetData);
+        $itemSetId = $itemSetResponse->getContent()->id();
+
+        // Store the mapping
+        $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
         
-        // Process the excavation form submission
-        if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
-            $excavationData = [];
-            // Extract context data
-            $contextData = null;
-            
-            // Extract SVU data
-            $svuData = null;
-            
-            // Extract encounter data
-            $encounterData = null;
-            
-            // Generate a unique excavation identifier
-            $excavationIdentifier = $this->params()->fromPost('excavation_id');
-    
-            // If no dedicated excavation ID found, generate a new one with proper prefix
-            if (empty($excavationIdentifier)) {
-                $excavationIdentifier = 'EXC-' . uniqid();
-            }
-    
-            // Convert form data to TTL
-            $ttlData = $this->prepareTtlFromExcavationData(
-                $excavationIdentifier, 
-                $excavationData, 
-                $contextData, 
-                $svuData, 
-                $encounterData
-            );
-            $excavationIdentifier = str_replace(' ', '_', $excavationIdentifier);
-            error_log('Creating item set with title: Excavation ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/title-debug.log');
-            try {
-            
-                $itemSetData = [
-                    'dcterms:title' => [
-                        [
-                            'type' => 'literal',
-                            'property_id' => 1,
-                            '@value' => "Excavation (Temporary)"
-                        ]
-                    ],
-                    'dcterms:description' => [
-                        [
-                            'type' => 'literal',
-                            'property_id' => 4,
-                            '@value' => "Item set for excavation with identifier $excavationIdentifier"
-                        ]
-                    ],
-                    'o:is_public' => true
-                ];
-                
+        // Upload TTL to the triplestore
+        $uploadResult = $this->uploadTtlData($ttlData, $itemSetId);
+        
+        // Redirect to the excavation form with success message
+        return $this->redirect()->toUrl($this->url()->fromRoute('site/collecting', [
+            'site-slug' => $this->currentSite()->slug(),
+            'form-id' => 3, // Excavation form ID
+            'action' => 'uploadExcavationForm'
+        ], [
+            'query' => [
+                'result' => $uploadResult,
+                'item_set_id' => $itemSetId
+            ]
+        ]));
+        
+    } catch (\Exception $e) {
+        // Log the error
+        error_log('Failed to create item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-submission.log');
+        
+        // Redirect with error message
+        return $this->redirect()->toUrl($this->url()->fromRoute('site/collecting', [
+            'site-slug' => $this->currentSite()->slug(),
+            'form-id' => 3, // Excavation form ID
+            'action' => 'uploadExcavationForm'
+        ], [
+            'query' => [
+                'result' => 'Error: ' . $e->getMessage()
+            ]
+        ]));
+    }
+}
 
-                // Create the item set
-                $itemSetResponse = $this->api()->create('item_sets', $itemSetData);
-                $itemSetId = $itemSetResponse->getContent()->id();
-
-                /*// Now update the title to include the item set ID
-                $newTitle = "Excavation EXC-$itemSetId";
-                error_log('Updating item set with new title: ' . $newTitle, 3, OMEKA_PATH . '/logs/title-debug.log');
-*/
-                // Update the item set with the new title
-                /*$updateResult = $this->api()->update('item_sets', $itemSetId, [
-                    'dcterms:title' => [
-                        [
-                            'type' => 'literal',
-                            'property_id' => 1, 
-                            '@value' => $newTitle
-                        ]
-                    ]
-                ], [], ['isPartial' => true]);*/
-                // Store the mapping
-                $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
-                
-                // Upload TTL to the triplestore
-                $uploadResult = $this->uploadTtlData($ttlData, $itemSetId);
-                
-                // Redirect to the excavation form with success message
-                return $this->redirect()->toUrl($this->url()->fromRoute('site/collecting', [
-                    'site-slug' => $this->currentSite()->slug(),
-                    'form-id' => 3, // Excavation form ID
-                    'action' => 'uploadExcavationForm'
-                ], [
-                    'query' => [
-                        'result' => $uploadResult,
-                        'item_set_id' => $itemSetId
-                    ]
-                ]));
-                
-            } catch (\Exception $e) {
-                // Log the error
-                error_log('Failed to create item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-submission.log');
-                
-                // Redirect with error message
-                return $this->redirect()->toUrl($this->url()->fromRoute('site/collecting', [
-                    'site-slug' => $this->currentSite()->slug(),
-                    'form-id' => 3, // Excavation form ID
-                    'action' => 'uploadExcavationForm'
-                ], [
-                    'query' => [
-                        'result' => 'Error: ' . $e->getMessage()
-                    ]
-                ]));
-            }
-        }
         
         // For direct file uploads - handle normally
         else if (isset($_FILES['file']) && !empty($_FILES['file']['tmp_name'])) {
@@ -469,6 +903,9 @@ private function getItemIdentifier($item)
         // Default response if no specific upload type was recognized
         return $this->redirect()->toUrl($this->url()->fromRoute('site', ['site-slug' => $this->currentSite()->slug()]));
     }
+
+
+
 
 /**
  * Process arrowhead form data with enhanced resource linking

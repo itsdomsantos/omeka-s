@@ -394,25 +394,47 @@ public function submitExcavationAction()
     $form->setData($this->params()->fromPost());
 
     if ($form->isValid()) {
-        // Get basic form data
+        $rawPost = $this->params()->fromPost();
+        error_log('=== RAW POST DATA ===', 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        error_log(print_r($rawPost, true), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        
+        // STEP 2: Debug collecting form extraction
         $excavationData = $this->getFormData($cForm);
+        error_log('=== EXCAVATION DATA FROM getFormData() ===', 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        error_log(print_r($excavationData, true), 3, OMEKA_PATH . '/logs/excavation-debug.log');
         
-        // Get enhanced entity data from the hidden field
+        // STEP 3: Debug entities data
         $entitiesDataJson = $this->params()->fromPost('entities_data', '{}');
+        error_log('=== ENTITIES JSON STRING ===', 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        error_log('Raw JSON: ' . $entitiesDataJson, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        
         $entitiesData = json_decode($entitiesDataJson, true);
+        error_log('=== PARSED ENTITIES DATA ===', 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        error_log(print_r($entitiesData, true), 3, OMEKA_PATH . '/logs/excavation-debug.log');
         
-        // Get archaeologist data
+        // STEP 4: Debug archaeologist data  
         $archaeologistData = $this->processArchaeologistData();
+        error_log('=== ARCHAEOLOGIST DATA ===', 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        error_log(print_r($archaeologistData, true), 3, OMEKA_PATH . '/logs/excavation-debug.log');
         
-        // Generate excavation identifier
+        // STEP 5: Debug excavation identifier
         $excavationIdentifier = $this->params()->fromPost('excavation_id');
+        error_log('=== EXCAVATION IDENTIFIER ===', 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        error_log('From POST: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        
         if (empty($excavationIdentifier)) {
             $excavationIdentifier = 'EXC-' . uniqid();
+            error_log('Generated: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
         }
-
+        
+        // STEP 6: Let's also check what prompts we have
+        error_log('=== COLLECTING FORM PROMPTS ===', 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        foreach ($cForm->prompts() as $prompt) {
+            error_log('Prompt ID: ' . $prompt->id() . ', Type: ' . $prompt->type() . ', Text: ' . $prompt->text(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        }
         try {
             // Create TTL data with enhanced entities
-            $ttlData = $this->prepareEnhancedTtlFromExcavationData(
+            $ttlData = $this->prepareUnifiedTtlFromExcavationData(
                 $excavationIdentifier,
                 $excavationData,
                 $entitiesData,
@@ -536,12 +558,14 @@ private function fetchExistingArchaeologists()
     return $archaeologists;
 }
 
-/**
- * Process archaeologist data from form submission
- */
 private function processArchaeologistData()
 {
+    $rawPost = $this->params()->fromPost();
+    error_log('=== ARCHAEOLOGIST PROCESSING DEBUG ===', 3, OMEKA_PATH . '/logs/archaeologist-debug.log');
+    error_log('Raw POST for archaeologist: ' . print_r($rawPost, true), 3, OMEKA_PATH . '/logs/archaeologist-debug.log');
+    
     $existingId = $this->params()->fromPost('existing_archaeologist');
+    error_log('Existing archaeologist ID: ' . $existingId, 3, OMEKA_PATH . '/logs/archaeologist-debug.log');
     
     if ($existingId) {
         // Use existing archaeologist
@@ -553,16 +577,41 @@ private function processArchaeologistData()
                 'uri' => $archaeologist->url()
             ];
         } catch (\Exception $e) {
-            // Fall through to new archaeologist creation
+            error_log('Error loading existing archaeologist: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/archaeologist-debug.log');
         }
     }
     
-    // Create new archaeologist
+    // Create new archaeologist - get data from the basic form prompts
+    $name = $this->params()->fromPost('new_archaeologist_name');
+    $orcid = $this->params()->fromPost('new_archaeologist_orcid');
+    $email = $this->params()->fromPost('new_archaeologist_email');
+    
+    // ALSO try to get from the collecting form prompts
+    if (empty($name)) {
+        foreach ($rawPost as $key => $value) {
+            if (strpos($key, 'prompt_') === 0 && !empty($value)) {
+                // You'll need to identify which prompt corresponds to archaeologist name
+                // This will depend on your form setup
+                if (stripos($key, 'archaeologist') !== false && stripos($key, 'name') !== false) {
+                    $name = $value;
+                }
+                if (stripos($key, 'orcid') !== false) {
+                    $orcid = $value;
+                }
+                if (stripos($key, 'email') !== false) {
+                    $email = $value;
+                }
+            }
+        }
+    }
+    
+    error_log("Processed archaeologist - Name: $name, ORCID: $orcid, Email: $email", 3, OMEKA_PATH . '/logs/archaeologist-debug.log');
+    
     return [
         'existing' => false,
-        'name' => $this->params()->fromPost('new_archaeologist_name'),
-        'orcid' => $this->params()->fromPost('new_archaeologist_orcid'),
-        'email' => $this->params()->fromPost('new_archaeologist_email')
+        'name' => $name,
+        'orcid' => $orcid,
+        'email' => $email
     ];
 }
 
@@ -598,221 +647,6 @@ private function generateExcavationDescription($excavationData, $entitiesData)
     }
     
     return $description;
-}
-
-/**
- * Prepare enhanced TTL data with full entity management
- */
-private function prepareEnhancedTtlFromExcavationData($excavationId, $excavationData, $entitiesData, $archaeologistData)
-{
-    $baseUri = "https://purl.org/megalod/";
-    $graphId = str_replace(['EXC-', ' '], ['', '_'], $excavationId);
-    $excavationUri = "$baseUri$graphId";
-    
-    // Start TTL
-    $ttl = $this->getTtlPrefixes();
-    
-    // Add excavation
-    $ttl .= "<$excavationUri> a excav:Excavation;\n";
-    $ttl .= "    dct:identifier \"$excavationId\"^^xsd:literal;\n";
-    
-    // Add location information
-    if (!empty($excavationData['location'])) {
-        $locationUri = "$excavationUri/location";
-        $ttl .= "    dul:hasLocation <$locationUri>;\n";
-    }
-    
-    // Add archaeologist
-    if (!empty($archaeologistData)) {
-        if ($archaeologistData['existing']) {
-            // Reference existing archaeologist
-            $ttl .= "    excav:hasPersonInCharge <" . $archaeologistData['uri'] . ">;\n";
-        } else {
-            // Create new archaeologist
-            $archaeologistUri = "$excavationUri/archaeologist";
-            $ttl .= "    excav:hasPersonInCharge <$archaeologistUri>;\n";
-        }
-    }
-    
-    // Add contexts
-    if (!empty($entitiesData['contexts'])) {
-        foreach ($entitiesData['contexts'] as $index => $context) {
-            $contextUri = "$excavationUri/context/" . urlencode($context['context_id']);
-            $ttl .= "    excav:hasContext <$contextUri>;\n";
-        }
-    }
-    
-    // Add squares
-    if (!empty($entitiesData['squares'])) {
-        foreach ($entitiesData['squares'] as $index => $square) {
-            $squareUri = "$excavationUri/square/" . urlencode($square['square_id']);
-            $ttl .= "    excav:hasSquare <$squareUri>;\n";
-        }
-    }
-    
-    $ttl .= "    .\n\n";
-    
-    // Add location details
-    if (!empty($excavationData['location'])) {
-        $locationUri = "$excavationUri/location";
-        $ttl .= "<$locationUri> a excav:Location;\n";
-        $ttl .= "    dbo:informationName \"" . $excavationData['location'] . "\"^^xsd:literal;\n";
-        
-        // Add GPS coordinates if available
-        if (!empty($excavationData['latitude']) && !empty($excavationData['longitude'])) {
-            $gpsUri = "$locationUri/gps";
-            $ttl .= "    excav:hasGPSCoordinates <$gpsUri>;\n";
-        }
-        
-        $ttl .= "    .\n\n";
-        
-        // Add GPS coordinates
-        if (!empty($excavationData['latitude']) && !empty($excavationData['longitude'])) {
-            $gpsUri = "$locationUri/gps";
-            $ttl .= "<$gpsUri> a excav:GPSCoordinates;\n";
-            $ttl .= "    geo:lat \"" . $excavationData['latitude'] . "\"^^xsd:decimal;\n";
-            $ttl .= "    geo:long \"" . $excavationData['longitude'] . "\"^^xsd:decimal;\n";
-            $ttl .= "    .\n\n";
-        }
-    }
-    
-    // Add new archaeologist if needed
-    if (!empty($archaeologistData) && !$archaeologistData['existing']) {
-        $archaeologistUri = "$excavationUri/archaeologist";
-        $ttl .= "<$archaeologistUri> a excav:Archaeologist;\n";
-        $ttl .= "    foaf:name \"" . $archaeologistData['name'] . "\"^^xsd:literal;\n";
-        
-        if (!empty($archaeologistData['orcid'])) {
-            $ttl .= "    foaf:account <https://orcid.org/" . $archaeologistData['orcid'] . ">;\n";
-        }
-        
-        if (!empty($archaeologistData['email'])) {
-            $ttl .= "    foaf:mbox <mailto:" . $archaeologistData['email'] . ">;\n";
-        }
-        
-        $ttl .= "    .\n\n";
-    }
-    
-    // Add contexts
-    if (!empty($entitiesData['contexts'])) {
-        foreach ($entitiesData['contexts'] as $context) {
-            $contextUri = "$excavationUri/context/" . urlencode($context['context_id']);
-            $ttl .= "<$contextUri> a excav:Context;\n";
-            $ttl .= "    dct:identifier \"" . $context['context_id'] . "\"^^xsd:literal;\n";
-            
-            if (!empty($context['context_description'])) {
-                $ttl .= "    dct:description \"" . $context['context_description'] . "\"^^xsd:literal;\n";
-            }
-            
-            // Link to SVUs based on relationships
-            if (!empty($entitiesData['relationships'])) {
-                foreach ($entitiesData['relationships'] as $rel) {
-                    $contextIndex = array_search($context, $entitiesData['contexts']);
-                    if ($rel['context'] == $contextIndex && isset($entitiesData['svus'][$rel['svu']])) {
-                        $svu = $entitiesData['svus'][$rel['svu']];
-                        $svuUri = "$excavationUri/svu/" . urlencode($svu['svu_id']);
-                        $ttl .= "    excav:hasSVU <$svuUri>;\n";
-                    }
-                }
-            }
-            
-            $ttl .= "    .\n\n";
-        }
-    }
-    
-    // Add SVUs
-    if (!empty($entitiesData['svus'])) {
-        foreach ($entitiesData['svus'] as $svu) {
-            $svuUri = "$excavationUri/svu/" . urlencode($svu['svu_id']);
-            $ttl .= "<$svuUri> a excav:StratigraphicVolumeUnit;\n";
-            $ttl .= "    dct:identifier \"" . $svu['svu_id'] . "\"^^xsd:literal;\n";
-            
-            if (!empty($svu['svu_description'])) {
-                $ttl .= "    dct:description \"" . $svu['svu_description'] . "\"^^xsd:literal;\n";
-            }
-            
-            // Add timeline if year data exists
-            if (!empty($svu['svu_lower_year']) || !empty($svu['svu_upper_year'])) {
-                $timelineUri = "$svuUri/timeline";
-                $ttl .= "    excav:hasTimeline <$timelineUri>;\n";
-            }
-            
-            $ttl .= "    .\n\n";
-            
-            // Add timeline details
-            if (!empty($svu['svu_lower_year']) || !empty($svu['svu_upper_year'])) {
-                $timelineUri = "$svuUri/timeline";
-                $ttl .= "<$timelineUri> a excav:TimeLine;\n";
-                
-                if (!empty($svu['svu_lower_year'])) {
-                    $beginUri = "$timelineUri/beginning";
-                    $ttl .= "    time:hasBeginning <$beginUri>;\n";
-                }
-                
-                if (!empty($svu['svu_upper_year'])) {
-                    $endUri = "$timelineUri/end";
-                    $ttl .= "    time:hasEnd <$endUri>;\n";
-                }
-                
-                $ttl .= "    .\n\n";
-                
-                // Add instant details
-                if (!empty($svu['svu_lower_year'])) {
-                    $beginUri = "$timelineUri/beginning";
-                    $ttl .= "<$beginUri> a excav:Instant;\n";
-                    $ttl .= "    time:inXSDgYear \"" . $svu['svu_lower_year'] . "\"^^xsd:gYear;\n";
-                    $bcacValue = !empty($svu['svu_lower_bc']) ? "BC" : "AC";
-                    $ttl .= "    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/$bcacValue>;\n";
-                    $ttl .= "    .\n\n";
-                }
-                
-                if (!empty($svu['svu_upper_year'])) {
-                    $endUri = "$timelineUri/end";
-                    $ttl .= "<$endUri> a excav:Instant;\n";
-                    $ttl .= "    time:inXSDgYear \"" . $svu['svu_upper_year'] . "\"^^xsd:gYear;\n";
-                    $bcacValue = !empty($svu['svu_upper_bc']) ? "BC" : "AC";
-                    $ttl .= "    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/$bcacValue>;\n";
-                    $ttl .= "    .\n\n";
-                }
-            }
-        }
-    }
-    
-    // Add squares
-    if (!empty($entitiesData['squares'])) {
-        foreach ($entitiesData['squares'] as $square) {
-            $squareUri = "$excavationUri/square/" . urlencode($square['square_id']);
-            $ttl .= "<$squareUri> a excav:Square;\n";
-            $ttl .= "    dct:identifier \"" . $square['square_id'] . "\"^^xsd:literal;\n";
-            
-            if (!empty($square['square_east_west'])) {
-                $ttl .= "    geo:lat \"" . $square['square_east_west'] . "\"^^xsd:decimal;\n";
-            }
-            
-            if (!empty($square['square_north_south'])) {
-                $ttl .= "    geo:long \"" . $square['square_north_south'] . "\"^^xsd:decimal;\n";
-            }
-            
-            $ttl .= "    .\n\n";
-        }
-    }
-    
-    // Add encounter events
-    if (!empty($entitiesData['encounters'])) {
-        foreach ($entitiesData['encounters'] as $encounter) {
-            $encounterUri = "$excavationUri/encounter/" . uniqid();
-            $ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
-            
-            if (!empty($encounter['encounter_date'])) {
-                $ttl .= "    dct:date \"" . $encounter['encounter_date'] . "\"^^xsd:literal;\n";
-            }
-            
-            $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
-            $ttl .= "    .\n\n";
-        }
-    }
-    
-    return $ttl;
 }
 
 /**
@@ -856,154 +690,6 @@ private function processEntitySelection($existingUri, array $newData, $entityTyp
         'isExisting' => false, 
         'type' => $entityType
     ];
-}
-
-private function prepareTtlFromExcavationData($excavationId, $excavationData, $contextData, $svuData, $encounterData)
-{
-    // Ensure we have a valid excavation ID with proper prefix
-    if (empty($excavationId) || $excavationId === "") {
-        $excavationId = "EXC-" . uniqid();
-    } else if (strpos($excavationId, 'EXC-') !== 0) {
-        // Ensure excavation ID has the right prefix
-        $excavationId = "EXC-" . $excavationId;
-    }
-    
-    // Generate base URIs for the resources
-    $baseUri = "http://www.arch-project.com/data";
-    $excavationUri = "$baseUri/excavation/$excavationId";
-    
-    // Create context with proper ID - never use the excavation ID for the context
-    $contextId = null;
-    if ($contextData && !$contextData['isExisting']) {
-        $contextId = $contextData['data']['id'];
-    } else {
-        $contextId = 'CTX-' . uniqid();
-    }
-    
-    $contextUri = "$baseUri/context/$contextId";
-
-
-// Create SVU with proper ID
-$svuId = ($svuData && !$svuData['isExisting']) 
-    ? $svuData['data']['id'] 
-    : 'SVU-' . uniqid();
-$svuUri = "$baseUri/svu/$svuId";
-
-// Use existing URIs if provided
-if ($contextData && $contextData['isExisting']) {
-    $contextUri = $contextData['uri'];
-}
-if ($svuData && $svuData['isExisting']) {
-    $svuUri = $svuData['uri'];
-}
-
-// Start building the TTL
-$ttl = $this->getTtlPrefixes();
-
-// Add excavation with required link to context
-$ttl .= "<$excavationUri> a crmarchaeo:A9_Archaeological_Excavation;\n";
-$ttl .= "    dct:identifier \"$excavationId\"^^xsd:string;\n";
-$ttl .= "    excav:hasContext <$contextUri>;\n";
-$ttl .= "    .\n\n";
-
-// Add context with required ID and link to SVU (if provided)
-$ttl .= "<$contextUri> a crmarchaeo:A1_Excavation_Processing_Unit;\n";
-$ttl .= "    dct:identifier \"$contextId\"^^xsd:string;\n";
-
-// Only add hasSVU if SVU data exists
-if ($svuData) {
-    $ttl .= "    excav:hasSVU <$svuUri>;\n";
-}
-
-// Add description if available
-if ($contextData && !$contextData['isExisting'] && !empty($contextData['data']['description'])) {
-    $ttl .= "    dct:description \"" . $contextData['data']['description'] . "\"^^xsd:string;\n";
-}
-
-$ttl .= "    .\n\n";
-
-// Add SVU if provided
-if ($svuData) {
-    $ttl .= "<$svuUri> a crmarchaeo:A2_Stratigraphic_Volume_Unit;\n";
-    $ttl .= "    dct:identifier \"$svuId\"^^xsd:string;\n";
-    
-    // Add description if available
-    if ($svuData && !$svuData['isExisting'] && !empty($svuData['data']['description'])) {
-        $ttl .= "    dct:description \"" . $svuData['data']['description'] . "\"^^xsd:string;\n";
-    }
-    
-    // Add timeline if year data is provided
-    if ($svuData && !$svuData['isExisting'] && 
-        (!empty($svuData['data']['lower_year']) || !empty($svuData['data']['upper_year']))) {
-        $timelineUri = "$svuUri/timeline";
-        $ttl .= "    excav:hasTimeLine <$timelineUri>;\n";
-        $ttl .= "    .\n\n";
-        
-        // Add timeline
-        $ttl .= "<$timelineUri> a time:TemporalEntity;\n";
-        
-        if (!empty($svuData['data']['lower_year'])) {
-            $lowerInstantUri = "$timelineUri/beginning";
-            $ttl .= "    time:hasBeginning <$lowerInstantUri>;\n";
-        }
-        
-        if (!empty($svuData['data']['upper_year'])) {
-            $upperInstantUri = "$timelineUri/end";
-            $ttl .= "    time:hasEnd <$upperInstantUri>;\n";
-        }
-        
-        $ttl .= "    .\n\n";
-        
-        // Add instants
-        if (!empty($svuData['data']['lower_year'])) {
-            $ttl .= "<$lowerInstantUri> a time:Instant;\n";
-            $ttl .= "    time:inXSDYear \"" . $svuData['data']['lower_year'] . "\"^^xsd:gYear;\n";
-            $ttl .= "    excav:bc " . ($svuData['data']['lower_bc'] ? "true" : "false") . ";\n";
-            $ttl .= "    .\n\n";
-        }
-        
-        if (!empty($svuData['data']['upper_year'])) {
-            $ttl .= "<$upperInstantUri> a time:Instant;\n";
-            $ttl .= "    time:inXSDYear \"" . $svuData['data']['upper_year'] . "\"^^xsd:gYear;\n";
-            $ttl .= "    excav:bc " . ($svuData['data']['upper_bc'] ? "true" : "false") . ";\n";
-            $ttl .= "    .\n\n";
-        }
-    } else {
-        $ttl .= "    .\n\n";
-    }
-}
-
-// Add encounter event if provided
-if ($encounterData) {
-    $encounterUri = "$baseUri/encounter/" . uniqid();
-    if ($encounterData['isExisting']) {
-        $encounterUri = $encounterData['uri'];
-    }
-    
-    $ttl .= "<$encounterUri> a crmsci:S19_Encounter_Event;\n";
-    
-    if (!$encounterData['isExisting']) {
-        if (!empty($encounterData['data']['date'])) {
-            $ttl .= "    dct:date \"" . $encounterData['data']['date'] . "\"^^xsd:date;\n";
-        }
-        
-        if (!empty($encounterData['data']['depth'])) {
-            $ttl .= "    dbo:depth \"" . $encounterData['data']['depth'] . "\"^^xsd:decimal;\n";
-        }
-    }
-    
-    $ttl .= "    excav:foundInAExcavation <$excavationUri>;\n";
-    $ttl .= "    excav:foundInAContext <$contextUri>;\n";
-    
-    if ($svuData) {
-        $ttl .= "    excav:foundInSVU <$svuUri>;\n";
-    }
-    
-    $ttl .= "    .\n\n";
-}
-error_log('TTL data: ' . $ttl, 3, OMEKA_PATH . '/logs/dkdkdk-submission.log');
-
-return $ttl;
 }
 
 /**
@@ -1177,22 +863,50 @@ private function getTtlPrefixes()
 }
 
 
-    /**
-     * Helper method to extract and format form data.
-     * Adapt this to your specific form structure!
-     */
-    private function getFormData(CollectingFormRepresentation $cForm): array
-    {
-        $formData = [];
-        foreach ($cForm->prompts() as $prompt) {
-            $fieldName = 'prompt_' . $prompt->id();  //  Example:  How names are generated
-            if (isset($this->params()->fromPost()[$fieldName])) {
-                $formData[$prompt->type()] = $this->params()->fromPost()[$fieldName];
+private function getFormData(CollectingFormRepresentation $cForm): array
+{
+    $formData = [];
+    $rawPost = $this->params()->fromPost();
+    
+    error_log('=== ENHANCED getFormData DEBUG ===', 3, OMEKA_PATH . '/logs/form-data-debug.log');
+    
+    foreach ($cForm->prompts() as $prompt) {
+        $fieldName = 'prompt_' . $prompt->id();
+        $promptText = $prompt->text();
+        
+        error_log("Processing prompt {$prompt->id()}: $promptText", 3, OMEKA_PATH . '/logs/form-data-debug.log');
+        
+        if (isset($rawPost[$fieldName])) {
+            $value = $rawPost[$fieldName];
+            error_log("  Found value: $value", 3, OMEKA_PATH . '/logs/form-data-debug.log');
+            
+            // Map based on prompt text (more reliable than type)
+            if (stripos($promptText, 'site') !== false || stripos($promptText, 'name') !== false) {
+                $formData['location'] = $value;
+            } elseif (stripos($promptText, 'latitude') !== false) {
+                $formData['latitude'] = $value;
+            } elseif (stripos($promptText, 'longitude') !== false) {
+                $formData['longitude'] = $value;
+            } elseif (stripos($promptText, 'country') !== false) {
+                $formData['country'] = $value;
+            } elseif (stripos($promptText, 'parish') !== false) {
+                $formData['parish'] = $value;
+            } elseif (stripos($promptText, 'city') !== false) {
+                $formData['city'] = $value;
+            } elseif (stripos($promptText, 'acronym') !== false) {
+                $formData['acronym'] = $value;
             }
+            
+            // Store all values for debugging
+            $formData[$fieldName] = $value;
+        } else {
+            error_log("  No value found for $fieldName", 3, OMEKA_PATH . '/logs/form-data-debug.log');
         }
-        return $formData;
     }
-
+    
+    error_log('Final form data: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/form-data-debug.log');
+    return $formData;
+}
 
     public function submitAction()
 {
