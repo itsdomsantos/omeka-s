@@ -1,289 +1,1056 @@
 <?php
 // modules/Collecting/view/collecting/site/index/upload-excavation-form.phtml
-$this->collectingPrepareForm(); // Call the CollectingPrepareForm view helper
+$this->collectingPrepareForm();
 $this->headScript()->appendFile($this->assetUrl('js/excavation-form.js', 'AddTriplestore'));
 
-// Get the URL for the AddTriplestore upload endpoint using the currentSite() method
 $siteSlug = $this->currentSite()->slug();
 $uploadUrl = $this->url('site/add-triplestore/upload', ['site-slug' => $siteSlug], true);
 
-// Modify the form opening tag to use the correct action URL
 $form->setAttribute('action', $uploadUrl);
 $form->setAttribute('method', 'post');
 $form->setAttribute('enctype', 'multipart/form-data');
 
-// Ensure result is safely displayed
 $result = $this->escapeHtml($this->params()->fromQuery('result', ''));
 $itemSetId = $this->params()->fromQuery('item_set_id');
+
+// Fetch existing archaeologists for selection
+$existingArchaeologists = $existingArchaeologists ?? [];
 ?>
+
 <style>
-/* Basic styling for tabs and entity selection */
-ul.tabs {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    border-bottom: 1px solid #ccc;
+/* Enhanced styles for the complex form */
+.enhanced-excavation-form {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    color:black;
+
+}
+
+.form-section {
+    background: #fafafa;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 25px;
+    color:black;
+
+    
+}
+
+.form-section h3 {
+    margin-top: 0;
+    color:black;
+    border-bottom: 2px solid #4CAF50;
+    padding-bottom: 10px;
+}
+
+.entity-management-tabs {
+    background: white;
+    border-radius: 8px;
     overflow: hidden;
-    color: black;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    color:black;
+
 }
-ul.tabs li {
-    float: left;
-    padding: 10px 15px;
+
+.tab-navigation {
+    display: flex;
+    background: #f0f0f0;
+    border-bottom: 1px solid #ddd;
+    color:black;
+
+}
+
+.tab-nav-item {
+    padding: 15px 20px;
     cursor: pointer;
-    background: #f1f1f1;
-    border: 1px solid #ccc;
-    margin-right: 5px;
-    border-radius: 5px 5px 0 0;
+    border-right: 1px solid #ddd;
+    transition: background-color 0.3s;
 }
-ul.tabs li.current {
-    background: #fff;
-    border-bottom-color: #fff;
+
+.tab-nav-item:last-child {
+    border-right: none;
 }
-.tab-content {
+
+.tab-nav-item.active {
+    background: white;
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.tab-nav-item:hover {
+    background: #e8f5e8;
+}
+
+.tab-panel {
     display: none;
-    padding: 15px;
-    border: 1px solid #ccc;
-    border-top: none;
+    padding: 25px;
+    color:black;
+
 }
-.tab-content.current {
+
+.tab-panel.active {
     display: block;
 }
-.form-group {
+
+.entity-list {
+    margin-bottom: 20px;
+}
+
+.entity-item {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 10px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: box-shadow 0.2s;
+    color:black;
+
+}
+
+.entity-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.entity-summary h4 {
+    margin: 0 0 5px 0;
+    color:black;
+}
+
+.entity-details {
+    font-size: 13px;
+    color:black;
+}
+
+.entity-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+}
+
+.btn-primary {
+    background: #4CAF50;
+    color:black;
+}
+
+.btn-primary:hover {
+    background: #45a049;
+}
+
+.btn-secondary {
+    background: #2196F3;
+    color:black;
+}
+
+.btn-secondary:hover {
+    background: #1976D2;
+}
+
+.btn-danger {
+    background: #f44336;
+    color:black;
+}
+
+.btn-danger:hover {
+    background: #d32f2f;
+}
+
+.add-entity-btn {
+    background: #4CAF50;
+    color:black;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+}
+
+.archaeologist-selection {
+    background: #e8f5e8;
+    padding: 15px;
+    border-radius: 6px;
     margin-bottom: 15px;
 }
-.existing-entity-select {
+
+/* Modal styles */
+.entity-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
     width: 100%;
-    margin-bottom: 10px;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
 }
-.new-entity-form {
-    background: #f9f9f9;
-    padding: 15px;
-    border: 1px solid #eee;
-    border-radius: 5px;
+
+.modal-content {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
 }
-.success-message {
-    color: green;
-    margin-bottom: 20px;
-    padding: 10px;
-    background-color: #f0f0f0;
-    border-radius: 5px;
-}
-.button-group {
+
+.modal-header {
+    padding: 20px;
+    border-bottom: 1px solid #ddd;
     display: flex;
-    gap: 10px;
-    margin-top: 20px;
+    justify-content: space-between;
+    align-items: center;
 }
-.button {
-    display: inline-block;
-    padding: 10px 15px;
-    background-color: #4CAF50;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
+
+.modal-body {
+    padding: 20px;
 }
-.button:hover {
-    background-color: #45a049;
+
+.modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #ddd;
+    text-align: right;
 }
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.success-message, .error-message {
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 4px;
+}
+
 .success-message {
     background-color: #dff0d8;
     color: #3c763d;
     border: 1px solid #d6e9c6;
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 4px;
 }
+
 .error-message {
     background-color: #f2dede;
     color: #a94442;
     border: 1px solid #ebccd1;
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 4px;
 }
+
+.form-group {
+    margin-bottom: 15px;
+    color:black;
+
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    color:black;
+
+}
+
 .button-group {
     display: flex;
     gap: 10px;
-    margin-top: 20px;
-}
-.button {
-    display: inline-block;
-    padding: 10px 15px;
-    background-color: #4CAF50;
-    color: white;
-    text-decoration: none;
-    border-radius: 5px;
-}
-.button:hover {
-    background-color: #45a049;
+    justify-content: center;
+    margin-top: 30px;
 }
 </style>
 
-<?php if (!empty($result)): ?>
-    <div class="<?php echo (strpos($result, 'successfully') !== false) ? 'success-message' : 'error-message'; ?>">
-        <?php echo $result; ?>
-    </div>
-
-    <!-- Simplified options after successful upload -->
-    <?php if (strpos($result, 'successfully') !== false && $itemSetId): ?>
-        <div class="button-group">
-            <a href="<?php echo $this->url('site/add-triplestore/upload', [
-                'site-slug' => $this->currentSite()->slug()
-            ], ['query' => [
-                'upload_type' => 'arrowhead',
-                'item_set_id' => $itemSetId,
-                'mode' => 'file'
-            ]], true); ?>" class="button">
-                Upload Arrowhead File
-            </a>
-            <a href="<?php echo $this->url('site', [], true); ?>" class="button">
-                Exit
-            </a>
+<div class="enhanced-excavation-form">
+    <?php if (!empty($result)): ?>
+        <div class="<?php echo (strpos($result, 'successfully') !== false) ? 'success-message' : 'error-message'; ?>">
+            <?php echo $result; ?>
         </div>
+
+        <?php if (strpos($result, 'successfully') !== false && $itemSetId): ?>
+            <div class="button-group">
+                <a href="<?php echo $this->url('site/add-triplestore/upload', [
+                    'site-slug' => $this->currentSite()->slug()
+                ], ['query' => [
+                    'upload_type' => 'arrowhead',
+                    'item_set_id' => $itemSetId,
+                    'mode' => 'file'
+                ]], true); ?>" class="btn btn-primary">
+                    Upload Arrowhead File
+                </a>
+                <a href="<?php echo $this->url('site', [], true); ?>" class="btn btn-secondary">
+                    Exit
+                </a>
+            </div>
+        <?php endif; ?>
+    <?php else: ?>
+        <?php echo $this->form()->openTag($form); ?>
+
+        <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($formType); ?>">
+
+        <!-- Basic Excavation Information (from Collecting form) -->
+        <div class="form-section">
+            <h3>📋 Basic Excavation Information</h3>
+            <div class="form-elements">
+                <?php foreach ($form->getElements() as $element): ?>
+                    <div class="form-group">
+                        <?php if ($element->getLabel()): ?>
+                            <label><?php echo $this->formLabel($element); ?></label>
+                        <?php endif; ?>
+                        <?php echo $this->formElement($element); ?>
+                        <?php echo $this->formElementErrors($element); ?>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <!-- Enhanced Archaeologist Selection -->
+        <div class="form-section">
+            <h3>👤 Archaeologist Information</h3>
+            <div class="archaeologist-selection">
+                <div class="form-group">
+                    <label for="existing_archaeologist">Select Existing Archaeologist</label>
+                    <select id="existing_archaeologist" name="existing_archaeologist" class="form-control">
+                        <option value="">-- Create New Archaeologist --</option>
+                        <?php foreach ($existingArchaeologists as $archaeologist): ?>
+                        <option value="<?php echo $this->escapeHtml($archaeologist['id']); ?>"
+                                data-name="<?php echo $this->escapeHtml($archaeologist['name']); ?>"
+                                data-orcid="<?php echo $this->escapeHtml($archaeologist['orcid']); ?>"
+                                data-email="<?php echo $this->escapeHtml($archaeologist['email']); ?>">
+                            <?php echo $this->escapeHtml($archaeologist['name']); ?>
+                            <?php if (!empty($archaeologist['orcid'])): ?>
+                                (<?php echo $this->escapeHtml($archaeologist['orcid']); ?>)
+                            <?php endif; ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <div id="new-archaeologist-fields">
+                    <div class="grid-2">
+                        <div class="form-group">
+                            <label for="new_archaeologist_name">Name *</label>
+                            <input type="text" id="new_archaeologist_name" name="new_archaeologist_name" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="new_archaeologist_orcid">ORCID ID</label>
+                            <input type="text" id="new_archaeologist_orcid" name="new_archaeologist_orcid" 
+                                   class="form-control" placeholder="0000-0000-0000-0000">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="new_archaeologist_email">Email</label>
+                        <input type="email" id="new_archaeologist_email" name="new_archaeologist_email" class="form-control">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Enhanced Entity Management -->
+        <div class="form-section">
+            <h3>🏛️ Archaeological Entities Management</h3>
+            <div class="entity-management-tabs">
+                <div class="tab-navigation">
+                    <div class="tab-nav-item active" data-tab="contexts">
+                        <span>📁 Contexts</span>
+                        <small id="contexts-count">(0)</small>
+                    </div>
+                    <div class="tab-nav-item" data-tab="svus">
+                        <span>📊 Stratigraphic Units</span>
+                        <small id="svus-count">(0)</small>
+                    </div>
+                    <div class="tab-nav-item" data-tab="squares">
+                        <span>⬜ Squares</span>
+                        <small id="squares-count">(0)</small>
+                    </div>
+                    <div class="tab-nav-item" data-tab="encounters">
+                        <span>🔍 Encounter Events</span>
+                        <small id="encounters-count">(0)</small>
+                    </div>
+                    <div class="tab-nav-item" data-tab="relationships">
+                        <span>🔗 Relationships</span>
+                    </div>
+                </div>
+
+                <!-- Contexts Tab -->
+                <div id="contexts-tab" class="tab-panel active">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h4>Archaeological Contexts</h4>
+                        <button type="button" class="add-entity-btn" onclick="openEntityModal('context')">
+                            + Add Context
+                        </button>
+                    </div>
+                    <div id="contexts-list" class="entity-list">
+                        <p style="color: #666; font-style: italic;">No contexts added yet. Click "Add Context" to create one.</p>
+                    </div>
+                </div>
+
+                <!-- SVUs Tab -->
+                <div id="svus-tab" class="tab-panel">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h4>Stratigraphic Volume Units</h4>
+                        <button type="button" class="add-entity-btn" onclick="openEntityModal('svu')">
+                            + Add SVU
+                        </button>
+                    </div>
+                    <div id="svus-list" class="entity-list">
+                        <p style="color: #666; font-style: italic;">No SVUs added yet. Click "Add SVU" to create one.</p>
+                    </div>
+                </div>
+
+                <!-- Squares Tab -->
+                <div id="squares-tab" class="tab-panel">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h4>Excavation Squares</h4>
+                        <button type="button" class="add-entity-btn" onclick="openEntityModal('square')">
+                            + Add Square
+                        </button>
+                    </div>
+                    <div id="squares-list" class="entity-list">
+                        <p style="color: #666; font-style: italic;">No squares added yet. Click "Add Square" to create one.</p>
+                    </div>
+                </div>
+
+                <!-- Encounter Events Tab -->
+                <div id="encounters-tab" class="tab-panel">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                        <h4>Encounter Events</h4>
+                        <button type="button" class="add-entity-btn" onclick="openEntityModal('encounter')">
+                            + Add Encounter Event
+                        </button>
+                    </div>
+                    <div id="encounters-list" class="entity-list">
+                        <p style="color: #666; font-style: italic;">No encounter events added yet. Click "Add Encounter Event" to create one.</p>
+                    </div>
+                </div>
+
+                <!-- Relationships Tab -->
+                <div id="relationships-tab" class="tab-panel">
+                    <h4>Entity Relationships</h4>
+                    <div style="background: #f8f9fa; padding: 15px; border-radius: 4px; margin-bottom: 15px;">
+                        <h5>Context → SVU Relationships</h5>
+                        <div id="context-svu-relationships">
+                            <p style="color: #666; font-style: italic;">Add contexts and SVUs first to define relationships.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hidden inputs to store entity data -->
+        <input type="hidden" id="entities_data" name="entities_data" value="">
+
+        <div class="form-actions button-group">
+            <button type="submit" class="btn btn-primary" style="padding: 12px 30px; font-size: 16px;">
+                📤 Submit Excavation Data
+            </button>
+        </div>
+
+        <?php echo $this->form()->closeTag(); ?>
     <?php endif; ?>
-<?php else: ?>
-    <?php echo $this->form()->openTag($form); ?>
+</div>
 
-    <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($formType); ?>">
-
-    <div class="form-elements">
-        <?php foreach ($form->getElements() as $element): ?>
-            <div class="form-group">
-                <?php if ($element->getLabel()): ?>
-                    <label><?php echo $this->formLabel($element); ?></label>
-                <?php endif; ?>
-                <?php echo $this->formElement($element); ?>
-                <?php echo $this->formElementErrors($element); ?>
-            </div>
-        <?php endforeach; ?>
-    </div>
-
-    <!-- Entity selection/creation tabs -->
-    <div class="entity-tabs">
-        <ul class="tabs">
-            <li class="tab-link current" data-tab="tab-context">Context</li>
-            <li class="tab-link" data-tab="tab-svu">Stratigraphic Volume Unit</li>
-            <li class="tab-link" data-tab="tab-encounter">Encounter Event</li>
-        </ul>
-        
-        <!-- Context Tab -->
-        <div id="tab-context" class="tab-content current">
-            <div class="entity-selection">
-                <h3>Context Information</h3>
-                
-                <!-- New Context Form -->
-                <div class="new-entity-form">
-                    <h4>Create New Context</h4>
-                    <div class="form-group">
-                        <label>Context ID</label>
-                        <input type="text" name="new_context_id" placeholder="e.g., CTX-001" class="form-control">
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea name="new_context_description" placeholder="Context description" class="form-control"></textarea>
-                    </div>
-                </div>
-            </div>
+<!-- Entity Modal -->
+<div id="entity-modal" class="entity-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modal-title">Add Entity</h3>
+            <button type="button" class="close-btn" onclick="closeEntityModal()">×</button>
         </div>
-        
-        <!-- SVU Tab -->
-        <div id="tab-svu" class="tab-content">
-            <div class="entity-selection">
-                <h3>Stratigraphic Volume Unit Information</h3>
-                
-
-                <!-- New SVU Form -->
-                <div class="new-entity-form">
-                    <h4>Create New Stratigraphic Volume Unit</h4>
-                    <div class="form-group">
-                        <label>SVU ID</label>
-                        <input type="text" name="new_svu_id" placeholder="e.g., SVU-001" class="form-control">
-                    </div>
-                    <div class="form-group">
-                        <label>Description</label>
-                        <textarea name="new_svu_description" placeholder="SVU description" class="form-control"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Lower Bound Year</label>
-                        <input type="text" name="new_svu_lower_year" placeholder="e.g., 2500" class="form-control">
-                        <input type="checkbox" name="new_svu_lower_bc" value="true"> BC
-                    </div>
-                    <div class="form-group">
-                        <label>Upper Bound Year</label>
-                        <input type="text" name="new_svu_upper_year" placeholder="e.g., 2000" class="form-control">
-                        <input type="checkbox" name="new_svu_upper_bc" value="true"> BC
-                    </div>
+        <div class="modal-body">
+            <form id="entity-form">
+                <div id="modal-fields">
+                    <!-- Fields populated dynamically -->
                 </div>
-            </div>
+            </form>
         </div>
-        
-        <!-- Encounter Event Tab -->
-        <div id="tab-encounter" class="tab-content">
-            <div class="entity-selection">
-                <h3>Encounter Event Information</h3>
-
-
-                <!-- New Encounter Event Form -->
-                <div class="new-entity-form">
-                    <h4>Create New Encounter Event</h4>
-                    <div class="form-group">
-                        <label>Date</label>
-                        <input type="date" name="new_encounter_date" class="form-control">
-                    </div>
-                    <div class="form-group">
-                        <label>Depth</label>
-                        <input type="number" step="0.01" name="new_encounter_depth" placeholder="e.g., 1.75" class="form-control">
-                    </div>
-                </div>
-            </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeEntityModal()">Cancel</button>
+            <button type="button" class="btn btn-primary" onclick="saveEntity()">Save</button>
         </div>
     </div>
+</div>
 
-    <div class="form-actions">
-        <button type="submit">Submit Excavation Data</button>
-    </div>
+<script>
+// Entity management JavaScript
+let entities = {
+    contexts: [],
+    svus: [],
+    squares: [],
+    encounters: []
+};
 
-    <?php echo $this->form()->closeTag(); ?>
+let currentEntityType = '';
+let currentEntityIndex = -1;
 
-    <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Tab switching
-        document.querySelectorAll('ul.tabs li').forEach(function(tab) {
-            tab.addEventListener('click', function() {
-                var tabId = this.getAttribute('data-tab');
-                
-                document.querySelectorAll('ul.tabs li').forEach(function(t) {
-                    t.classList.remove('current');
-                });
-                document.querySelectorAll('.tab-content').forEach(function(t) {
-                    t.classList.remove('current');
-                });
-                
-                this.classList.add('current');
-                document.getElementById(tabId).classList.add('current');
-            });
-        });
-
-        // Entity selection logic
-        document.querySelectorAll('.entity-select').forEach(function(select) {
-            select.addEventListener('change', function() {
-                var form = this.closest('.entity-selection');
-                var formFields = form.querySelector('.new-entity-form');
-                
-                if (this.value) {
-                    // An existing entity was selected, disable the new entity form
-                    formFields.querySelectorAll('input, textarea').forEach(function(input) {
-                        input.disabled = true;
-                    });
-                    formFields.style.opacity = '0.5';
-                } else {
-                    // No entity selected, enable the new entity form
-                    formFields.querySelectorAll('input, textarea').forEach(function(input) {
-                        input.disabled = false;
-                    });
-                    formFields.style.opacity = '1';
-                }
-            });
-        });
+// Tab management
+document.querySelectorAll('.tab-nav-item').forEach(tab => {
+    tab.addEventListener('click', function() {
+        const targetTab = this.dataset.tab;
+        
+        // Update tab navigation
+        document.querySelectorAll('.tab-nav-item').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+        
+        this.classList.add('active');
+        document.getElementById(targetTab + '-tab').classList.add('active');
     });
-    </script>
-<?php endif; ?>
+});
+
+// Archaeologist selection management
+document.getElementById('existing_archaeologist').addEventListener('change', function() {
+    const newFields = document.getElementById('new-archaeologist-fields');
+    const nameField = document.getElementById('new_archaeologist_name');
+    const orcidField = document.getElementById('new_archaeologist_orcid');
+    const emailField = document.getElementById('new_archaeologist_email');
+    
+    if (this.value) {
+        // Existing archaeologist selected
+        const option = this.options[this.selectedIndex];
+        nameField.value = option.dataset.name || '';
+        orcidField.value = option.dataset.orcid || '';
+        emailField.value = option.dataset.email || '';
+        
+        // Make fields readonly
+        nameField.readOnly = true;
+        orcidField.readOnly = true;
+        emailField.readOnly = true;
+        
+        newFields.style.opacity = '0.7';
+    } else {
+        // New archaeologist
+        nameField.value = '';
+        orcidField.value = '';
+        emailField.value = '';
+        
+        // Make fields editable
+        nameField.readOnly = false;
+        orcidField.readOnly = false;
+        emailField.readOnly = false;
+        
+        newFields.style.opacity = '1';
+    }
+});
+
+// Entity modal management
+function openEntityModal(entityType, index = -1) {
+    currentEntityType = entityType;
+    currentEntityIndex = index;
+    
+    const modal = document.getElementById('entity-modal');
+    const title = document.getElementById('modal-title');
+    const fields = document.getElementById('modal-fields');
+    
+    const entityLabels = {
+        'context': 'Context',
+        'svu': 'Stratigraphic Volume Unit',
+        'square': 'Square',
+        'encounter': 'Encounter Event'
+    };
+    
+    title.textContent = (index >= 0 ? 'Edit ' : 'Add ') + entityLabels[entityType];
+    fields.innerHTML = getEntityFields(entityType);
+    
+    // Populate fields if editing
+    if (index >= 0) {
+        const entity = entities[entityType + 's'][index];
+        populateModalFields(entity);
+    }
+    
+    modal.style.display = 'block';
+}
+
+function closeEntityModal() {
+    document.getElementById('entity-modal').style.display = 'none';
+    currentEntityType = '';
+    currentEntityIndex = -1;
+}
+
+function getEntityFields(type) {
+    const fieldTemplates = {
+        'context': `
+            <div class="form-group">
+                <label for="context_id">Context ID *</label>
+                <input type="text" id="context_id" name="context_id" class="form-control" required placeholder="e.g., CTX-001">
+            </div>
+            <div class="form-group">
+                <label for="context_description">Description</label>
+                <textarea id="context_description" name="context_description" class="form-control" rows="3" placeholder="Describe this archaeological context..."></textarea>
+            </div>
+            <div class="form-group">
+                <label for="context_type">Context Type</label>
+                <select id="context_type" name="context_type" class="form-control">
+                    <option value="">Select type</option>
+                    <option value="layer">Layer</option>
+                    <option value="feature">Feature</option>
+                    <option value="structure">Structure</option>
+                    <option value="pit">Pit</option>
+                    <option value="hearth">Hearth</option>
+                    <option value="posthole">Post Hole</option>
+                    <option value="deposit">Deposit</option>
+                </select>
+            </div>`,
+        
+        'svu': `
+            <div class="form-group">
+                <label for="svu_id">SVU ID *</label>
+                <input type="text" id="svu_id" name="svu_id" class="form-control" required placeholder="e.g., SVU-001">
+            </div>
+            <div class="form-group">
+                <label for="svu_description">Description</label>
+                <textarea id="svu_description" name="svu_description" class="form-control" rows="3" placeholder="Describe this stratigraphic unit..."></textarea>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="svu_lower_year">Lower Bound Year</label>
+                    <input type="number" id="svu_lower_year" name="svu_lower_year" class="form-control" placeholder="e.g., 3000">
+                </div>
+                <div class="form-group">
+                    <label for="svu_upper_year">Upper Bound Year</label>
+                    <input type="number" id="svu_upper_year" name="svu_upper_year" class="form-control" placeholder="e.g., 2500">
+                </div>
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label><input type="checkbox" id="svu_lower_bc" name="svu_lower_bc"> Lower Bound is BC</label>
+                </div>
+                <div class="form-group">
+                    <label><input type="checkbox" id="svu_upper_bc" name="svu_upper_bc"> Upper Bound is BC</label>
+                </div>
+            </div>`,
+        
+        'square': `
+            <div class="form-group">
+                <label for="square_id">Square ID *</label>
+                <input type="text" id="square_id" name="square_id" class="form-control" required placeholder="e.g., A1, B2, C3">
+            </div>
+            <div class="grid-2">
+                <div class="form-group">
+                    <label for="square_east_west">East-West Coordinate</label>
+                    <input type="number" step="any" id="square_east_west" name="square_east_west" class="form-control" placeholder="0.0">
+                </div>
+                <div class="form-group">
+                    <label for="square_north_south">North-South Coordinate</label>
+                    <input type="number" step="any" id="square_north_south" name="square_north_south" class="form-control" placeholder="0.0">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="square_size">Square Size (meters)</label>
+                <input type="number" step="any" id="square_size" name="square_size" class="form-control" placeholder="1.0">
+            </div>`,
+        
+        'encounter': `
+            <div class="form-group">
+                <label for="encounter_date">Date *</label>
+                <input type="date" id="encounter_date" name="encounter_date" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="encounter_depth">Depth (cm)</label>
+                <input type="number" step="any" id="encounter_depth" name="encounter_depth" class="form-control" placeholder="0.0">
+            </div>
+            <div class="form-group">
+                <label for="encounter_method">Excavation Method</label>
+                <select id="encounter_method" name="encounter_method" class="form-control">
+                    <option value="">Select method</option>
+                    <option value="manual">Manual Excavation</option>
+                    <option value="mechanical">Mechanical Excavation</option>
+                    <option value="sieving">Sieving</option>
+                    <option value="surface">Surface Collection</option>
+                    <option value="water_screening">Water Screening</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="encounter_notes">Notes</label>
+                <textarea id="encounter_notes" name="encounter_notes" class="form-control" rows="3" placeholder="Additional notes about this encounter..."></textarea>
+            </div>`
+    };
+    
+    return fieldTemplates[type] || '';
+}
+
+function populateModalFields(entity) {
+    for (const [key, value] of Object.entries(entity)) {
+        const field = document.getElementById(key);
+        if (field) {
+            if (field.type === 'checkbox') {
+                field.checked = value;
+            } else {
+                field.value = value;
+            }
+        }
+    }
+}
+
+function saveEntity() {
+    const form = document.getElementById('entity-form');
+    const formData = new FormData(form);
+    const entity = {};
+    
+    // Convert FormData to object
+    for (const [key, value] of formData.entries()) {
+        const field = form.querySelector(`[name="${key}"]`);
+        if (field && field.type === 'checkbox') {
+            entity[key] = field.checked;
+        } else {
+            entity[key] = value;
+        }
+    }
+    
+    // Validate required fields
+    const requiredFields = form.querySelectorAll('[required]');
+    for (const field of requiredFields) {
+        if (!entity[field.name] || entity[field.name].trim() === '') {
+            alert('Please fill in all required fields.');
+            field.focus();
+            return;
+        }
+    }
+    
+    // Add or update entity
+    const entityArray = entities[currentEntityType + 's'];
+    if (currentEntityIndex >= 0) {
+        entityArray[currentEntityIndex] = entity;
+    } else {
+        entityArray.push(entity);
+    }
+    
+    // Update displays
+    updateEntityDisplay(currentEntityType);
+    updateEntityCounts();
+    updateRelationships();
+    updateHiddenField();
+    
+    closeEntityModal();
+}
+
+function updateEntityDisplay(entityType) {
+    const listElement = document.getElementById(entityType + 's-list');
+    const entityArray = entities[entityType + 's'];
+    
+    if (entityArray.length === 0) {
+        listElement.innerHTML = `<p style="color: #666; font-style: italic;">No ${entityType}s added yet. Click "Add ${entityType}" to create one.</p>`;
+        return;
+    }
+    
+    listElement.innerHTML = '';
+    
+    entityArray.forEach((entity, index) => {
+        const div = document.createElement('div');
+        div.className = 'entity-item';
+        
+        const summary = getEntitySummary(entityType, entity);
+        
+        div.innerHTML = `
+            <div class="entity-summary">
+                <h4>${summary.title}</h4>
+                <div class="entity-details">${summary.details}</div>
+            </div>
+            <div class="entity-actions">
+                <button type="button" class="btn btn-secondary" onclick="openEntityModal('${entityType}', ${index})">Edit</button>
+                <button type="button" class="btn btn-danger" onclick="removeEntity('${entityType}', ${index})">Remove</button>
+            </div>
+        `;
+        
+        listElement.appendChild(div);
+    });
+}
+
+function getEntitySummary(type, entity) {
+    const summaries = {
+        'context': {
+            title: entity.context_id || 'Unnamed Context',
+            details: `${entity.context_type ? entity.context_type.charAt(0).toUpperCase() + entity.context_type.slice(1) : 'Unspecified type'} | ${entity.context_description || 'No description'}`
+        },
+        'svu': {
+            title: entity.svu_id || 'Unnamed SVU',
+            details: `${entity.svu_lower_year || '?'} ${entity.svu_lower_bc ? 'BC' : 'AD'} - ${entity.svu_upper_year || '?'} ${entity.svu_upper_bc ? 'BC' : 'AD'} | ${entity.svu_description || 'No description'}`
+        },
+        'square': {
+            title: entity.square_id || 'Unnamed Square',
+            details: `${entity.square_size || '?'}m² | E-W: ${entity.square_east_west || '0'}, N-S: ${entity.square_north_south || '0'}`
+        },
+        'encounter': {
+            title: `Encounter ${entity.encounter_date || 'No date'}`,
+            details: `Depth: ${entity.encounter_depth || '?'}cm | Method: ${entity.encounter_method || 'Not specified'} | ${entity.encounter_notes || 'No notes'}`
+        }
+    };
+    
+    return summaries[type] || { title: 'Unknown', details: '' };
+}
+
+function removeEntity(entityType, index) {
+    if (confirm(`Are you sure you want to remove this ${entityType}?`)) {
+        entities[entityType + 's'].splice(index, 1);
+        updateEntityDisplay(entityType);
+        updateEntityCounts();
+        updateRelationships();
+        updateHiddenField();
+    }
+}
+
+function updateEntityCounts() {
+    document.getElementById('contexts-count').textContent = `(${entities.contexts.length})`;
+    document.getElementById('svus-count').textContent = `(${entities.svus.length})`;
+    document.getElementById('squares-count').textContent = `(${entities.squares.length})`;
+    document.getElementById('encounters-count').textContent = `(${entities.encounters.length})`;
+}
+
+function updateRelationships() {
+    const relationshipsDiv = document.getElementById('context-svu-relationships');
+    
+    if (entities.contexts.length === 0 || entities.svus.length === 0) {
+        relationshipsDiv.innerHTML = '<p style="color: #666; font-style: italic;">Add contexts and SVUs first to define relationships.</p>';
+        return;
+    }
+    
+    relationshipsDiv.innerHTML = `
+        <div style="margin-bottom: 15px;">
+            <label>Link Context to SVU:</label>
+            <div style="display: flex; gap: 10px; align-items: center; margin-top: 5px;">
+                <select id="context-select" class="form-control" style="width: auto;">
+                    <option value="">Select Context</option>
+                    ${entities.contexts.map((ctx, idx) => `<option value="${idx}">${ctx.context_id}</option>`).join('')}
+                </select>
+                <span>contains</span>
+                <select id="svu-select" class="form-control" style="width: auto;">
+                    <option value="">Select SVU</option>
+                    ${entities.svus.map((svu, idx) => `<option value="${idx}">${svu.svu_id}</option>`).join('')}
+                </select>
+                <button type="button" class="btn btn-primary" onclick="addRelationship()">Add Link</button>
+            </div>
+        </div>
+        <div id="relationships-list">
+            ${getRelationshipsList()}
+        </div>
+    `;
+}
+
+function addRelationship() {
+    const contextSelect = document.getElementById('context-select');
+    const svuSelect = document.getElementById('svu-select');
+    
+    if (!contextSelect.value || !svuSelect.value) {
+        alert('Please select both a context and an SVU.');
+        return;
+    }
+    
+    const contextIdx = parseInt(contextSelect.value);
+    const svuIdx = parseInt(svuSelect.value);
+    
+    // Initialize relationships array if it doesn't exist
+    if (!entities.relationships) {
+        entities.relationships = [];
+    }
+    
+    // Check if relationship already exists
+    const exists = entities.relationships.some(rel => 
+        rel.context === contextIdx && rel.svu === svuIdx
+    );
+    
+    if (exists) {
+        alert('This relationship already exists.');
+        return;
+    }
+    
+    // Add relationship
+    entities.relationships.push({
+        context: contextIdx,
+        svu: svuIdx
+    });
+    
+    // Reset selects
+    contextSelect.value = '';
+    svuSelect.value = '';
+    
+    // Update display
+    updateRelationships();
+    updateHiddenField();
+}
+
+function getRelationshipsList() {
+    if (!entities.relationships || entities.relationships.length === 0) {
+        return '<p style="color: #666; font-style: italic;">No relationships defined yet.</p>';
+    }
+    
+    return entities.relationships.map((rel, idx) => {
+        const context = entities.contexts[rel.context];
+        const svu = entities.svus[rel.svu];
+        
+        return `
+            <div class="entity-item" style="margin-bottom: 8px;">
+                <div class="entity-summary">
+                    <strong>${context.context_id}</strong> contains <strong>${svu.svu_id}</strong>
+                </div>
+                <div class="entity-actions">
+                    <button type="button" class="btn btn-danger" onclick="removeRelationship(${idx})">Remove</button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function removeRelationship(index) {
+    if (confirm('Are you sure you want to remove this relationship?')) {
+        entities.relationships.splice(index, 1);
+        updateRelationships();
+        updateHiddenField();
+    }
+}
+
+function updateHiddenField() {
+    // Store all entity data in hidden field for form submission
+    document.getElementById('entities_data').value = JSON.stringify(entities);
+}
+
+// Initialize counts on page load
+document.addEventListener('DOMContentLoaded', function() {
+    updateEntityCounts();
+    
+    // Set default date for encounter events
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Initialize relationships array
+    if (!entities.relationships) {
+        entities.relationships = [];
+    }
+});
+
+// Form submission handler
+document.querySelector('form').addEventListener('submit', function(e) {
+    // Update hidden field before submission
+    updateHiddenField();
+    
+    // Validate that we have at least one context
+    if (entities.contexts.length === 0) {
+        e.preventDefault();
+        alert('Please add at least one archaeological context before submitting.');
+        return false;
+    }
+    
+    // Validate archaeologist information
+    const existingArch = document.getElementById('existing_archaeologist').value;
+    const newArchName = document.getElementById('new_archaeologist_name').value;
+    
+    if (!existingArch && !newArchName.trim()) {
+        e.preventDefault();
+        alert('Please either select an existing archaeologist or provide a name for a new one.');
+        return false;
+    }
+});
+
+// Utility function to generate sequential IDs
+function generateNextId(entityType) {
+    const entityArray = entities[entityType + 's'];
+    const prefix = {
+        'context': 'CTX-',
+        'svu': 'SVU-',
+        'square': '',
+        'encounter': 'ENC-'
+    }[entityType];
+    
+    if (entityType === 'square') {
+        // For squares, generate A1, A2, B1, B2, etc.
+        const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const existing = entityArray.map(s => s.square_id).filter(Boolean);
+        
+        for (let letter of letters) {
+            for (let num = 1; num <= 20; num++) {
+                const id = letter + num;
+                if (!existing.includes(id)) {
+                    return id;
+                }
+            }
+        }
+        return 'A1'; // fallback
+    } else {
+        const maxNum = entityArray.reduce((max, entity) => {
+            const id = entity[entityType + '_id'] || '';
+            const match = id.match(/(\d+)$/);
+            if (match) {
+                return Math.max(max, parseInt(match[1]));
+            }
+            return max;
+        }, 0);
+        
+        return prefix + String(maxNum + 1).padStart(3, '0');
+    }
+}
+
+// Auto-fill ID when modal opens
+function openEntityModal(entityType, index = -1) {
+    currentEntityType = entityType;
+    currentEntityIndex = index;
+    
+    const modal = document.getElementById('entity-modal');
+    const title = document.getElementById('modal-title');
+    const fields = document.getElementById('modal-fields');
+    
+    const entityLabels = {
+        'context': 'Context',
+        'svu': 'Stratigraphic Volume Unit',
+        'square': 'Square',
+        'encounter': 'Encounter Event'
+    };
+    
+    title.textContent = (index >= 0 ? 'Edit ' : 'Add ') + entityLabels[entityType];
+    fields.innerHTML = getEntityFields(entityType);
+    
+    // Auto-fill ID for new entities
+    if (index === -1) {
+        const idField = document.getElementById(entityType + '_id');
+        if (idField) {
+            idField.value = generateNextId(entityType);
+        }
+        
+        // Set default date for encounter events
+        if (entityType === 'encounter') {
+            const dateField = document.getElementById('encounter_date');
+            if (dateField) {
+                dateField.value = new Date().toISOString().split('T')[0];
+            }
+        }
+    } else {
+        // Populate fields if editing
+        const entity = entities[entityType + 's'][index];
+        populateModalFields(entity);
+    }
+    
+    modal.style.display = 'block';
+}
+
+// Close modal when clicking outside
+document.getElementById('entity-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeEntityModal();
+    }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeEntityModal();
+    }
+});
+</script>
