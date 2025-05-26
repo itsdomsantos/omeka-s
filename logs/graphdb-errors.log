@@ -33658,3 +33658,9 @@ _:ac379c22-ee98-4fc5-97df-516a7ed95200-7 <http://www.w3.org/ns/shacl#class> <htt
 Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Illegal subject value: ""^^<http://www.w3.org/2001/XMLSchema#integer> [line 35]2025-05-26T22:53:14+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Illegal subject value: ""^^<http://www.w3.org/2001/XMLSchema#integer> [line 35]
 2025-05-26T22:53:56+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Illegal subject value: ""^^<http://www.w3.org/2001/XMLSchema#integer> [line 35]
 Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Illegal subject value: ""^^<http://www.w3.org/2001/XMLSchema#integer> [line 35]2025-05-26T22:53:56+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Illegal subject value: ""^^<http://www.w3.org/2001/XMLSchema#integer> [line 35]
+2025-05-26T23:06:06+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-26T23:06:19+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-26T23:07:42+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-26T23:11:09+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-26T23:13:07+00:00 ERR (3): Failed to upload data due to an exception: Read timed out after 60 seconds
+Failed to upload data due to an exception: Read timed out after 60 seconds

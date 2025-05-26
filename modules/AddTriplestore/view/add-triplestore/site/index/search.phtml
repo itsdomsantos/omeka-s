@@ -1,6 +1,10 @@
 <?php
 $this->headTitle('Search Archaeological Data');
 $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'AddTriplestore'));
+// Add Leaflet CSS
+$this->headLink()->appendStylesheet('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
+// Add Leaflet JS
+$this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
 ?>
 
 <div class="add-triplestore-search">
@@ -17,17 +21,29 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
                 </label>
                 <label>
                     <input type="radio" name="type" value="item_sets" <?php echo ($searchType === 'item_sets') ? 'checked' : ''; ?>>
-                    Excavations (Item Sets)
+                    Excavations
                 </label>
                 <label>
                     <input type="radio" name="type" value="items" <?php echo ($searchType === 'items') ? 'checked' : ''; ?>>
-                    Artifacts (Items)
+                    Artifacts
                 </label>
             </div>
             
             <button type="submit" class="search-button">Search</button>
         </div>
     </form>
+
+    <!-- Map Section -->
+    <div class="map-section">
+        <div class="map-header">
+            <h2>Excavation Locations</h2>
+            <div class="map-controls">
+                <button id="toggleMap" class="toggle-btn">Hide Map</button>
+                <button id="centerMap" class="center-btn">Center Map</button>
+            </div>
+        </div>
+        <div id="excavationMap" class="excavation-map"></div>
+    </div>
     
     <?php if ($searchQuery): ?>
         <div class="search-results">
@@ -39,7 +55,7 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
                     <h3>Excavations (<?php echo $totalItemSets; ?>)</h3>
                     <div class="result-cards">
                         <?php foreach ($results['item_sets'] as $itemSet): ?>
-                            <div class="result-card excavation-card">
+                            <div class="result-card excavation-card" data-excavation-id="<?php echo $itemSet->id(); ?>">
                                 <h4><?php echo $this->escapeHtml($itemSet->displayTitle()); ?></h4>
                                 
                                 <?php if ($itemSet->displayDescription()): ?>
@@ -53,27 +69,87 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
                                     $values = $itemSet->values();
                                     $locationParts = [];
                                     $gpsCoords = null;
+                                    $lat = null;
+                                    $lng = null;
                                     
                                     // Look for location-related properties
                                     foreach ($values as $term => $propertyValues) {
-                                        if (!empty($propertyValues) && isset($propertyValues[0]) && $propertyValues[0]->property()) {
-                                            $propertyLabel = $propertyValues[0]->property()->label();
-                                            $value = $propertyValues[0]->value();
-                                            
-                                            // Check for different location properties
-                                            if (stripos($propertyLabel, 'parish') !== false) {
-                                                $locationParts['parish'] = $value;
-                                            } elseif (stripos($propertyLabel, 'district') !== false) {
-                                                $locationParts['district'] = $value;
-                                            } elseif (stripos($propertyLabel, 'country') !== false) {
-                                                $locationParts['country'] = $value;
-                                            } elseif (stripos($propertyLabel, 'location') !== false && stripos($propertyLabel, 'gps') === false) {
-                                                $locationParts['site'] = $value;
-                                            } elseif (stripos($propertyLabel, 'gps') !== false || stripos($propertyLabel, 'coordinates') !== false) {
-                                                $gpsCoords = $value;
+                                        if (!empty($propertyValues)) {
+                                            foreach ($propertyValues as $propertyValue) {
+                                                if ($propertyValue && method_exists($propertyValue, 'property') && $propertyValue->property()) {
+                                                    $propertyLabel = $propertyValue->property()->label();
+                                                    $value = $propertyValue->value();
+                                                    
+                                                    // Debug: Log what we're finding
+                                                    error_log("Property: $propertyLabel = $value", 3, '/tmp/omeka_debug.log');
+                                                    
+                                                    // Check for different location properties
+                                                    if (stripos($propertyLabel, 'parish') !== false) {
+                                                        $locationParts['parish'] = $value;
+                                                    } elseif (stripos($propertyLabel, 'district') !== false) {
+                                                        $locationParts['district'] = $value;
+                                                    } elseif (stripos($propertyLabel, 'country') !== false) {
+                                                        $locationParts['country'] = $value;
+                                                    } elseif (stripos($propertyLabel, 'location') !== false && stripos($propertyLabel, 'gps') === false) {
+                                                        $locationParts['site'] = $value;
+                                                    } elseif (stripos($propertyLabel, 'gps') !== false || stripos($propertyLabel, 'coordinates') !== false) {
+                                                        $gpsCoords = $value;
+                                                        // Try to extract lat/lng from coordinates string
+                                                        if (preg_match('/Latitude:\s*([-\d.]+).*?Longitude:\s*([-\d.]+)/', $value, $matches)) {
+                                                            $lat = floatval($matches[1]);
+                                                            $lng = floatval($matches[2]);
+                                                        }
+                                                    } elseif (stripos($propertyLabel, 'latitude') !== false || stripos($term, 'lat') !== false) {
+                                                        $lat = floatval($value);
+                                                    } elseif (stripos($propertyLabel, 'longitude') !== false || stripos($term, 'long') !== false) {
+                                                        $lng = floatval($value);
+                                                    }
+                                                    // Also check the term itself for GPS data
+                                                    elseif (stripos($term, 'geo:lat') !== false) {
+                                                        $lat = floatval($value);
+                                                    } elseif (stripos($term, 'geo:long') !== false) {
+                                                        $lng = floatval($value);
+                                                    }
+                                                }
                                             }
                                         }
                                     }
+                                    
+                                    // Store coordinates for map (with debugging)
+                                    if ($lat && $lng): 
+                                        $itemCount = 0;
+                                        try {
+                                            $itemCount = count($itemSet->items());
+                                        } catch (\Exception $e) {
+                                            error_log("Error getting item count: " . $e->getMessage(), 3, '/tmp/omeka_debug.log');
+                                            $itemCount = 0;
+                                        }
+                                        
+                                        error_log("Adding excavation to map: ID=" . $itemSet->id() . ", Lat=$lat, Lng=$lng, Items=$itemCount", 3, '/tmp/omeka_debug.log');
+                                        ?>
+                                        <script>
+                                            if (typeof excavationData === 'undefined') {
+                                                window.excavationData = [];
+                                            }
+                                            window.excavationData.push({
+                                                id: <?php echo $itemSet->id(); ?>,
+                                                title: <?php echo json_encode($itemSet->displayTitle()); ?>,
+                                                lat: <?php echo $lat; ?>,
+                                                lng: <?php echo $lng; ?>,
+                                                itemCount: <?php echo $itemCount; ?>,
+                                                location: <?php echo json_encode(implode(', ', array_filter($locationParts))); ?>
+                                            });
+                                            console.log('Added excavation data:', {
+                                                id: <?php echo $itemSet->id(); ?>,
+                                                title: <?php echo json_encode($itemSet->displayTitle()); ?>,
+                                                lat: <?php echo $lat; ?>,
+                                                lng: <?php echo $lng; ?>,
+                                                itemCount: <?php echo $itemCount; ?>
+                                            });
+                                        </script>
+                                    <?php else:
+                                        error_log("No coordinates found for excavation: " . $itemSet->displayTitle() . " (ID: " . $itemSet->id() . ")", 3, '/tmp/omeka_debug.log');
+                                    endif;
                                     
                                     // Display location information
                                     if (!empty($locationParts) || $gpsCoords): ?>
@@ -112,12 +188,25 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
                                     <?php endif; ?>
                                 </div>
                                 
+                                <!-- Item count display -->
+                                <div class="item-count">
+                                    <span class="count-icon">🏹</span>
+                                    <span class="count-text"><?php 
+                                        try {
+                                            $itemCount = count($itemSet->items());
+                                            echo $itemCount . ' artifact' . ($itemCount !== 1 ? 's' : '');
+                                        } catch (\Exception $e) {
+                                            echo '0 artifacts';
+                                        }
+                                    ?></span>
+                                </div>
+                                
                                 <!-- Additional metadata -->
                                 <div class="excavation-metadata">
                                     <?php
                                     // Show some key metadata
                                     foreach ($values as $term => $propertyValues) {
-                                        if (!empty($propertyValues)&& isset($propertyValues[0]) && $propertyValues[0]->property()) {
+                                        if (!empty($propertyValues) && isset($propertyValues[0]) && $propertyValues[0]->property()) {
                                             $propertyLabel = $propertyValues[0]->property()->label();
                                             $value = $propertyValues[0]->value();
                                             
@@ -137,6 +226,7 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
                                 <div class="actions">
                                     <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()], ['query' => ['id' => $itemSet->id(), 'type' => 'item_set']]); ?>" class="details-button">View Details</a>
                                     <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $itemSet->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add Artifacts</a>
+                                    <button class="map-button" onclick="focusOnExcavation(<?php echo $itemSet->id(); ?>)">Show on Map</button>
                                 </div>
                             </div>
                         <?php endforeach; ?>
@@ -190,7 +280,7 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
         </div>
     <?php else: ?>
         <div class="search-instructions">
-            <p>Enter a search term above to find excavations and artifacts.</p>
+            <p>Enter a search term above to find excavations and artifacts, or explore the map to see excavation locations.</p>
             
             <div class="quick-links">
                 <h3>Quick Links</h3>
@@ -211,21 +301,39 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
     padding: 20px;
 }
 
+.add-triplestore-search h1 {
+    text-align: center;
+    font-size: 2.5rem;
+    color: #333;
+    margin-bottom: 30px;
+    font-weight: 300;
+}
+
 .search-container {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
-    margin-bottom: 20px;
-    gap: 10px;
+    margin-bottom: 30px;
+    gap: 15px;
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.1);
 }
 
 .search-input {
     flex: 1;
-    padding: 10px;
-    border: 1px solid #ddd;
-    border-radius: 4px;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
     min-width: 300px;
     font-size: 16px;
+    transition: border-color 0.2s ease;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #4CAF50;
 }
 
 .search-type {
@@ -234,92 +342,150 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
     flex-wrap: wrap;
 }
 
+.search-type label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
 .search-button {
-    padding: 10px 20px;
+    padding: 12px 24px;
     background-color: #4CAF50;
     color: white;
     border: none;
-    border-radius: 4px;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 16px;
+    font-weight: 500;
+    transition: background-color 0.2s ease;
 }
 
 .search-button:hover {
     background-color: #45a049;
 }
 
-.search-instructions {
-    background-color: #f9f9f9;
+/* Map Section */
+.map-section {
+    margin: 30px 0;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.map-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     padding: 20px;
-    border-radius: 5px;
-    margin-top: 20px;
+    border-bottom: 1px solid #e0e0e0;
 }
 
-.quick-links {
-    margin-top: 20px;
+.map-header h2 {
+    margin: 0;
+    color: #333;
+    font-size: 1.5rem;
+    font-weight: 500;
 }
 
-.quick-links ul {
-    list-style-type: none;
-    padding-left: 0;
+.map-controls {
+    display: flex;
+    gap: 10px;
 }
 
-.quick-links li {
-    margin-bottom: 10px;
+.toggle-btn, .center-btn {
+    padding: 8px 16px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
 }
 
-.quick-links a {
-    color: #4CAF50;
-    text-decoration: none;
+.toggle-btn:hover, .center-btn:hover {
+    background: #e9ecef;
 }
 
-.quick-links a:hover {
-    text-decoration: underline;
+.excavation-map {
+    height: 400px;
+    width: 100%;
+    transition: height 0.3s ease;
 }
 
+.excavation-map.hidden {
+    height: 0;
+    overflow: hidden;
+}
+
+/* Enhanced result cards */
 .result-section {
-    margin-bottom: 30px;
+    margin-bottom: 40px;
+}
+
+.result-section h3 {
+    color: #333;
+    font-size: 1.8rem;
+    margin-bottom: 20px;
+    font-weight: 500;
 }
 
 .result-cards {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: 20px;
+    gap: 25px;
 }
 
 .result-card {
-    border: 1px solid #ddd;
-    border-radius: 5px;
-    padding: 15px;
-    background-color: white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    display: flex;
-    flex-direction: column;
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    border: 1px solid #f0f0f0;
+    position: relative;
+}
+
+.result-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+}
+
+.result-card.excavation-card {
+    border-left: 4px solid #4CAF50;
 }
 
 .result-card h4 {
     margin-top: 0;
     color: #333;
-    font-size: 18px;
+    font-size: 1.3rem;
     margin-bottom: 10px;
+    font-weight: 600;
 }
 
-.description {
-    margin: 10px 0;
-    color: #666;
-    font-size: 14px;
+.item-count {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 15px 0;
+    padding: 8px 12px;
+    background: #f8f9fa;
+    border-radius: 6px;
+    font-weight: 500;
+    color: #495057;
 }
 
-/* New styles for excavation cards with location info */
-.excavation-card {
-    min-height: 200px;
+.count-icon {
+    font-size: 1.2rem;
 }
 
 .location-info {
     margin: 15px 0;
     padding: 12px;
     background-color: #f8f9fa;
-    border-radius: 4px;
+    border-radius: 8px;
     border-left: 3px solid #4CAF50;
 }
 
@@ -359,7 +525,7 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
 }
 
 .excavation-metadata {
-    margin: 10px 0;
+    margin: 15px 0;
 }
 
 .metadata-item {
@@ -377,47 +543,25 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
     text-align: center;
 }
 
-.thumbnail {
-    width: 100%;
-    height: 150px;
-    overflow: hidden;
-    margin-bottom: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #f5f5f5;
-}
-
-.thumbnail img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-}
-
-.metadata-field {
-    margin: 5px 0;
-    font-size: 14px;
-}
-
-.metadata-field .label {
-    font-weight: bold;
-    color: #555;
-}
-
 .actions {
-    margin-top: auto;
-    padding-top: 15px;
+    margin-top: 20px;
     display: flex;
     gap: 10px;
+    flex-wrap: wrap;
 }
 
-.details-button, .add-button {
+.details-button, .add-button, .map-button {
     padding: 8px 12px;
-    border-radius: 4px;
+    border-radius: 6px;
     text-decoration: none;
-    font-size: 14px;
+    font-size: 13px;
+    font-weight: 500;
     text-align: center;
     flex: 1;
+    min-width: 80px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .details-button {
@@ -430,22 +574,67 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
     color: white;
 }
 
+.map-button {
+    background-color: #FF9800;
+    color: white;
+}
+
 .details-button:hover {
-    background-color: #0b7dda;
+    background-color: #1976D2;
 }
 
 .add-button:hover {
     background-color: #45a049;
 }
 
-.no-results {
-    text-align: center;
-    padding: 30px;
-    background-color: #f9f9f9;
-    border-radius: 5px;
+.map-button:hover {
+    background-color: #F57C00;
 }
 
-/* Responsive adjustments */
+.search-instructions {
+    background-color: #f9f9f9;
+    padding: 30px;
+    border-radius: 12px;
+    margin-top: 20px;
+    text-align: center;
+}
+
+.quick-links {
+    margin-top: 25px;
+}
+
+.quick-links h3 {
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.quick-links ul {
+    list-style-type: none;
+    padding-left: 0;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.quick-links li {
+    margin-bottom: 10px;
+}
+
+.quick-links a {
+    color: #4CAF50;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 8px 16px;
+    border-radius: 6px;
+    transition: background-color 0.2s ease;
+}
+
+.quick-links a:hover {
+    background-color: #e8f5e8;
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
     .search-container {
         flex-direction: column;
@@ -453,6 +642,7 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
     }
     
     .search-type {
+        justify-content: center;
         margin: 10px 0;
     }
     
@@ -463,5 +653,239 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
     .actions {
         flex-direction: column;
     }
+    
+    .map-header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .quick-links ul {
+        flex-direction: column;
+        align-items: center;
+    }
+}
+
+/* Custom marker styles */
+.custom-marker {
+    background: #4CAF50;
+    color: white;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 12px;
+    border: 3px solid white;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.custom-marker.selected {
+    background: #FF9800;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); }
 }
 </style>
+
+<script>
+let map;
+let markers = [];
+let selectedMarker = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+    initializeMap();
+    
+    // Toggle map visibility
+    document.getElementById('toggleMap').addEventListener('click', function() {
+        const mapDiv = document.getElementById('excavationMap');
+        const toggleBtn = document.getElementById('toggleMap');
+        
+        if (mapDiv.classList.contains('hidden')) {
+            mapDiv.classList.remove('hidden');
+            toggleBtn.textContent = 'Hide Map';
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 300);
+        } else {
+            mapDiv.classList.add('hidden');
+            toggleBtn.textContent = 'Show Map';
+        }
+    });
+    
+    // Center map
+    document.getElementById('centerMap').addEventListener('click', function() {
+        if (markers.length > 0) {
+            const group = new L.featureGroup(markers);
+            map.fitBounds(group.getBounds().pad(0.1));
+        }
+    });
+});
+
+function initializeMap() {
+    // Initialize the map centered on Portugal
+    map = L.map('excavationMap').setView([39.5, -8.0], 7);
+    
+    // Add OpenStreetMap tiles
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+    
+    // Load excavation data if available
+    if (typeof excavationData !== 'undefined' && excavationData.length > 0) {
+        addExcavationMarkers();
+    } else {
+        // Load all excavations via AJAX if no search results
+        loadAllExcavations();
+    }
+}
+
+function addExcavationMarkers() {
+    excavationData.forEach(function(excavation) {
+        const marker = L.marker([excavation.lat, excavation.lng])
+            .addTo(map)
+            .bindPopup(`
+                <div class="map-popup">
+                    <h4>${excavation.title}</h4>
+                    <p><strong>Location:</strong> ${excavation.location}</p>
+                    <p><strong>Artifacts:</strong> ${excavation.itemCount}</p>
+                    <div class="popup-actions">
+                        <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()]); ?>?id=${excavation.id}&type=item_set" class="popup-btn">View Details</a>
+                    </div>
+                </div>
+            `);
+        
+        // Store reference for later use
+        marker.excavationId = excavation.id;
+        markers.push(marker);
+    });
+    
+    // Fit map to show all markers
+    if (markers.length > 0) {
+        const group = new L.featureGroup(markers);
+        map.fitBounds(group.getBounds().pad(0.1));
+    }
+}
+
+function loadAllExcavations() {
+    // Load all excavations when no search is performed
+    console.log('Loading all excavations...');
+    
+    // Make an AJAX request to get all item sets (excavations)
+    const baseUrl = '<?php echo $this->url("site/add-triplestore/search", ["site-slug" => $site->slug()]); ?>';
+    const url = `${baseUrl}?type=item_sets&query=excavation`;
+    
+    fetch(url)
+        .then(response => response.text())
+        .then(html => {
+            // Parse the HTML response to extract excavation data
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            
+            // Look for script tags containing excavationData
+            const scripts = doc.querySelectorAll('script');
+            scripts.forEach(script => {
+                if (script.textContent.includes('excavationData')) {
+                    eval(script.textContent);
+                }
+            });
+            
+            // Add markers if we found data
+            if (typeof excavationData !== 'undefined' && excavationData.length > 0) {
+                addExcavationMarkers();
+            } else {
+                console.log('No excavation data found');
+                // Add some sample data for testing
+                addSampleMarkers();
+            }
+        })
+        .catch(error => {
+            console.error('Error loading excavations:', error);
+            // Add sample data for testing
+            addSampleMarkers();
+        });
+}
+
+function addSampleMarkers() {
+    // Add some sample markers for testing if no real data is available
+    const sampleData = [
+        {
+            id: 1,
+            title: "Sample Excavation 1",
+            lat: 41.0578,
+            lng: -7.2233,
+            itemCount: 15,
+            location: "Freixo de Numão, Portugal"
+        },
+        {
+            id: 2,
+            title: "Sample Excavation 2", 
+            lat: 40.2085,
+            lng: -8.4295,
+            itemCount: 8,
+            location: "Coimbra, Portugal"
+        }
+    ];
+    
+    console.log('Adding sample markers:', sampleData);
+    
+    sampleData.forEach(function(excavation) {
+        const marker = L.marker([excavation.lat, excavation.lng])
+            .addTo(map)
+            .bindPopup(`
+                <div class="map-popup">
+                    <h4>${excavation.title}</h4>
+                    <p><strong>Location:</strong> ${excavation.location}</p>
+                    <p><strong>Artifacts:</strong> ${excavation.itemCount}</p>
+                    <div class="popup-actions">
+                        <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()]); ?>?id=${excavation.id}&type=item_set" class="popup-btn">View Details</a>
+                    </div>
+                </div>
+            `);
+        
+        marker.excavationId = excavation.id;
+        markers.push(marker);
+    });
+    
+    if (markers.length > 0) {
+        const group = new L.featureGroup(markers);
+        map.fitBounds(group.getBounds().pad(0.1));
+    }
+}
+
+function focusOnExcavation(excavationId) {
+    // Find the marker for this excavation
+    const marker = markers.find(m => m.excavationId === excavationId);
+    if (marker) {
+        // Clear previous selection
+        if (selectedMarker) {
+            selectedMarker.setIcon(new L.Icon.Default());
+        }
+        
+        // Highlight the selected marker
+        marker.setIcon(L.divIcon({
+            className: 'custom-marker selected',
+            html: marker.excavationId,
+            iconSize: [30, 30]
+        }));
+        
+        selectedMarker = marker;
+        
+        // Center map on the marker and open popup
+        map.setView(marker.getLatLng(), 12);
+        marker.openPopup();
+        
+        // Scroll to map if not visible
+        document.getElementById('excavationMap').scrollIntoView({ 
+            behavior: 'smooth', 
+            block: 'center' 
+        });
+    }
+}
+</script>
