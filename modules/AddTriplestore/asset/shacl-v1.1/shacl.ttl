@@ -72,16 +72,16 @@
 <https://purl.org/megalod/shapes/LocationShape> a sh:NodeShape ;
     sh:targetClass excav:Location ;
     sh:property [
-        sh:path dbo:district ;
+        sh:path dbo:District ;
         sh:name "Has District" ;
-        sh:class dbo:district ;
+        sh:class dbo:District ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
-        sh:path dbo:parish ;
+        sh:path dbo:Parish ;
         sh:name "Has Parish" ;
-        sh:class dbo:parish ;
+        sh:class dbo:Parish ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
@@ -93,7 +93,7 @@
         sh:maxCount 1 ;
     ] ;
     sh:property [
-        sh:path dbo:country ;
+        sh:path dbo:Country ;
         sh:name "Country" ;
         sh:nodeKind sh:IRI ;
     ] ;

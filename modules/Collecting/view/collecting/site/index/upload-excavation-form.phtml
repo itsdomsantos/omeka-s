@@ -170,19 +170,6 @@ ul.tabs li.current {
             <div class="entity-selection">
                 <h3>Context Information</h3>
                 
-                <!-- Existing Context Selection -->
-                <div class="form-group">
-                    <label>Select Existing Context (Optional)</label>
-                    <select name="existing_context" class="entity-select existing-entity-select">
-                        <option value="">Select an existing context</option>
-                        <?php foreach ($existingContexts as $context): ?>
-                            <option value="<?php echo $this->escapeHtml($context['uri']); ?>">
-                                <?php echo $this->escapeHtml($context['label']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
                 <!-- New Context Form -->
                 <div class="new-entity-form">
                     <h4>Create New Context</h4>
@@ -203,18 +190,6 @@ ul.tabs li.current {
             <div class="entity-selection">
                 <h3>Stratigraphic Volume Unit Information</h3>
                 
-                <!-- Existing SVU Selection -->
-                <div class="form-group">
-                    <label>Select Existing SVU (Optional)</label>
-                    <select name="existing_svu" class="entity-select existing-entity-select">
-                        <option value="">Select an existing SVU</option>
-                        <?php foreach ($existingSVUs as $svu): ?>
-                            <option value="<?php echo $this->escapeHtml($svu['uri']); ?>">
-                                <?php echo $this->escapeHtml($svu['label']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
 
                 <!-- New SVU Form -->
                 <div class="new-entity-form">
@@ -245,19 +220,7 @@ ul.tabs li.current {
         <div id="tab-encounter" class="tab-content">
             <div class="entity-selection">
                 <h3>Encounter Event Information</h3>
-                
-                <!-- Existing Encounter Event Selection -->
-                <div class="form-group">
-                    <label>Select Existing Encounter Event (Optional)</label>
-                    <select name="existing_encounter" class="entity-select existing-entity-select">
-                        <option value="">Select an existing encounter event</option>
-                        <?php foreach ($existingEncounterEvents as $event): ?>
-                            <option value="<?php echo $this->escapeHtml($event['uri']); ?>">
-                                <?php echo $this->escapeHtml($event['label']); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
+
 
                 <!-- New Encounter Event Form -->
                 <div class="new-entity-form">

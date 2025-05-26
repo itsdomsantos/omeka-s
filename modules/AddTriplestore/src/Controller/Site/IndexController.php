@@ -276,38 +276,13 @@ private function getItemIdentifier($item)
         if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
             $excavationData = [];
             // Extract context data
-            $contextData = $this->processEntitySelection(
-                $this->params()->fromPost('existing_context'),
-                [
-                    'id' => $this->params()->fromPost('new_context_id'),
-                    'description' => $this->params()->fromPost('new_context_description')
-                ],
-                'Context'
-            );
+            $contextData = null;
             
             // Extract SVU data
-            $svuData = $this->processEntitySelection(
-                $this->params()->fromPost('existing_svu'),
-                [
-                    'id' => $this->params()->fromPost('new_svu_id'),
-                    'description' => $this->params()->fromPost('new_svu_description'),
-                    'lower_year' => $this->params()->fromPost('new_svu_lower_year'),
-                    'lower_bc' => $this->params()->fromPost('new_svu_lower_bc') ? true : false,
-                    'upper_year' => $this->params()->fromPost('new_svu_upper_year'),
-                    'upper_bc' => $this->params()->fromPost('new_svu_upper_bc') ? true : false
-                ],
-                'SVU'
-            );
+            $svuData = null;
             
             // Extract encounter data
-            $encounterData = $this->processEntitySelection(
-                $this->params()->fromPost('existing_encounter'),
-                [
-                    'date' => $this->params()->fromPost('new_encounter_date'),
-                    'depth' => $this->params()->fromPost('new_encounter_depth')
-                ],
-                'EncounterEvent'
-            );
+            $encounterData = null;
             
             // Generate a unique excavation identifier
             $excavationIdentifier = $this->params()->fromPost('excavation_id');
@@ -721,7 +696,7 @@ if (!empty($formData['thickness'])) {
 
 // Body length and base length processing...
 if (!empty($formData['body_length'])) {
-    $bodyLengthUri = "$baseUri/typometry/$arrowheadId-bodyLength";
+    $bodyLengthUri = "$baseUri/typometry/$arrowheadId-hasBodyLength";
     
     if (!isset($processedMeasurements[$bodyLengthUri])) {
         $ttl .= "    ah:hasBodyLength <$bodyLengthUri>;\n";
@@ -737,7 +712,7 @@ if (!empty($formData['body_length'])) {
 }
 
 if (!empty($formData['base_length'])) {
-    $baseLengthUri = "$baseUri/typometry/$arrowheadId-baseLength";
+    $baseLengthUri = "$baseUri/typometry/$arrowheadId-hasBaseLength";
     
     if (!isset($processedMeasurements[$baseLengthUri])) {
         $ttl .= "    ah:hasBaseLength <$baseLengthUri>;\n";
@@ -1318,20 +1293,20 @@ private function prepareTtlFromExcavationData($excavationId, $excavationData, $c
             $ttl .= "    excav:hasGPSCoordinates <$gpsUri>;\n";
         }
         
-        // Add district and parish if provided
-        if (!empty($excavationData['district'])) {
-            $districtUri = "$baseUri$graphId/district/" . $this->sanitizeForUri($excavationData['district']);
-            $ttl .= "    dbo:district <$districtUri>;\n";
+        // Add District and Parish if provided
+        if (!empty($excavationData['District'])) {
+            $districtUri = "$baseUri$graphId/District/" . $this->sanitizeForUri($excavationData['District']);
+            $ttl .= "    dbo:District <$districtUri>;\n";
         }
         
-        if (!empty($excavationData['parish'])) {
-            $parishUri = "$baseUri$graphId/parish/" . $this->sanitizeForUri($excavationData['parish']);
-            $ttl .= "    dbo:parish <$parishUri>;\n";
+        if (!empty($excavationData['Parish'])) {
+            $parishUri = "$baseUri$graphId/Parish/" . $this->sanitizeForUri($excavationData['Parish']);
+            $ttl .= "    dbo:Parish <$parishUri>;\n";
         }
         
-        if (!empty($excavationData['country'])) {
-            $countryUri = "http://dbpedia.org/resource/" . $this->sanitizeForUri($excavationData['country']);
-            $ttl .= "    dbo:country <$countryUri>;\n";
+        if (!empty($excavationData['Country'])) {
+            $countryUri = "http://dbpedia.org/resource/" . $this->sanitizeForUri($excavationData['Country']);
+            $ttl .= "    dbo:Country <$countryUri>;\n";
         }
         
         $ttl .= "    .\n\n";
@@ -1344,17 +1319,17 @@ private function prepareTtlFromExcavationData($excavationId, $excavationData, $c
             $ttl .= "    .\n\n";
         }
         
-        // Add district if provided
-        if (!empty($excavationData['district'])) {
+        // Add District if provided
+        if (!empty($excavationData['District'])) {
             $ttl .= "<$districtUri> a dbo:District;\n";
-            $ttl .= "    dbo:informationName \"" . $excavationData['district'] . "\"^^xsd:literal;\n";
+            $ttl .= "    dbo:informationName \"" . $excavationData['District'] . "\"^^xsd:literal;\n";
             $ttl .= "    .\n\n";
         }
         
-        // Add parish if provided
-        if (!empty($excavationData['parish'])) {
+        // Add Parish if provided
+        if (!empty($excavationData['Parish'])) {
             $ttl .= "<$parishUri> a dbo:Parish;\n";
-            $ttl .= "    dbo:informationName \"" . $excavationData['parish'] . "\"^^xsd:literal;\n";
+            $ttl .= "    dbo:informationName \"" . $excavationData['Parish'] . "\"^^xsd:literal;\n";
             $ttl .= "    .\n\n";
         }
     }
@@ -1640,24 +1615,24 @@ private function processEntitySelection($existingUri, array $newData, $entityTyp
     $ttl .= "<$locationUri> a dbo:Place;\n";
     $ttl .= "    dbo:informationName \"$locationName\"^^xsd:string;\n";
     
-    // Add placeholder district and parish if needed
-    $districtUri = $locationUri . "/district";
-    $parishUri = $locationUri . "/parish";
+    // Add placeholder District and Parish if needed
+    $districtUri = $locationUri . "/District";
+    $parishUri = $locationUri . "/Parish";
     
-    $ttl .= "    dbo:district <$districtUri>;\n";
-    $ttl .= "    dbo:parish <$parishUri>;\n";
+    $ttl .= "    dbo:District <$districtUri>;\n";
+    $ttl .= "    dbo:Parish <$parishUri>;\n";
     
     // Add placeholder coordinates
     $coordinatesUri = $locationUri . "/coordinates";
     $ttl .= "    excav:hasGPSCoordinates <$coordinatesUri>;\n";
     $ttl .= "    .\n\n";
     
-    // Add district
+    // Add District
     $ttl .= "<$districtUri> a dbo:District;\n";
     $ttl .= "    dbo:informationName \"Unknown District\"^^xsd:string;\n";
     $ttl .= "    .\n\n";
     
-    // Add parish
+    // Add Parish
     $ttl .= "<$parishUri> a dbo:Parish;\n";
     $ttl .= "    dbo:informationName \"Unknown Parish\"^^xsd:string;\n";
     $ttl .= "    .\n\n";
@@ -2269,8 +2244,8 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
             '/<excav:bc rdf:datatype="[^"]+">([^<]+)<\/excav:bc>/' => 'excav:bc $1;',
             '/<dcterms:date rdf:datatype="[^"]+">([^<]+)<\/dcterms:date>/' => 'dcterms:date "$1"^^xsd:date;',
             '/<dbo:depth rdf:datatype="[^"]+">([^<]+)<\/dbo:depth>/' => 'dbo:depth "$1"^^xsd:decimal;',
-            '/<dbo:district rdf:resource="([^"]+)"\/>/' => 'dbo:district <$1>;',
-            '/<dbo:parish rdf:resource="([^"]+)"\/>/' => 'dbo:parish <$1>;',
+            '/<dbo:District rdf:resource="([^"]+)"\/>/' => 'dbo:District <$1>;',
+            '/<dbo:Parish rdf:resource="([^"]+)"\/>/' => 'dbo:Parish <$1>;',
             '/\s*rdf:about="([^"]+)"/' => '',
             '/\s*rdf:resource="([^"]+)"/' => '',
             '/\s*rdf:datatype="[^"]+"/' => '',
@@ -3948,15 +3923,15 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                 }
                 
                 // District
-                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/district'])) {
-                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/district'] as $distObj) {
+                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/District'])) {
+                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/District'] as $distObj) {
                         if ($distObj['type'] === 'uri') {
                             $distUri = $distObj['value'];
                             if (isset($rdfData[$distUri])) {
                                 $parts = explode('/', $distUri);
                                 $districtName = end($parts);
                                 
-                                // Add district as a separate field
+                                // Add District as a separate field
                                 if (!isset($itemData['District'])) {
                                     $itemData['District'] = [];
                                 }
@@ -3972,15 +3947,15 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                 }
 
                 // Parish - similar modification
-                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/parish'])) {
-                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/parish'] as $parishObj) {
+                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/Parish'])) {
+                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/Parish'] as $parishObj) {
                         if ($parishObj['type'] === 'uri') {
                             $parishUri = $parishObj['value'];
                             if (isset($rdfData[$parishUri])) {
                                 $parts = explode('/', $parishUri);
                                 $parishName = end($parts);
                                 
-                                // Add parish as a separate field
+                                // Add Parish as a separate field
                                 if (!isset($itemData['Parish'])) {
                                     $itemData['Parish'] = [];
                                 }
@@ -3996,15 +3971,15 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                 }
 
                 // Country - similar modification
-                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/country'])) {
-                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/country'] as $countryObj) {
+                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/Country'])) {
+                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/Country'] as $countryObj) {
                         if ($countryObj['type'] === 'uri') {
                             $countryUri = $countryObj['value'];
                             if (isset($rdfData[$countryUri])) {
                                 $parts = explode('/', $countryUri);
                                 $countryName = end($parts);
                                 
-                                // Add country as a separate field
+                                // Add Country as a separate field
                                 if (!isset($itemData['Country'])) {
                                     $itemData['Country'] = [];
                                 }

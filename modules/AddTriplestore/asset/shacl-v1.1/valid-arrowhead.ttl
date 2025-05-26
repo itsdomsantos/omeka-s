@@ -96,8 +96,8 @@
     ah:variant <https://purl.org/megalod/kos/ah-variant/flat> ;  
     ah:hasMorphology <https://purl.org/megalod/example/morphology/CV-AH-001> ;  
     ah:hasChipping <https://purl.org/megalod/example/chipping/CV-AH-001> ;  
-    ah:hasBodyLength <https://purl.org/megalod/example/typometry/CV-AH-001-bodyLength> ;   
-    ah:hasBaseLength <https://purl.org/megalod/example/typometry/CV-AH-001-baseLength> ;  
+    ah:hasBodyLength <https://purl.org/megalod/example/typometry/CV-AH-001-hasBodyLength> ;   
+    ah:hasBaseLength <https://purl.org/megalod/example/typometry/CV-AH-001-hasBodyLength> ;  
     
     # Item properties (inherited)
     crm:E57_Material <http://collection.britishmuseum.org/id/thesaurus/material/flint> ;  
@@ -131,12 +131,12 @@
     ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/distal> ;
     ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex> .
 
-<https://purl.org/megalod/example/typometry/CV-AH-001-bodyLength> a excav:TypometryValue ;  
+<https://purl.org/megalod/example/typometry/CV-AH-001-hasBodyLength> a excav:TypometryValue ;  
     schema:value "28.5"^^xsd:decimal ;
     schema:UnitCode "MMT"  . # Millimeters
 
 
-<https://purl.org/megalod/example/typometry/CV-AH-001-baseLength> a excav:TypometryValue ;  
+<https://purl.org/megalod/example/typometry/CV-AH-001-hasBodyLength> a excav:TypometryValue ;  
     schema:value "14.2"^^xsd:decimal ;
     schema:UnitCode "MMT" . # Millimeters
 
@@ -197,8 +197,8 @@
     ah:variant <https://purl.org/megalod/kos/ah-variant/raised> ;
     ah:hasMorphology <https://purl.org/megalod/example/morphology/CV-AH-002> ;
     ah:hasChipping <https://purl.org/megalod/example/chipping/CV-AH-002> ;
-    ah:hasBodyLength <https://purl.org/megalod/example/typometry/CV-AH-002-bodyLength> ;
-    ah:hasBaseLength <https://purl.org/megalod/example/typometry/CV-AH-002-baseLength> ;
+    ah:hasBodyLength <https://purl.org/megalod/example/typometry/CV-AH-002-hasBodyLength> ;
+    ah:hasBaseLength <https://purl.org/megalod/example/typometry/CV-AH-002-hasBodyLength> ;
     
     # Item properties (inherited)
     crm:E57_Material <http://collection.britishmuseum.org/id/thesaurus/material/quartz> ;
@@ -232,12 +232,12 @@
     ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
     ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/straight> .
 
-<https://purl.org/megalod/example/typometry/CV-AH-002-bodyLength> a excav:TypometryValue ;
+<https://purl.org/megalod/example/typometry/CV-AH-002-hasBodyLength> a excav:TypometryValue ;
     schema:value "21.8"^^xsd:decimal ;
         schema:UnitCode "MMT" . # Millimeters
 
 
-<https://purl.org/megalod/example/typometry/CV-AH-002-baseLength> a excav:TypometryValue ;
+<https://purl.org/megalod/example/typometry/CV-AH-002-hasBodyLength> a excav:TypometryValue ;
     schema:value "16.5"^^xsd:decimal ;
         schema:UnitCode "MMT" . # Millimeters
 

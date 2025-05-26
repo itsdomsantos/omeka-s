@@ -33464,3 +33464,8 @@ _:00e5badf-dbda-4f9d-8537-1dfd1e2a6133-61 <http://www.w3.org/ns/shacl#nodeKind> 
 2025-05-25T22:13:23+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-05-25T22:14:14+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-05-25T22:22:21+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-26T17:05:38+00:00 ERR (3): Failed to upload data due to an exception: Read timed out after 60 seconds
+Failed to upload data due to an exception: Read timed out after 60 seconds2025-05-26T17:08:31+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Expected ':', found ' ' [line 52]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected ':', found ' ' [line 52]2025-05-26T17:08:31+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected ':', found ' ' [line 52]
+2025-05-26T17:24:46+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-26T17:30:55+00:00 INFO (6): Response Status: 204 | Response Body:

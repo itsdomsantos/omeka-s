@@ -39,14 +39,14 @@
 
 <https://purl.org/megalod/example/location/CasteloVelho> a excav:Location ;
     dbo:informationName "Castelo Velho"^^xsd:literal ;
-    dbo:district <http://dbpedia.org/resource/Guarda_District> ;
-    dbo:parish <http://dbpedia.org/resource/Freixo_de_Numão> ;
-    dbo:country <http://dbpedia.org/resource/Portugal> ;
+    dbo:District <http://dbpedia.org/resource/Guarda_District> ;
+    dbo:Parish <http://dbpedia.org/resource/Freixo_de_Numão> ;
+    dbo:Country <http://dbpedia.org/resource/Portugal> ;
     excav:hasGPSCoordinates <https://purl.org/megalod/example/gps/CasteloVelho> .
 
 <https://purl.org/megalod/example/gps/CasteloVelho> a excav:GPSCoordinates ;
     geo:lat "41.0578"^^xsd:decimal ;
-    geo:long "-7.2233"^^xsd:decimal ;
+    geo:long "-7.2233"^^xsd:decimal .
 
 # Archaeologist
 <https://purl.org/megalod/example/archaeologist/JoaoMuralha> a excav:Archaeologist ;

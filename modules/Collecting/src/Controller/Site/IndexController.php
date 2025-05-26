@@ -394,36 +394,11 @@ public function submitExcavationAction()
         $excavationData = $this->getFormData($cForm);
         
         // Capture additional entity data from POST for the subforms
-        $contextData = $this->processEntitySelection(
-            $this->params()->fromPost('existing_context'),
-            [
-                'id' => $this->params()->fromPost('new_context_id'),
-                'description' => $this->params()->fromPost('new_context_description')
-            ],
-            'Context'
-        );
+        $contextData = null;
         
-        $svuData = $this->processEntitySelection(
-            $this->params()->fromPost('existing_svu'),
-            [
-                'id' => $this->params()->fromPost('new_svu_id'),
-                'description' => $this->params()->fromPost('new_svu_description'),
-                'lower_year' => $this->params()->fromPost('new_svu_lower_year'),
-                'lower_bc' => $this->params()->fromPost('new_svu_lower_bc') ? true : false,
-                'upper_year' => $this->params()->fromPost('new_svu_upper_year'),
-                'upper_bc' => $this->params()->fromPost('new_svu_upper_bc') ? true : false
-            ],
-            'SVU'
-        );
+        $svuData = null;
         
-        $encounterData = $this->processEntitySelection(
-            $this->params()->fromPost('existing_encounter'),
-            [
-                'date' => $this->params()->fromPost('new_encounter_date'),
-                'depth' => $this->params()->fromPost('new_encounter_depth')
-            ],
-            'EncounterEvent'
-        );
+        $encounterData = null;
 
         $excavationIdentifier = $this->params()->fromPost('excavation_id');
 
