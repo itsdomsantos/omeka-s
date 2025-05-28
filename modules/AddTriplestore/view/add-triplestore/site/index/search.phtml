@@ -80,52 +80,70 @@ $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
                                                     $propertyLabel = $propertyValue->property()->label();
                                                     $value = $propertyValue->value();
                                                     
-                                                    // Debug: Log what we're finding
-                                                    error_log("Property: $propertyLabel = $value", 3, '/tmp/omeka_debug.log');
+                                                    error_log("Found property: $propertyLabel = $value", 3, '/tmp/omeka_map_debug.log');
                                                     
-                                                    // Check for different location properties
-                                                    if (stripos($propertyLabel, 'parish') !== false) {
+                                                    // Updated property matching based on your new structure
+                                                    if (stripos($propertyLabel, 'parish') !== false || $term === 'Parish') {
                                                         $locationParts['parish'] = $value;
-                                                    } elseif (stripos($propertyLabel, 'district') !== false) {
+                                                        error_log("Set parish: $value", 3, '/tmp/omeka_map_debug.log');
+                                                    } 
+                                                    elseif (stripos($propertyLabel, 'district') !== false || $term === 'District') {
                                                         $locationParts['district'] = $value;
-                                                    } elseif (stripos($propertyLabel, 'country') !== false) {
+                                                        error_log("Set district: $value", 3, '/tmp/omeka_map_debug.log');
+                                                    } 
+                                                    elseif (stripos($propertyLabel, 'country') !== false || $term === 'Country') {
                                                         $locationParts['country'] = $value;
-                                                    } elseif (stripos($propertyLabel, 'location') !== false && stripos($propertyLabel, 'gps') === false) {
-                                                        $locationParts['site'] = $value;
-                                                    } elseif (stripos($propertyLabel, 'gps') !== false || stripos($propertyLabel, 'coordinates') !== false) {
+                                                        error_log("Set country: $value", 3, '/tmp/omeka_map_debug.log');
+                                                    }
+                                                    // Look for site name in description
+                                                    elseif (stripos($propertyLabel, 'description') !== false && stripos($value, 'Archaeological excavation at') !== false) {
+                                                        // Extract site name from description like "Archaeological excavation at Castanheira do vento"
+                                                        if (preg_match('/Archaeological excavation at (.+)/', $value, $matches)) {
+                                                            $locationParts['site'] = trim($matches[1]);
+                                                            error_log("Extracted site name from description: " . $locationParts['site'], 3, '/tmp/omeka_map_debug.log');
+                                                        }
+                                                    }
+                                                    // GPS Coordinates - updated pattern matching
+                                                    elseif (stripos($propertyLabel, 'gps') !== false || stripos($propertyLabel, 'coordinates') !== false) {
                                                         $gpsCoords = $value;
-                                                        // Try to extract lat/lng from coordinates string
+                                                        error_log("Found GPS coords string: $value", 3, '/tmp/omeka_map_debug.log');
+                                                        
+                                                        // Parse coordinates from "Latitude: X, Longitude: Y" format
                                                         if (preg_match('/Latitude:\s*([-\d.]+).*?Longitude:\s*([-\d.]+)/', $value, $matches)) {
                                                             $lat = floatval($matches[1]);
                                                             $lng = floatval($matches[2]);
+                                                            error_log("Extracted coordinates: lat=$lat, lng=$lng", 3, '/tmp/omeka_map_debug.log');
                                                         }
-                                                    } elseif (stripos($propertyLabel, 'latitude') !== false || stripos($term, 'lat') !== false) {
-                                                        $lat = floatval($value);
-                                                    } elseif (stripos($propertyLabel, 'longitude') !== false || stripos($term, 'long') !== false) {
-                                                        $lng = floatval($value);
                                                     }
-                                                    // Also check the term itself for GPS data
-                                                    elseif (stripos($term, 'geo:lat') !== false) {
+                                                    // Direct latitude/longitude properties
+                                                    elseif (stripos($propertyLabel, 'latitude') !== false || stripos($term, 'lat') !== false) {
                                                         $lat = floatval($value);
-                                                    } elseif (stripos($term, 'geo:long') !== false) {
+                                                        error_log("Found direct latitude: $lat", 3, '/tmp/omeka_map_debug.log');
+                                                    } 
+                                                    elseif (stripos($propertyLabel, 'longitude') !== false || stripos($term, 'long') !== false) {
                                                         $lng = floatval($value);
+                                                        error_log("Found direct longitude: $lng", 3, '/tmp/omeka_map_debug.log');
                                                     }
                                                 }
                                             }
                                         }
                                     }
                                     
-                                    // Store coordinates for map (with debugging)
+                                    // Debug: Log what we found
+                                    error_log('Location parts found: ' . print_r($locationParts, true), 3, '/tmp/omeka_map_debug.log');
+                                    error_log("Final coordinates: lat=$lat, lng=$lng", 3, '/tmp/omeka_map_debug.log');
+                                    
+                                    // Store coordinates for map if we have them
                                     if ($lat && $lng): 
                                         $itemCount = 0;
                                         try {
                                             $itemCount = count($itemSet->items());
                                         } catch (\Exception $e) {
-                                            error_log("Error getting item count: " . $e->getMessage(), 3, '/tmp/omeka_debug.log');
+                                            error_log("Error getting item count: " . $e->getMessage(), 3, '/tmp/omeka_map_debug.log');
                                             $itemCount = 0;
                                         }
                                         
-                                        error_log("Adding excavation to map: ID=" . $itemSet->id() . ", Lat=$lat, Lng=$lng, Items=$itemCount", 3, '/tmp/omeka_debug.log');
+                                        error_log("Adding excavation to map: ID=" . $itemSet->id() . ", Lat=$lat, Lng=$lng, Items=$itemCount", 3, '/tmp/omeka_map_debug.log');
                                         ?>
                                         <script>
                                             if (typeof excavationData === 'undefined') {
@@ -137,55 +155,37 @@ $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
                                                 lat: <?php echo $lat; ?>,
                                                 lng: <?php echo $lng; ?>,
                                                 itemCount: <?php echo $itemCount; ?>,
-                                                location: <?php echo json_encode(implode(', ', array_filter($locationParts))); ?>
+                                                location: <?php echo json_encode(implode(', ', array_filter($locationParts))); ?>,
+                                                parish: <?php echo json_encode($locationParts['parish'] ?? ''); ?>,
+                                                district: <?php echo json_encode($locationParts['district'] ?? ''); ?>,
+                                                country: <?php echo json_encode($locationParts['country'] ?? ''); ?>,
+                                                site: <?php echo json_encode($locationParts['site'] ?? ''); ?>
                                             });
                                             console.log('Added excavation data:', {
                                                 id: <?php echo $itemSet->id(); ?>,
                                                 title: <?php echo json_encode($itemSet->displayTitle()); ?>,
                                                 lat: <?php echo $lat; ?>,
                                                 lng: <?php echo $lng; ?>,
-                                                itemCount: <?php echo $itemCount; ?>
+                                                itemCount: <?php echo $itemCount; ?>,
+                                                locationParts: <?php echo json_encode($locationParts); ?>
                                             });
                                         </script>
                                     <?php else:
-                                        error_log("No coordinates found for excavation: " . $itemSet->displayTitle() . " (ID: " . $itemSet->id() . ")", 3, '/tmp/omeka_debug.log');
+                                        error_log("No coordinates found for excavation: " . $itemSet->displayTitle() . " (ID: " . $itemSet->id() . ")", 3, '/tmp/omeka_map_debug.log');
+                                        
+                                        // FALLBACK: Try to geocode based on location text if no direct coordinates
+                                        if (!empty($locationParts)) {
+                                            $locationString = implode(', ', array_filter($locationParts));
+                                            error_log("Could try geocoding: $locationString", 3, '/tmp/omeka_map_debug.log');
+                                            ?>
+                                            <script>
+                                                console.log('No coordinates for excavation but found location parts:', <?php echo json_encode($locationParts); ?>);
+                                                // Could add geocoding service call here if needed
+                                            </script>
+                                            <?php
+                                        }
                                     endif;
-                                    
-                                    // Display location information
-                                    if (!empty($locationParts) || $gpsCoords): ?>
-                                        <div class="location-details">
-                                            <span class="location-icon">📍</span>
-                                            <div class="location-text">
-                                                <?php
-                                                // Create a nice location string
-                                                $displayLocation = [];
-                                                
-                                                if (isset($locationParts['site'])) {
-                                                    $displayLocation[] = $locationParts['site'];
-                                                }
-                                                if (isset($locationParts['parish'])) {
-                                                    $displayLocation[] = $locationParts['parish'];
-                                                }
-                                                if (isset($locationParts['district'])) {
-                                                    $displayLocation[] = $locationParts['district'];
-                                                }
-                                                if (isset($locationParts['country'])) {
-                                                    $displayLocation[] = $locationParts['country'];
-                                                }
-                                                
-                                                if (!empty($displayLocation)) {
-                                                    echo '<div class="location-address">' . $this->escapeHtml(implode(', ', array_slice($displayLocation, 0, 2))) . '</div>';
-                                                    if (count($displayLocation) > 2) {
-                                                        echo '<div class="location-region">' . $this->escapeHtml(implode(', ', array_slice($displayLocation, 2))) . '</div>';
-                                                    }
-                                                }
-                                                
-                                                if ($gpsCoords): ?>
-                                                    <div class="gps-coords"><?php echo $this->escapeHtml($gpsCoords); ?></div>
-                                                <?php endif; ?>
-                                            </div>
-                                        </div>
-                                    <?php endif; ?>
+                                    ?>
                                 </div>
                                 
                                 <!-- Item count display -->
@@ -746,17 +746,66 @@ function initializeMap() {
     }
 }
 
+// UPDATED addExcavationMarkers function with improved popups
 function addExcavationMarkers() {
     excavationData.forEach(function(excavation) {
-        const marker = L.marker([excavation.lat, excavation.lng])
+        // Create location string with hierarchy
+        let locationHtml = '';
+        if (excavation.site) {
+            locationHtml += `<strong>${excavation.site}</strong><br>`;
+        }
+        if (excavation.parish && excavation.district && excavation.country) {
+            locationHtml += `${excavation.parish}, ${excavation.district}<br>${excavation.country}`;
+        } else if (excavation.location) {
+            locationHtml += excavation.location;
+        }
+        
+        // Create marker with custom icon based on item count
+        let markerIcon;
+        if (excavation.itemCount > 20) {
+            markerIcon = L.divIcon({
+                className: 'custom-marker large-site',
+                html: excavation.itemCount,
+                iconSize: [35, 35]
+            });
+        } else if (excavation.itemCount > 5) {
+            markerIcon = L.divIcon({
+                className: 'custom-marker medium-site',
+                html: excavation.itemCount,
+                iconSize: [30, 30]
+            });
+        } else {
+            markerIcon = L.divIcon({
+                className: 'custom-marker small-site',
+                html: excavation.itemCount || '0',
+                iconSize: [25, 25]
+            });
+        }
+        
+        const marker = L.marker([excavation.lat, excavation.lng], {icon: markerIcon})
             .addTo(map)
             .bindPopup(`
                 <div class="map-popup">
                     <h4>${excavation.title}</h4>
-                    <p><strong>Location:</strong> ${excavation.location}</p>
-                    <p><strong>Artifacts:</strong> ${excavation.itemCount}</p>
+                    <div class="popup-location">
+                        <span class="location-icon">📍</span>
+                        <div class="location-details">
+                            ${locationHtml}
+                        </div>
+                    </div>
+                    <div class="popup-stats">
+                        <span class="stat-item">
+                            <span class="stat-icon">🏹</span>
+                            <span class="stat-text">${excavation.itemCount} artifact${excavation.itemCount !== 1 ? 's' : ''}</span>
+                        </span>
+                        <span class="stat-item">
+                            <span class="stat-icon">🌍</span>
+                            <span class="stat-text">${excavation.lat.toFixed(4)}, ${excavation.lng.toFixed(4)}</span>
+                        </span>
+                    </div>
                     <div class="popup-actions">
-                        <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()]); ?>?id=${excavation.id}&type=item_set" class="popup-btn">View Details</a>
+                        <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()]); ?>?id=${excavation.id}&type=item_set" class="popup-btn primary">View Details</a>
+                        <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()]); ?>?item_set_id=${excavation.id}&upload_type=arrowhead&mode=form" class="popup-btn secondary">Add Artifacts</a>
                     </div>
                 </div>
             `);
@@ -764,14 +813,21 @@ function addExcavationMarkers() {
         // Store reference for later use
         marker.excavationId = excavation.id;
         markers.push(marker);
+        
+        console.log(`Added marker for ${excavation.title} at ${excavation.lat}, ${excavation.lng}`);
     });
     
     // Fit map to show all markers
     if (markers.length > 0) {
         const group = new L.featureGroup(markers);
         map.fitBounds(group.getBounds().pad(0.1));
+    } else {
+        console.log('No markers to display');
+        // Center on Portugal if no markers
+        map.setView([39.5, -8.0], 7);
     }
 }
+
 
 function loadAllExcavations() {
     // Load all excavations when no search is performed
@@ -802,62 +858,15 @@ function loadAllExcavations() {
             } else {
                 console.log('No excavation data found');
                 // Add some sample data for testing
-                addSampleMarkers();
+                
             }
         })
         .catch(error => {
             console.error('Error loading excavations:', error);
             // Add sample data for testing
-            addSampleMarkers();
         });
 }
 
-function addSampleMarkers() {
-    // Add some sample markers for testing if no real data is available
-    const sampleData = [
-        {
-            id: 1,
-            title: "Sample Excavation 1",
-            lat: 41.0578,
-            lng: -7.2233,
-            itemCount: 15,
-            location: "Freixo de Numão, Portugal"
-        },
-        {
-            id: 2,
-            title: "Sample Excavation 2", 
-            lat: 40.2085,
-            lng: -8.4295,
-            itemCount: 8,
-            location: "Coimbra, Portugal"
-        }
-    ];
-    
-    console.log('Adding sample markers:', sampleData);
-    
-    sampleData.forEach(function(excavation) {
-        const marker = L.marker([excavation.lat, excavation.lng])
-            .addTo(map)
-            .bindPopup(`
-                <div class="map-popup">
-                    <h4>${excavation.title}</h4>
-                    <p><strong>Location:</strong> ${excavation.location}</p>
-                    <p><strong>Artifacts:</strong> ${excavation.itemCount}</p>
-                    <div class="popup-actions">
-                        <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()]); ?>?id=${excavation.id}&type=item_set" class="popup-btn">View Details</a>
-                    </div>
-                </div>
-            `);
-        
-        marker.excavationId = excavation.id;
-        markers.push(marker);
-    });
-    
-    if (markers.length > 0) {
-        const group = new L.featureGroup(markers);
-        map.fitBounds(group.getBounds().pad(0.1));
-    }
-}
 
 function focusOnExcavation(excavationId) {
     // Find the marker for this excavation
