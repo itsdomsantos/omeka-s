@@ -72,7 +72,6 @@ $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
                                     $lat = null;
                                     $lng = null;
                                     
-                                    // Look for location-related properties
                                     foreach ($values as $term => $propertyValues) {
                                         if (!empty($propertyValues)) {
                                             foreach ($propertyValues as $propertyValue) {
@@ -80,55 +79,17 @@ $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
                                                     $propertyLabel = $propertyValue->property()->label();
                                                     $value = $propertyValue->value();
                                                     
-                                                    error_log("Found property: $propertyLabel = $value", 3, '/tmp/omeka_map_debug.log');
-                                                    
-                                                    // Updated property matching based on your new structure
-                                                    if (stripos($propertyLabel, 'parish') !== false || $term === 'Parish') {
-                                                        $locationParts['parish'] = $value;
-                                                        error_log("Set parish: $value", 3, '/tmp/omeka_map_debug.log');
-                                                    } 
-                                                    elseif (stripos($propertyLabel, 'district') !== false || $term === 'District') {
-                                                        $locationParts['district'] = $value;
-                                                        error_log("Set district: $value", 3, '/tmp/omeka_map_debug.log');
-                                                    } 
-                                                    elseif (stripos($propertyLabel, 'country') !== false || $term === 'Country') {
-                                                        $locationParts['country'] = $value;
-                                                        error_log("Set country: $value", 3, '/tmp/omeka_map_debug.log');
-                                                    }
-                                                    // Look for site name in description
-                                                    elseif (stripos($propertyLabel, 'description') !== false && stripos($value, 'Archaeological excavation at') !== false) {
-                                                        // Extract site name from description like "Archaeological excavation at Castanheira do vento"
-                                                        if (preg_match('/Archaeological excavation at (.+)/', $value, $matches)) {
-                                                            $locationParts['site'] = trim($matches[1]);
-                                                            error_log("Extracted site name from description: " . $locationParts['site'], 3, '/tmp/omeka_map_debug.log');
-                                                        }
-                                                    }
-                                                    // GPS Coordinates - updated pattern matching
-                                                    elseif (stripos($propertyLabel, 'gps') !== false || stripos($propertyLabel, 'coordinates') !== false) {
-                                                        $gpsCoords = $value;
-                                                        error_log("Found GPS coords string: $value", 3, '/tmp/omeka_map_debug.log');
-                                                        
-                                                        // Parse coordinates from "Latitude: X, Longitude: Y" format
-                                                        if (preg_match('/Latitude:\s*([-\d.]+).*?Longitude:\s*([-\d.]+)/', $value, $matches)) {
-                                                            $lat = floatval($matches[1]);
-                                                            $lng = floatval($matches[2]);
-                                                            error_log("Extracted coordinates: lat=$lat, lng=$lng", 3, '/tmp/omeka_map_debug.log');
-                                                        }
-                                                    }
-                                                    // Direct latitude/longitude properties
-                                                    elseif (stripos($propertyLabel, 'latitude') !== false || stripos($term, 'lat') !== false) {
+                                                    // Only look for GPS coordinates
+                                                    if (stripos($propertyLabel, 'latitude') !== false || $propertyLabel === 'GPS Latitude') {
                                                         $lat = floatval($value);
-                                                        error_log("Found direct latitude: $lat", 3, '/tmp/omeka_map_debug.log');
                                                     } 
-                                                    elseif (stripos($propertyLabel, 'longitude') !== false || stripos($term, 'long') !== false) {
+                                                    elseif (stripos($propertyLabel, 'longitude') !== false || $propertyLabel === 'GPS Longitude') {
                                                         $lng = floatval($value);
-                                                        error_log("Found direct longitude: $lng", 3, '/tmp/omeka_map_debug.log');
                                                     }
                                                 }
                                             }
                                         }
-                                    }
-                                    
+                                    }                                                      
                                     // Debug: Log what we found
                                     error_log('Location parts found: ' . print_r($locationParts, true), 3, '/tmp/omeka_map_debug.log');
                                     error_log("Final coordinates: lat=$lat, lng=$lng", 3, '/tmp/omeka_map_debug.log');
@@ -700,6 +661,13 @@ let markers = [];
 let selectedMarker = null;
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Debug: Log excavation data if it exists
+    if (typeof excavationData !== 'undefined') {
+        console.log('Excavation data found:', excavationData);
+    } else {
+        console.log('No excavation data found on page load');
+    }
+    
     initializeMap();
     
     // Toggle map visibility
@@ -727,7 +695,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
-
 function initializeMap() {
     // Initialize the map centered on Portugal
     map = L.map('excavationMap').setView([39.5, -8.0], 7);
@@ -830,71 +797,281 @@ function addExcavationMarkers() {
 
 
 function loadAllExcavations() {
-    // Load all excavations when no search is performed
-    console.log('Loading all excavations...');
+    console.log('Loading all excavations via API...');
     
-    // Make an AJAX request to get all item sets (excavations)
-    const baseUrl = '<?php echo $this->url("site/add-triplestore/search", ["site-slug" => $site->slug()]); ?>';
-    const url = `${baseUrl}?type=item_sets&query=excavation`;
-    
-    fetch(url)
-        .then(response => response.text())
-        .then(html => {
-            // Parse the HTML response to extract excavation data
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
+    // First fetch all item sets that represent excavations
+    fetch('/api/item_sets?pretty_print=1&sort_by=id&sort_order=desc')
+        .then(response => response.json())
+        .then(itemSets => {
+            console.log(`Found ${itemSets.length} item sets`);
+            window.excavationData = [];
             
-            // Look for script tags containing excavationData
-            const scripts = doc.querySelectorAll('script');
-            scripts.forEach(script => {
-                if (script.textContent.includes('excavationData')) {
-                    eval(script.textContent);
-                }
-            });
-            
-            // Add markers if we found data
-            if (typeof excavationData !== 'undefined' && excavationData.length > 0) {
-                addExcavationMarkers();
-            } else {
-                console.log('No excavation data found');
-                // Add some sample data for testing
-                
-            }
+            // Process each item set sequentially with Promise chain
+            return itemSets.reduce((chain, itemSet) => {
+                return chain.then(() => processItemSet(itemSet));
+            }, Promise.resolve());
+        })
+        .then(() => {
+            console.log(`Adding ${window.excavationData.length} markers to map`);
+            addExcavationMarkers();
         })
         .catch(error => {
             console.error('Error loading excavations:', error);
-            // Add sample data for testing
         });
 }
 
-
-function focusOnExcavation(excavationId) {
-    // Find the marker for this excavation
-    const marker = markers.find(m => m.excavationId === excavationId);
-    if (marker) {
-        // Clear previous selection
-        if (selectedMarker) {
-            selectedMarker.setIcon(new L.Icon.Default());
-        }
-        
-        // Highlight the selected marker
-        marker.setIcon(L.divIcon({
-            className: 'custom-marker selected',
-            html: marker.excavationId,
-            iconSize: [30, 30]
-        }));
-        
-        selectedMarker = marker;
-        
-        // Center map on the marker and open popup
-        map.setView(marker.getLatLng(), 12);
-        marker.openPopup();
-        
-        // Scroll to map if not visible
-        document.getElementById('excavationMap').scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'center' 
-        });
+// Process each item set to find its excavation item or extract GPS directly
+function processItemSet(itemSet) {
+    const itemSetId = itemSet['o:id'];
+    const itemSetTitle = itemSet['dcterms:title']?.[0]?.['@value'] || `Item Set ${itemSetId}`;
+    console.log(`Processing Item Set: ${itemSetTitle} (ID: ${itemSetId})`);
+    
+    // First check if the item set itself has GPS coordinates directly in its properties
+    let lat = extractCoordinateFromItemSet(itemSet, 'lat');
+    let lng = extractCoordinateFromItemSet(itemSet, 'lng');
+    
+    // If GPS found directly in item set, use it
+    if (lat !== null && lng !== null) {
+        console.log(`Found GPS directly in item set ${itemSetId}: ${lat}, ${lng}`);
+        addToExcavationData(itemSetId, itemSetTitle, lat, lng, 0);
+        return Promise.resolve();
     }
+    
+    // If no GPS in item set, look through its items
+    return fetch(`/api/items?item_set_id=${itemSetId}&pretty_print=1`)
+        .then(response => response.json())
+        .then(items => {
+            console.log(`Item Set ${itemSetId} contains ${items.length} items`);
+            
+            // First try to find an item with title starting with "Excavation"
+            const excavationItem = items.find(item => {
+                const title = item['dcterms:title']?.[0]?.['@value'] || '';
+                return title.startsWith('Excavation ');
+            });
+            
+            if (excavationItem) {
+                console.log(`Found excavation item: ${excavationItem['dcterms:title']?.[0]?.['@value']}`);
+                
+                // Extract coordinates from the excavation item
+                lat = extractCoordinateFromItem(excavationItem, 'lat');
+                lng = extractCoordinateFromItem(excavationItem, 'lng');
+                
+                if (lat !== null && lng !== null) {
+                    addToExcavationData(itemSetId, itemSetTitle, lat, lng, items.length);
+                    return;
+                }
+            }
+            
+            // If no coordinates found in excavation item, try any item with GPS values
+            for (const item of items) {
+                lat = extractCoordinateFromItem(item, 'lat');
+                lng = extractCoordinateFromItem(item, 'lng');
+                
+                if (lat !== null && lng !== null) {
+                    addToExcavationData(itemSetId, itemSetTitle, lat, lng, items.length);
+                    return;
+                }
+            }
+            
+            console.log(`No GPS coordinates found for item set ${itemSetId}`);
+        });
+}
+
+// Helper function to extract coordinate from an item
+function extractCoordinateFromItem(item, type) {
+    // Debug
+    console.log(`Extracting ${type} from item:`, item['dcterms:title']?.[0]?.['@value']);
+    
+    // Known property URIs that might contain coordinates
+    const coordProperties = {
+        lat: ['GPS Latitude', 'geo:lat', 'Latitude', 'Location - has GPS Coordinates', 'GPS Coordinates'],
+        lng: ['GPS Longitude', 'geo:long', 'Longitude', 'Location - has GPS Coordinates', 'GPS Coordinates']
+    };
+    
+    // Try direct properties first
+    for (const propName of coordProperties[type]) {
+        if (item[propName]) {
+            console.log(`Found property ${propName} in item`);
+            
+            for (const value of item[propName]) {
+                if (value['@value']) {
+                    const valueStr = value['@value'];
+                    console.log(`Checking value: "${valueStr}"`);
+                    
+                    // Pattern for "Latitude: 41.0578, Longitude: -7.2233"
+                    if (valueStr.includes("Latitude") && valueStr.includes("Longitude")) {
+                        console.log(`Found combined lat/lng string: ${valueStr}`);
+                        
+                        if (type === 'lat') {
+                            const latMatch = valueStr.match(/Latitude:\s*(-?\d+\.\d+)/i);
+                            if (latMatch && latMatch[1]) {
+                                const lat = parseFloat(latMatch[1]);
+                                console.log(`Extracted latitude: ${lat}`);
+                                return lat;
+                            }
+                        } else if (type === 'lng') {
+                            const lngMatch = valueStr.match(/Longitude:\s*(-?\d+\.\d+)/i);
+                            if (lngMatch && lngMatch[1]) {
+                                const lng = parseFloat(lngMatch[1]);
+                                console.log(`Extracted longitude: ${lng}`);
+                                return lng;
+                            }
+                        }
+                    }
+                    
+                    // Direct match for single coordinate
+                    if ((type === 'lat' && /latitude/i.test(propName)) || 
+                        (type === 'lng' && /longitude/i.test(propName))) {
+                        const coord = extractNumberFromString(valueStr);
+                        if (coord !== null) {
+                            console.log(`Extracted ${type} directly: ${coord}`);
+                            return coord;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Try searching through all properties (last resort)
+    console.log(`Searching all properties for ${type}...`);
+    for (const propName in item) {
+        if (item[propName] && Array.isArray(item[propName])) {
+            for (const value of item[propName]) {
+                if (value && value['@value'] && typeof value['@value'] === 'string') {
+                    const valueStr = value['@value'];
+                    
+                    if (valueStr.includes("Latitude") && valueStr.includes("Longitude")) {
+                        if (type === 'lat') {
+                            const latMatch = valueStr.match(/Latitude:\s*(-?\d+\.\d+)/i);
+                            if (latMatch && latMatch[1]) {
+                                const lat = parseFloat(latMatch[1]);
+                                console.log(`Found latitude ${lat} in property ${propName}`);
+                                return lat;
+                            }
+                        } else if (type === 'lng') {
+                            const lngMatch = valueStr.match(/Longitude:\s*(-?\d+\.\d+)/i);
+                            if (lngMatch && lngMatch[1]) {
+                                const lng = parseFloat(lngMatch[1]);
+                                console.log(`Found longitude ${lng} in property ${propName}`);
+                                return lng;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    return null;
+}
+
+// Also update the extractCoordinateFromItemSet function for consistency
+function extractCoordinateFromItemSet(itemSet, type) {
+    console.log(`Extracting ${type} from item set ID: ${itemSet['o:id']}`);
+    
+    const coordProperties = {
+        lat: ['GPS Latitude', 'geo:lat', 'Latitude', 'Location - has GPS Coordinates', 'GPS Coordinates'],
+        lng: ['GPS Longitude', 'geo:long', 'Longitude', 'Location - has GPS Coordinates', 'GPS Coordinates']
+    };
+    
+    // Try direct properties first
+    for (const propName of coordProperties[type]) {
+        if (itemSet[propName]) {
+            console.log(`Found property ${propName} in item set ${itemSet['o:id']}`);
+            
+            for (const value of itemSet[propName]) {
+                if (value['@value']) {
+                    const valueStr = value['@value'];
+                    console.log(`Checking value: "${valueStr}"`);
+                    
+                    // Pattern for "Latitude: 41.0578, Longitude: -7.2233"
+                    if (valueStr.includes("Latitude") && valueStr.includes("Longitude")) {
+                        console.log(`Found combined lat/lng string: ${valueStr}`);
+                        
+                        if (type === 'lat') {
+                            const latMatch = valueStr.match(/Latitude:\s*(-?\d+\.\d+)/i);
+                            if (latMatch && latMatch[1]) {
+                                const lat = parseFloat(latMatch[1]);
+                                console.log(`Extracted latitude: ${lat} from item set ${itemSet['o:id']}`);
+                                return lat;
+                            }
+                        } else if (type === 'lng') {
+                            const lngMatch = valueStr.match(/Longitude:\s*(-?\d+\.\d+)/i);
+                            if (lngMatch && lngMatch[1]) {
+                                const lng = parseFloat(lngMatch[1]);
+                                console.log(`Extracted longitude: ${lng} from item set ${itemSet['o:id']}`);
+                                return lng;
+                            }
+                        }
+                    }
+                    
+                    // Direct match for single coordinate
+                    if ((type === 'lat' && /latitude/i.test(propName)) || 
+                        (type === 'lng' && /longitude/i.test(propName))) {
+                        const coord = extractNumberFromString(valueStr);
+                        if (coord !== null) {
+                            console.log(`Extracted ${type} directly: ${coord} from item set ${itemSet['o:id']}`);
+                            return coord;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Try searching through all properties (last resort)
+    console.log(`Searching all properties of item set ${itemSet['o:id']} for ${type}...`);
+    for (const propName in itemSet) {
+        if (itemSet[propName] && Array.isArray(itemSet[propName])) {
+            for (const value of itemSet[propName]) {
+                if (value && value['@value'] && typeof value['@value'] === 'string') {
+                    const valueStr = value['@value'];
+                    
+                    if (valueStr.includes("Latitude") && valueStr.includes("Longitude")) {
+                        if (type === 'lat') {
+                            const latMatch = valueStr.match(/Latitude:\s*(-?\d+\.\d+)/i);
+                            if (latMatch && latMatch[1]) {
+                                const lat = parseFloat(latMatch[1]);
+                                console.log(`Found latitude ${lat} in property ${propName} of item set ${itemSet['o:id']}`);
+                                return lat;
+                            }
+                        } else if (type === 'lng') {
+                            const lngMatch = valueStr.match(/Longitude:\s*(-?\d+\.\d+)/i);
+                            if (lngMatch && lngMatch[1]) {
+                                const lng = parseFloat(lngMatch[1]);
+                                console.log(`Found longitude ${lng} in property ${propName} of item set ${itemSet['o:id']}`);
+                                return lng;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    return null;
+}
+
+// Extract a number from a string (for parsing coordinates)
+function extractNumberFromString(str) {
+    // Match decimal numbers with optional negative sign
+    const matches = str.match(/-?\d+\.\d+/);
+    if (matches && matches.length > 0) {
+        return parseFloat(matches[0]);
+    }
+    return null;
+}
+
+// Add excavation data to our global list
+function addToExcavationData(id, title, lat, lng, itemCount) {
+    window.excavationData.push({
+        id: id,
+        title: title,
+        lat: lat,
+        lng: lng,
+        itemCount: itemCount
+    });
+    console.log(`Added excavation to map: ${title}, Lat: ${lat}, Lng: ${lng}`);
 }
 </script>
