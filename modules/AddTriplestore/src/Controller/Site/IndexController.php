@@ -361,11 +361,12 @@ private function transformCollectingFormToExcavationData($formData)
     
     // Map collecting form prompts to excavation fields based on the actual form data
     $fieldMappings = [
-        'prompt_32' => 'site_name',         // Site name (Testing)
-        'prompt_34' => 'location',          // Location (Paredes)
-        'prompt_51' => 'country',           // Country (Algeria)
-        'prompt_35' => 'excavation_id',     // Excavation ID (P_Excav)
-        'prompt_52' => 'district',          // District (Shanghai)
+        'prompt_32' => 'site_name',         // Site name 
+        'prompt_34' => 'location',          // Parish location
+        'prompt_51' => 'country',           // Country 
+        'prompt_35' => 'excavation_id',     // Excavation ID 
+        'prompt_52' => 'district',          // District 
+        'prompt_53' => 'parish',            // Parish
         'prompt_39' => 'latitude',          // GPS Latitude (23.2)
         'prompt_40' => 'longitude',         // GPS Longitude (1.4)
     ];
