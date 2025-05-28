@@ -349,64 +349,7 @@ if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
     }
 
 
-    /**
- * Transform data from collecting form format to excavation format
- * This processes both the Omeka collecting form prompts and the custom entity data
- */
-private function transformCollectingFormToExcavationData($formData)
-{
-    error_log('RAW EXCAVATION COLLECTING FORM DATA: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/excavation-transform.log');
 
-    $excavationData = [];
-    
-    // Map collecting form prompts to excavation fields based on the actual form data
-    $fieldMappings = [
-        'prompt_32' => 'site_name',         // Site name 
-        'prompt_34' => 'location',          // Parish location
-        'prompt_51' => 'country',           // Country 
-        'prompt_35' => 'excavation_id',     // Excavation ID 
-        'prompt_52' => 'district',          // District 
-        'prompt_53' => 'parish',            // Parish
-        'prompt_39' => 'latitude',          // GPS Latitude (23.2)
-        'prompt_40' => 'longitude',         // GPS Longitude (1.4)
-    ];
-    
-    // Process the basic form mappings
-    foreach ($fieldMappings as $collectingField => $excavationField) {
-        if (isset($formData[$collectingField]) && !empty($formData[$collectingField])) {
-            $excavationData[$excavationField] = $formData[$collectingField];
-        }
-    }
-    
-    // Process archaeologist data
-    $excavationData['archaeologist'] = $this->processArchaeologistDataFromForm($formData);
-    
-    // Process entities data (from the JavaScript enhanced form)
-    if (isset($formData['entities_data']) && !empty($formData['entities_data'])) {
-        $entitiesJson = $formData['entities_data'];
-        error_log('Entities JSON: ' . $entitiesJson, 3, OMEKA_PATH . '/logs/excavation-transform.log');
-        
-        $entitiesData = json_decode($entitiesJson, true);
-        if ($entitiesData) {
-            $excavationData['entities'] = $entitiesData;
-        }
-    }
-    
-    // Ensure we have at least a default context if none provided
-    if (empty($excavationData['entities']['contexts'])) {
-        $excavationData['entities']['contexts'] = [
-            [
-                'context_id' => 'CTX-001',
-                'context_description' => 'Default archaeological context',
-                'context_type' => 'layer'
-            ]
-        ];
-    }
-    
-    error_log('TRANSFORMED EXCAVATION DATA: ' . print_r($excavationData, true), 3, OMEKA_PATH . '/logs/excavation-transform.log');
-    
-    return $excavationData;
-}
 
 /**
  * Process archaeologist data from the collecting form
@@ -576,61 +519,6 @@ private function processArchaeologistForTtl($archaeologistData, $baseUri)
     return null;
 }
 
-/**
- * Generate location TTL with proper site name handling
- */
-private function generateLocationTtl($locationUri, $gpsUri, $excavationData)
-{
-    $ttl = "<$locationUri> a excav:Location ;\n";
-    
-    // Use site_name as the primary location name
-    if (!empty($excavationData['site_name'])) {
-        $ttl .= "    dbo:informationName \"" . $excavationData['site_name'] . "\"^^xsd:literal ;\n";
-    }
-    
-    if (!empty($excavationData['country'])) {
-        $countryUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $excavationData['country']);
-        $ttl .= "    dbo:Country <$countryUri> ;\n";
-    }
-    
-    if (!empty($excavationData['district'])) {
-        $districtUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $excavationData['district']);
-        $ttl .= "    dbo:District <$districtUri> ;\n";
-    }
-    
-    if (!empty($excavationData['parish'])) {
-        $parishUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $excavationData['parish']);
-        $ttl .= "    dbo:Parish <$parishUri> ;\n";
-    }
-    
-    // Add location description if available
-    if (!empty($excavationData['location'])) {
-        $ttl .= "    dct:description \"" . $excavationData['location'] . "\"^^xsd:literal ;\n";
-    }
-    
-    if (!empty($excavationData['latitude']) || !empty($excavationData['longitude'])) {
-        $ttl .= "    excav:hasGPSCoordinates <$gpsUri> ;\n";
-    }
-    
-    $ttl .= "    .\n\n";
-    
-    // Add GPS coordinates if available
-    if (!empty($excavationData['latitude']) || !empty($excavationData['longitude'])) {
-        $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
-        
-        if (!empty($excavationData['latitude'])) {
-            $ttl .= "    geo:lat \"" . $excavationData['latitude'] . "\"^^xsd:decimal ;\n";
-        }
-        
-        if (!empty($excavationData['longitude'])) {
-            $ttl .= "    geo:long \"" . $excavationData['longitude'] . "\"^^xsd:decimal ;\n";
-        }
-        
-        $ttl .= "    .\n\n";
-    }
-    
-    return $ttl;
-}
 
 /**
  * Generate archaeologist TTL for new archaeologists
@@ -3467,155 +3355,158 @@ private function findOrCreateArchaeologist($archaeologistData) {
     return null;
 }
 
-
 /**
- * Process excavation specific data
+ * Transform data from collecting form format to excavation format - UPDATED FOR NEW FORM
  */
-private function processExcavationData($rdfData, $subject, &$itemData) {
-    // Extract location name for description
-    if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
-        foreach ($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'] as $locObj) {
-            if ($locObj['type'] === 'uri' && isset($rdfData[$locObj['value']])) {
-                $locationUri = $locObj['value'];
-                $locationName = $this->extractLocationName($rdfData, $locationUri);
-                
-                if ($locationName) {
-                    // Create description
-                    if (!isset($itemData['dcterms:description'])) {
-                        $itemData['dcterms:description'] = [];
-                    }
-                    
-                    $itemData['dcterms:description'][] = [
-                        'type' => 'literal',
-                        'property_id' => 4, // dcterms:description property ID
-                        '@value' => "Archaeological excavation at $locationName"
-                    ];
-                }
-            }
-        }
-    }
+private function transformCollectingFormToExcavationData($formData)
+{
+    error_log('RAW EXCAVATION COLLECTING FORM DATA: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/excavation-transform.log');
 
-    // Add links to contexts with resource linking
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'] as $contextObj) {
-            if ($contextObj['type'] === 'uri') {
-                $contextId = $this->extractResourceIdentifier($rdfData, $contextObj['value']);
-                if ($contextId) {
-                    // Find the actual Omeka item with this identifier
-                    $linkedItem = $this->findItemByIdentifier($contextId);
-                    if ($linkedItem) {
-                        if (!isset($itemData['Excavation - hasContext'])) {
-                            $itemData['Excavation - hasContext'] = [];
-                        }
-                        
-                        $itemData['Excavation - hasContext'][] = [
-                            'type' => 'resource',
-                            'property_id' => 7666, // Use appropriate property ID
-                            'value_resource_id' => $linkedItem->id(),
-                            'o:label' => $contextId
-                        ];
-                    } else {
-                        // Fallback to literal if no linked item found
-                        if (!isset($itemData['Excavation - hasContext'])) {
-                            $itemData['Excavation - hasContext'] = [];
-                        }
-                        
-                        $itemData['Excavation - hasContext'][] = [
-                            'type' => 'literal',
-                            'property_id' => 7666,
-                            '@value' => $contextId
-                        ];
-                    }
-                }
-            }
+    $excavationData = [];
+    
+    // Updated field mappings based on new form structure
+    $fieldMappings = [
+        'prompt_32' => 'excavation_id',        // Acronym (excavation identifier)
+        'prompt_35' => 'site_name',            // Name of the Location 
+        'prompt_34' => 'parish',               // Parish of Excavation
+        'prompt_97' => 'district',             // District of Excavation
+        'prompt_51' => 'country',              // Country of Excavation
+        'prompt_39' => 'latitude',             // GPS Latitude
+        'prompt_40' => 'longitude',            // GPS Longitude
+    ];
+    
+    // Process the basic form mappings
+    foreach ($fieldMappings as $collectingField => $excavationField) {
+        if (isset($formData[$collectingField]) && !empty($formData[$collectingField])) {
+            $excavationData[$excavationField] = $formData[$collectingField];
         }
     }
     
-    // Add links to squares with resource linking
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSquare'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSquare'] as $squareObj) {
-            if ($squareObj['type'] === 'uri') {
-                $squareId = $this->extractResourceIdentifier($rdfData, $squareObj['value']);
-                if ($squareId) {
-                    // Find the actual Omeka item with this identifier
-                    $linkedItem = $this->findItemByIdentifier($squareId);
-                    if ($linkedItem) {
-                        if (!isset($itemData['The Square'])) {
-                            $itemData['The Square'] = [];
-                        }
-                        
-                        $itemData['The Square'][] = [
-                            'type' => 'resource',
-                            'property_id' => 7668, // Use appropriate property ID
-                            'value_resource_id' => $linkedItem->id(),
-                            'o:label' => $squareId
-                        ];
-                    } else {
-                        // Fallback to literal if no linked item found
-                        if (!isset($itemData['The Square'])) {
-                            $itemData['The Square'] = [];
-                        }
-                        
-                        $itemData['The Square'][] = [
-                            'type' => 'literal',
-                            'property_id' => 7668,
-                            '@value' => $squareId
-                        ];
-                    }
-                }
-            }
+    // Process archaeologist data
+    $excavationData['archaeologist'] = $this->processArchaeologistDataFromForm($formData);
+    
+    // Process entities data (from the JavaScript enhanced form)
+    if (isset($formData['entities_data']) && !empty($formData['entities_data'])) {
+        $entitiesJson = $formData['entities_data'];
+        error_log('Entities JSON: ' . $entitiesJson, 3, OMEKA_PATH . '/logs/excavation-transform.log');
+        
+        $entitiesData = json_decode($entitiesJson, true);
+        if ($entitiesData) {
+            $excavationData['entities'] = $entitiesData;
         }
     }
-
-    // NEW: Add links to StratigraphicVolumeUnits with resource linking
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'] as $svuObj) {
-            if ($svuObj['type'] === 'uri') {
-                $svuId = $this->extractResourceIdentifier($rdfData, $svuObj['value']);
-                if ($svuId) {
-                    // Find the actual Omeka item with this identifier
-                    $linkedItem = $this->findItemByIdentifier($svuId);
-                    if ($linkedItem) {
-                        if (!isset($itemData['Stratigraphic Volume Unit'])) {
-                            $itemData['Stratigraphic Volume Unit'] = [];
-                        }
-                        
-                        $itemData['Stratigraphic Volume Unit'][] = [
-                            'type' => 'resource',
-                            'property_id' => 7667, // Use appropriate property ID for SVU
-                            'value_resource_id' => $linkedItem->id(),
-                            'o:label' => $svuId
-                        ];
-                    } else {
-                        // Fallback to literal if no linked item found
-                        if (!isset($itemData['Stratigraphic Volume Unit'])) {
-                            $itemData['Stratigraphic Volume Unit'] = [];
-                        }
-                        
-                        $itemData['Stratigraphic Volume Unit'][] = [
-                            'type' => 'literal',
-                            'property_id' => 7667,
-                            '@value' => $svuId
-                        ];
-                    }
-                }
-            }
-        }
+    
+    // Ensure we have at least a default context if none provided
+    if (empty($excavationData['entities']['contexts'])) {
+        $excavationData['entities']['contexts'] = [
+            [
+                'context_id' => 'CTX-001',
+                'context_description' => 'Default archaeological context',
+                'context_type' => 'layer'
+            ]
+        ];
     }
+    
+    error_log('TRANSFORMED EXCAVATION DATA: ' . print_r($excavationData, true), 3, OMEKA_PATH . '/logs/excavation-transform.log');
+    
+    return $excavationData;
+}
 
-    // Extract location GPS coordinates
+/**
+ * Generate location TTL with proper structure - UPDATED
+ */
+private function generateLocationTtl($locationUri, $gpsUri, $excavationData)
+{
+    $ttl = "<$locationUri> a excav:Location ;\n";
+    
+    // Use site_name as the informationName (Name of the Location from form)
+    if (!empty($excavationData['site_name'])) {
+        $ttl .= "    dbo:informationName \"" . $excavationData['site_name'] . "\"^^xsd:literal ;\n";
+    }
+    
+    // Add Country as DBpedia resource
+    if (!empty($excavationData['country'])) {
+        $countryUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $excavationData['country']);
+        $ttl .= "    dbo:Country <$countryUri> ;\n";
+    }
+    
+    // Add District as DBpedia resource
+    if (!empty($excavationData['district'])) {
+        $districtUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $excavationData['district']);
+        $ttl .= "    dbo:District <$districtUri> ;\n";
+    }
+    
+    // Add Parish as DBpedia resource
+    if (!empty($excavationData['parish'])) {
+        $parishUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $excavationData['parish']);
+        $ttl .= "    dbo:Parish <$parishUri> ;\n";
+    }
+    
+    // Add GPS coordinates if available
+    if (!empty($excavationData['latitude']) || !empty($excavationData['longitude'])) {
+        $ttl .= "    excav:hasGPSCoordinates <$gpsUri> ;\n";
+    }
+    
+    $ttl .= "    .\n\n";
+    
+    // Add GPS coordinates resource if available
+    if (!empty($excavationData['latitude']) || !empty($excavationData['longitude'])) {
+        $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
+        
+        if (!empty($excavationData['latitude'])) {
+            $ttl .= "    geo:lat \"" . $excavationData['latitude'] . "\"^^xsd:decimal ;\n";
+        }
+        
+        if (!empty($excavationData['longitude'])) {
+            $ttl .= "    geo:long \"" . $excavationData['longitude'] . "\"^^xsd:decimal ;\n";
+        }
+        
+        $ttl .= "    .\n\n";
+    }
+    
+    return $ttl;
+}
+
+/**
+ * Updated processExcavationData method to handle new structure
+ */
+private function processExcavationData($rdfData, $subject, &$itemData) {
+    error_log('Processing excavation data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/excavation-processing.log');
+    
+    // Extract location information
     if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
         foreach ($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'] as $locObj) {
             if ($locObj['type'] === 'uri' && isset($rdfData[$locObj['value']])) {
                 $locationUri = $locObj['value'];
+                error_log('Processing location URI: ' . $locationUri, 3, OMEKA_PATH . '/logs/excavation-processing.log');
                 
-                // Check if location has GPS coordinates
+                // Extract location name (dbo:informationName)
+                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/informationName'])) {
+                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/informationName'] as $nameObj) {
+                        if ($nameObj['type'] === 'literal') {
+                            $locationName = $nameObj['value'];
+                            
+                            // Update description to use the actual location name
+                            if (!isset($itemData['dcterms:description'])) {
+                                $itemData['dcterms:description'] = [];
+                            }
+                            
+                            $itemData['dcterms:description'][] = [
+                                'type' => 'literal',
+                                'property_id' => 4,
+                                '@value' => "Archaeological excavation at $locationName"
+                            ];
+                            error_log("Added description with location name: $locationName", 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                        }
+                    }
+                }
+                
+                // Process GPS coordinates
                 if (isset($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates'])) {
                     foreach ($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates'] as $gpsObj) {
                         if ($gpsObj['type'] === 'uri' && isset($rdfData[$gpsObj['value']])) {
                             $gpsUri = $gpsObj['value'];
                             
-                            // Extract latitude and longitude
                             $lat = null;
                             $long = null;
                             
@@ -3635,7 +3526,6 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                                 }
                             }
                             
-                            // Add GPS coordinates as a single field
                             if ($lat && $long) {
                                 if (!isset($itemData['GPS Coordinates'])) {
                                     $itemData['GPS Coordinates'] = [];
@@ -3643,7 +3533,7 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                                 
                                 $itemData['GPS Coordinates'][] = [
                                     'type' => 'literal',
-                                    'property_id' => 7664, // Use appropriate property ID
+                                    'property_id' => 7664,
                                     '@value' => "Latitude: $lat, Longitude: $long"
                                 ];
                             }
@@ -3651,73 +3541,35 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                     }
                 }
                 
-                // District
-                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/District'])) {
-                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/District'] as $distObj) {
-                        if ($distObj['type'] === 'uri') {
-                            $distUri = $distObj['value'];
-                            if (isset($rdfData[$distUri])) {
-                                $parts = explode('/', $distUri);
-                                $districtName = end($parts);
+                // Process location properties with correct mappings
+                $locationProperties = [
+                    'http://dbpedia.org/ontology/District' => ['District', 1555],
+                    'http://dbpedia.org/ontology/Parish' => ['Parish', 1681], 
+                    'http://dbpedia.org/ontology/Country' => ['Country', 1402]
+                ];
+                
+                foreach ($locationProperties as $propertyUri => $propertyInfo) {
+                    if (isset($rdfData[$locationUri][$propertyUri])) {
+                        $propertyLabel = $propertyInfo[0];
+                        $propertyId = $propertyInfo[1];
+                        
+                        foreach ($rdfData[$locationUri][$propertyUri] as $propObj) {
+                            if ($propObj['type'] === 'uri') {
+                                // Extract name from DBpedia URI
+                                $parts = explode('/', $propObj['value']);
+                                $value = str_replace('_', ' ', end($parts));
                                 
-                                // Add District as a separate field
-                                if (!isset($itemData['District'])) {
-                                    $itemData['District'] = [];
+                                if (!isset($itemData[$propertyLabel])) {
+                                    $itemData[$propertyLabel] = [];
                                 }
                                 
-                                $itemData['District'][] = [
+                                $itemData[$propertyLabel][] = [
                                     'type' => 'literal',
-                                    'property_id' => 1555, // Use an appropriate property ID
-                                    '@value' => $districtName
+                                    'property_id' => $propertyId,
+                                    '@value' => $value
                                 ];
-                            }
-                        }
-                    }
-                }
-
-                // Parish - similar modification
-                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/Parish'])) {
-                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/Parish'] as $parishObj) {
-                        if ($parishObj['type'] === 'uri') {
-                            $parishUri = $parishObj['value'];
-                            if (isset($rdfData[$parishUri])) {
-                                $parts = explode('/', $parishUri);
-                                $parishName = end($parts);
                                 
-                                // Add Parish as a separate field
-                                if (!isset($itemData['Parish'])) {
-                                    $itemData['Parish'] = [];
-                                }
-                                
-                                $itemData['Parish'][] = [
-                                    'type' => 'literal',
-                                    'property_id' => 1681, // Use an appropriate property ID
-                                    '@value' => $parishName
-                                ];
-                            }
-                        }
-                    }
-                }
-
-                // Country - similar modification
-                if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/Country'])) {
-                    foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/Country'] as $countryObj) {
-                        if ($countryObj['type'] === 'uri') {
-                            $countryUri = $countryObj['value'];
-                            if (isset($rdfData[$countryUri])) {
-                                $parts = explode('/', $countryUri);
-                                $countryName = end($parts);
-                                
-                                // Add Country as a separate field
-                                if (!isset($itemData['Country'])) {
-                                    $itemData['Country'] = [];
-                                }
-                                
-                                $itemData['Country'][] = [
-                                    'type' => 'literal',
-                                    'property_id' => 1402, // Use an appropriate property ID
-                                    '@value' => $countryName
-                                ];
+                                error_log("Added $propertyLabel: $value", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                             }
                         }
                     }
@@ -3725,6 +3577,8 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
             }
         }
     }
+    
+    // Process archaeologist
     if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'])) {
         foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'] as $archaeologistObj) {
             if ($archaeologistObj['type'] === 'uri' && isset($rdfData[$archaeologistObj['value']])) {
@@ -3734,41 +3588,42 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                 $archaeologistData = $this->extractArchaeologistData($rdfData, $archaeologistUri);
                 
                 if ($archaeologistData) {
-                    // Find or create archaeologist item
-                    $archaeologistItem = $this->findOrCreateArchaeologist($archaeologistData);
-                    
-                    if ($archaeologistItem) {
-                        if (!isset($itemData['Person in Charge'])) {
-                            $itemData['Person in Charge'] = [];
-                        }
-                        
-                        $itemData['Person in Charge'][] = [
-                            'type' => 'resource',
-                            'property_id' => 7665, // Use appropriate property ID
-                            'value_resource_id' => $archaeologistItem->id(),
-                            'o:label' => $archaeologistData['name'] ?: $archaeologistData['orcid']
-                        ];
-                        
-                        error_log("Linked archaeologist {$archaeologistItem->id()} to excavation", 3, OMEKA_PATH . '/logs/archaeologist.log');
-                    } else {
-                        // Fallback to literal
-                        if (!isset($itemData['Person in Charge'])) {
-                            $itemData['Person in Charge'] = [];
-                        }
-                        
-                        $itemData['Person in Charge'][] = [
-                            'type' => 'literal',
-                            'property_id' => 7665,
-                            '@value' => $archaeologistData['name'] ?: $archaeologistData['orcid']
-                        ];
+                    if (!isset($itemData['Person in Charge'])) {
+                        $itemData['Person in Charge'] = [];
                     }
+                    
+                    $itemData['Person in Charge'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7665,
+                        '@value' => $archaeologistData['name'] ?: $archaeologistData['orcid']
+                    ];
                 }
             }
         }
     }
     
+    // Process contexts
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'] as $contextObj) {
+            if ($contextObj['type'] === 'uri') {
+                $contextId = $this->extractResourceIdentifier($rdfData, $contextObj['value']);
+                if ($contextId) {
+                    if (!isset($itemData['Excavation - hasContext'])) {
+                        $itemData['Excavation - hasContext'] = [];
+                    }
+                    
+                    $itemData['Excavation - hasContext'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7666,
+                        '@value' => $contextId
+                    ];
+                }
+            }
+        }
+    }
+    
+    error_log('Finished processing excavation data', 3, OMEKA_PATH . '/logs/excavation-processing.log');
 }
-
 
 /**
  * Process square specific data
@@ -3929,6 +3784,7 @@ private function extractArchaeologistData($rdfData, $archaeologistUri) {
  * Extract location name from URI
  */
 private function extractLocationName($rdfData, $locationUri) {
+    // Get the informationName property
     if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/informationName'])) {
         foreach ($rdfData[$locationUri]['http://dbpedia.org/ontology/informationName'] as $nameObj) {
             if ($nameObj['type'] === 'literal') {
@@ -3936,6 +3792,7 @@ private function extractLocationName($rdfData, $locationUri) {
             }
         }
     }
+    
     return null;
 }
 

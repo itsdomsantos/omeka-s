@@ -33910,3 +33910,54 @@ _:cd7732f5-bee1-4446-991d-886099dbeab2-26 <http://www.w3.org/ns/shacl#datatype> 
 
 2025-05-27T21:39:08+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-05-28T10:13:33+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-28T10:40:22+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-28T10:57:06+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-28T10:58:22+00:00 INFO (6): Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac913322 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac913322 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac913322 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac913322 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac913323 .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/6836ec42c2b62/location/testedeitemset> .
+_:7975660053a04e57a418b233e75681ac913323 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/informationName> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#sourceShape> _:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 .
+_:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/informationName> .
+_:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+
+Failed to upload data: Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac913322 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac913322 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac913322 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac913322 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac913323 .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/6836ec42c2b62/location/testedeitemset> .
+_:7975660053a04e57a418b233e75681ac913323 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/informationName> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#sourceShape> _:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 .
+_:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/informationName> .
+_:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+2025-05-28T10:58:22+00:00 ERR (3): Failed to upload data: Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac913322 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac913322 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac913322 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac913322 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac913323 .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/6836ec42c2b62/location/testedeitemset> .
+_:7975660053a04e57a418b233e75681ac913323 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/informationName> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac913323 <http://www.w3.org/ns/shacl#sourceShape> _:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 .
+_:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/informationName> .
+_:25d0a5a7-9db6-49d5-8ea8-e8df6ff92bfb-8 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+
+2025-05-28T11:07:19+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-28T11:21:11+00:00 INFO (6): Response Status: 500 | Response Body: Invalid IRI value
+Failed to upload data: Response Status: 500 | Response Body: Invalid IRI value2025-05-28T11:21:11+00:00 ERR (3): Failed to upload data: Response Status: 500 | Response Body: Invalid IRI value
+2025-05-28T11:28:01+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-28T11:30:10+00:00 INFO (6): Response Status: 204 | Response Body:
