@@ -27,48 +27,60 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
     <div class="resource-content">
         <div class="resource-main">
             <?php if ($resourceType === 'item_set'): ?>
-                <div class="excavation-details">
-                    <div class="metadata-section">
-                        <h2>Excavation Details</h2>
-                        <table class="metadata-table">
-                            <?php foreach ($properties as $property): ?>
-                                <tr>
-                                    <th><?php echo $this->escapeHtml($property['label']); ?></th>
-                                    <td>
-                                        <?php foreach ($property['values'] as $value): ?>
-                                            <div class="value">
-                                                <?php echo $value->type() === 'uri' ? '<a href="' . $this->escapeHtml($value->uri()) . '">' . $this->escapeHtml($value->value()) . '</a>' : $this->escapeHtml($value->value()); ?>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </td>
-                                </tr>
+    <div class="excavation-details">
+        <div class="metadata-section">
+            <h2>Excavation Details</h2>
+            <table class="metadata-table">
+                <?php foreach ($properties as $property): ?>
+                    <tr>
+                        <th><?php echo $this->escapeHtml($property['label']); ?></th>
+                        <td>
+                            <?php foreach ($property['values'] as $value): ?>
+                                <div class="value">
+                                    <?php echo $value->type() === 'uri' ? '<a href="' . $this->escapeHtml($value->uri()) . '">' . $this->escapeHtml($value->value()) . '</a>' : $this->escapeHtml($value->value()); ?>
+                                </div>
                             <?php endforeach; ?>
-                        </table>
-                    </div>
-                    
-                    <?php if (!empty($relatedItems)): ?>
-                        <div class="related-items">
-                            <h2>Artifacts in this Excavation (<?php echo count($relatedItems); ?>)</h2>
-                            <div class="result-cards">
-                                <?php foreach ($relatedItems as $item): ?>
-                                    <div class="result-card">
-                                        <?php if ($item->thumbnail()): ?>
-                                            <div class="thumbnail">
-                                                <img src="<?php echo $this->escapeHtml($item->thumbnail()->assetUrl()); ?>" alt="<?php echo $this->escapeHtml($item->displayTitle()); ?>">
-                                            </div>
-                                        <?php endif; ?>
-                                        <h4><?php echo $this->escapeHtml($item->displayTitle()); ?></h4>
-                                        <?php if ($item->displayDescription()): ?>
-                                            <div class="description"><?php echo $this->escapeHtml(substr($item->displayDescription(), 0, 100)); ?>...</div>
-                                        <?php endif; ?>
-                                        <div class="actions">
-                                            <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()], ['query' => ['id' => $item->id(), 'type' => 'item']]); ?>" class="details-button">View Details</a>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+            </table>
+        </div>
+        
+        <!-- Console Debug Script -->
+        <script>
+            console.log('=== EXCAVATION PAGE DEBUG ===');
+            console.log('Resource Type:', <?php echo json_encode($resourceType); ?>);
+            console.log('Related Items Count:', <?php echo count($relatedItems ?? []); ?>);
+            console.log('Related Items Empty?', <?php echo empty($relatedItems) ? 'true' : 'false'; ?>);
+            console.log('Related Items Array:', <?php echo json_encode($relatedItems ?? []); ?>);
+            <?php if (!empty($relatedItems)): ?>
+                console.log('First item title:', <?php echo json_encode($relatedItems[0]->displayTitle()); ?>);
+            <?php endif; ?>
+        </script>
+        
+        <?php if (!empty($relatedItems)): ?>
+            <div class="related-items">
+                <h2>Artifacts in this Excavation (<?php echo count($relatedItems); ?>)</h2>
+                <div class="result-cards">
+                    <?php foreach ($relatedItems as $item): ?>
+                        <div class="result-card">
+                            <?php if ($item->thumbnail()): ?>
+                                <div class="thumbnail">
+                                    <img src="<?php echo $this->escapeHtml($item->thumbnail()->assetUrl()); ?>" alt="<?php echo $this->escapeHtml($item->displayTitle()); ?>">
+                                </div>
+                            <?php endif; ?>
+                            <h4><?php echo $this->escapeHtml($item->displayTitle()); ?></h4>
+                            <?php if ($item->displayDescription()): ?>
+                                <div class="description"><?php echo $this->escapeHtml(substr($item->displayDescription(), 0, 100)); ?>...</div>
+                            <?php endif; ?>
+                            <div class="actions">
+                                <a href="<?php echo $this->url('site/add-triplestore/view-details', ['site-slug' => $site->slug()], ['query' => ['id' => $item->id(), 'type' => 'item']]); ?>" class="details-button">View Details</a>
                             </div>
                         </div>
-                    <?php else: ?>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php else: ?>
                         <div class="no-related-items">
                             <p>No artifacts found in this excavation.</p>
                             <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $resource->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add Artifacts to this Excavation</a>

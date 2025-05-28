@@ -2408,9 +2408,9 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
  */
 private function extractIdentifier($rdfData, $subject) {
     if (isset($rdfData[$subject]['http://purl.org/dc/terms/identifier'])) {
-        foreach ($rdfData[$subject]['http://purl.org/dc/terms/identifier'] as $object) {
-            if ($object['type'] === 'literal') {
-                return $object['value'];
+        foreach ($rdfData[$subject]['http://purl.org/dc/terms/identifier'] as $idObj) {
+            if ($idObj['type'] === 'literal') {
+                return $idObj['value'];
             }
         }
     }
@@ -3870,7 +3870,7 @@ private function processContextData($rdfData, $subject, &$itemData) {
                         
                         $itemData['Stratigraphic Units'][] = [
                             'type' => 'resource',
-                            'property_id' => 7667, // Use appropriate property ID for SVU
+                            'property_id' => 7667, // Use the appropriate property ID for SVU
                             'value_resource_id' => $linkedItem->id(),
                             'o:label' => $svuId
                         ];
@@ -3955,51 +3955,32 @@ private function processSVUData($rdfData, $subject, &$itemData) {
             $term = $mapping[0];
             $propertyId = $mapping[1];
             
-            if (!isset($itemData[$term])) {
-                $itemData[$term] = [];
-            }
-            
-            foreach ($rdfData[$subject][$predicate] as $object) {
-                if ($object['type'] === 'uri') {
-                    // For timeline references, try to extract meaningful time range
-                    if ($predicate === 'https://purl.org/megalod/ms/excavation/hasTimeline') {
-                        $timelineUri = $object['value'];
-                        $timeRange = $this->extractTimelineRange($rdfData, $timelineUri);
-                        
-                        if ($timeRange) {
-                            $itemData[$term][] = [
-                                'type' => 'literal',
-                                'property_id' => $propertyId,
-                                '@value' => $timeRange
-                            ];
-                        } else {
-                            // Fall back to URI ID if time range not found
-                            $parts = explode('/', $object['value']);
-                            $value = end($parts);
-                            
-                            $itemData[$term][] = [
-                                'type' => 'literal',
-                                'property_id' => $propertyId,
-                                '@value' => $value
-                            ];
+            foreach ($rdfData[$subject][$predicate] as $measObj) {
+                if ($measObj['type'] === 'uri' && isset($rdfData[$measObj['value']])) {
+                    $measUri = $measObj['value'];
+                    
+                    // Extract value and unit
+                    $value = $this->extractMeasurementValue($rdfData, $measUri);
+                    $unit = $this->extractMeasurementUnit($rdfData, $measUri);
+                    
+                    if ($value !== null) {
+                        $displayValue = $value;
+                        if ($unit) {
+                            $displayValue .= " " . $unit;
                         }
-                    } else {
-                        // For other URI properties, extract the ID part
-                        $parts = explode('/', $object['value']);
-                        $value = end($parts);
+                        
+                        if (!isset($itemData[$term])) {
+                            $itemData[$term] = [];
+                        }
                         
                         $itemData[$term][] = [
                             'type' => 'literal',
                             'property_id' => $propertyId,
-                            '@value' => $value
+                            '@value' => $displayValue
                         ];
+                        
+                        error_log("Added measurement: $term = $displayValue", 3, OMEKA_PATH . '/logs/measurements.log');
                     }
-                } else if ($object['type'] === 'literal') {
-                    $itemData[$term][] = [
-                        'type' => 'literal',
-                        'property_id' => $propertyId,
-                        '@value' => $object['value']
-                    ];
                 }
             }
         }
@@ -4146,8 +4127,8 @@ private function extractSVUDescription($rdfData, $svuUri) {
  * Extract timeline range as a formatted string
  */
 private function extractTimelineRange($rdfData, $timelineUri) {
-    $beginYear = null;
-    $beginBC = null;
+    $beginningYear = null;
+    $beginningBC = null;
     $endYear = null;
     $endBC = null;
     
@@ -4161,7 +4142,7 @@ private function extractTimelineRange($rdfData, $timelineUri) {
                 if (isset($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
                     foreach ($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
                         if ($yearObj['type'] === 'literal') {
-                            $beginYear = $yearObj['value'];
+                            $beginningYear = $yearObj['value'];
                         }
                     }
                 }
@@ -4172,7 +4153,7 @@ private function extractTimelineRange($rdfData, $timelineUri) {
                         if ($bcObj['type'] === 'uri') {
                             $parts = explode('/', $bcObj['value']);
                             $bcacValue = end($parts);
-                            $beginBC = ($bcacValue === 'BC');
+                            $beginningBC = ($bcacValue === 'BC');
                         }
                     }
                 }
@@ -4210,10 +4191,10 @@ private function extractTimelineRange($rdfData, $timelineUri) {
     }
     
     // Format timeline range
-    if ($beginYear && $endYear) {
-        $beginText = $beginYear;
-        if ($beginBC !== null) {
-            $beginText .= ' ' . ($beginBC ? 'BC' : 'AC');
+    if ($beginningYear && $endYear) {
+        $beginText = $beginningYear;
+        if ($beginningBC !== null) {
+            $beginText .= ' ' . ($beginningBC ? 'BC' : 'AC');
         }
         
         $endText = $endYear;
@@ -4222,10 +4203,10 @@ private function extractTimelineRange($rdfData, $timelineUri) {
         }
         
         return "$beginText to $endText";
-    } else if ($beginYear) {
-        $beginText = $beginYear;
-        if ($beginBC !== null) {
-            $beginText .= ' ' . ($beginBC ? 'BC' : 'AC');
+    } else if ($beginningYear) {
+        $beginText = $beginningYear;
+        if ($beginningBC !== null) {
+            $beginText .= ' ' . ($beginningBC ? 'BC' : 'AC');
         }
         
         return "From $beginText";
@@ -4456,9 +4437,7 @@ private function determineItemType($subjectType) {
         ]);
     }
     
-/**
- * View details for a specific item or item set
- */
+
 public function viewDetailsAction()
 {
     $request = $this->getRequest();
@@ -4471,31 +4450,61 @@ public function viewDetailsAction()
     
     $resource = null;
     $properties = [];
-    $relatedItems = [];
+    $relatedItems = []; // Initialize here
     
     try {
         if ($resourceType === 'item_set') {
             $resource = $this->api()->read('item_sets', $id)->getContent();
             
-            // Get items in this item set
-            $relatedItems = $this->api()->search('items', [
+            error_log("=== DEBUGGING ITEM SET $id ===", 3, OMEKA_PATH . '/logs/related-items-debug.log');
+            error_log("Item set title: " . $resource->displayTitle(), 3, OMEKA_PATH . '/logs/related-items-debug.log');
+            
+            // Try different search approaches
+            
+            // Approach 1: Direct item_set_id search
+            $searchParams1 = [
                 'item_set_id' => $id,
                 'sort_by' => 'created',
                 'sort_order' => 'desc',
                 'per_page' => 50
-            ])->getContent();
+            ];
+            
+            error_log("Search params 1: " . print_r($searchParams1, true), 3, OMEKA_PATH . '/logs/related-items-debug.log');
+            
+            $response1 = $this->api()->search('items', $searchParams1);
+            $relatedItems = $response1->getContent();
+            $totalResults1 = $response1->getTotalResults();
+            
+            error_log("Approach 1 - Found $totalResults1 items using item_set_id", 3, OMEKA_PATH . '/logs/related-items-debug.log');
+            
+            // Approach 2: If no results, try searching all items and filter
+            if (empty($relatedItems)) {
+                error_log("Trying approach 2 - searching all items", 3, OMEKA_PATH . '/logs/related-items-debug.log');
+                
+                $allItemsResponse = $this->api()->search('items', ['per_page' => 100]);
+                $allItems = $allItemsResponse->getContent();
+                
+                error_log("Total items in system: " . count($allItems), 3, OMEKA_PATH . '/logs/related-items-debug.log');
+                
+                foreach ($allItems as $item) {
+                    $itemSets = $item->itemSets();
+                    foreach ($itemSets as $itemSet) {
+                        if ($itemSet->id() == $id) {
+                            $relatedItems[] = $item;
+                            error_log("Found item: " . $item->displayTitle() . " (ID: " . $item->id() . ")", 3, OMEKA_PATH . '/logs/related-items-debug.log');
+                        }
+                    }
+                }
+            }
+            
+            error_log("Final count of related items: " . count($relatedItems), 3, OMEKA_PATH . '/logs/related-items-debug.log');
+            
         } else {
             $resource = $this->api()->read('items', $id)->getContent();
         }
         
         // Get all values using the proper Omeka S method
         $values = $resource->values();
-        
-        // Debug: Let's see the actual structure for one property
-        if (!empty($values)) {
-            $firstTerm = array_keys($values)[0];
-            $firstProperty = $values[$firstTerm];
-        }
         
         foreach ($values as $term => $propertyData) {
             try {
@@ -4504,7 +4513,7 @@ public function viewDetailsAction()
                     continue;
                 }
                 
-                $propertyLabel = $this->getHumanReadableLabel($term); // Create readable labels from terms
+                $propertyLabel = $this->getHumanReadableLabel($term);
                 $propertyValues = [];
                 
                 // Handle different possible structures
@@ -4573,6 +4582,8 @@ public function viewDetailsAction()
         return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
     }
     
+    error_log("Passing " . count($relatedItems) . " related items to view", 3, OMEKA_PATH . '/logs/related-items-debug.log');
+    
     return new ViewModel([
         'resource' => $resource,
         'resourceType' => $resourceType,
@@ -4600,15 +4611,7 @@ private function getHumanReadableLabel($term)
         'geo:long' => 'Longitude',
         'ah:shape' => 'Shape',
         'ah:variant' => 'Variant',
-        'ah:base' => 'Base',
-        'ah:point' => 'Point',
-        'ah:body' => 'Body',
-        'ah:chippingMode' => 'Chipping Mode',
-        'ah:chippingAmplitude' => 'Chipping Amplitude',
-        'ah:chippingDirection' => 'Chipping Direction',
-        'ah:chippingOrientation' => 'Chipping Orientation',
-        'ah:chippingDelineation' => 'Chipping Delineation',
-        'ah:chippingShape' => 'Chipping Shape',
+        'ah:hasMorphology' => 'Morphology',
         'excav:elongationIndex' => 'Elongation Index',
         'excav:thicknessIndex' => 'Thickness Index',
         'schema:height' => 'Height',
