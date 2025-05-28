@@ -405,19 +405,24 @@ private function processArchaeologistDataFromForm($formData)
     return $archaeologistData;
 }
 
+
+
 /**
- * Process excavation form data and generate TTL
+ * Process excavation form data and generate TTL - IMPROVED URI GENERATION
  */
 private function processExcavationFormData($excavationData, $excavationIdentifier)
 {
     error_log('Processing excavation form data for: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-ttl.log');
     
-    // Generate base URIs with proper site name handling
-    $baseUri = "https://purl.org/megalod/" . uniqid();
+    // USE THE EXCAVATION IDENTIFIER INSTEAD OF RANDOM HASH
+    $baseUri = "https://purl.org/megalod/" . $excavationIdentifier;
     $excavationUri = "$baseUri/excavation/$excavationIdentifier";
+    
+    // Create consistent, readable URIs
     $siteName = $excavationData['site_name'] ?? 'unknown';
-    $locationUri = "$baseUri/location/" . $this->sanitizeForUri($siteName);
-    $gpsUri = "$baseUri/gps/" . $this->sanitizeForUri($siteName);
+    $siteSlug = $this->createUrlSlug($siteName);
+    $locationUri = "$baseUri/location/$siteSlug";
+    $gpsUri = "$baseUri/gps/$siteSlug";
     
     // Build TTL data
     $ttl = $this->getTtlPrefixes();
@@ -436,11 +441,10 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
     }
     
     // Add contexts and other entities
-    $entityUris = [];
     if (!empty($excavationData['entities']['contexts'])) {
         foreach ($excavationData['entities']['contexts'] as $index => $context) {
-            $contextUri = "$baseUri/context/" . $this->sanitizeForUri($context['context_id']);
-            $entityUris['contexts'][] = $contextUri;
+            $contextSlug = $this->createUrlSlug($context['context_id']);
+            $contextUri = "$baseUri/context/$contextSlug";
             $ttl .= "    excav:hasContext <$contextUri> ;\n";
         }
     }
@@ -448,15 +452,15 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
     // Add squares
     if (!empty($excavationData['entities']['squares'])) {
         foreach ($excavationData['entities']['squares'] as $square) {
-            $squareUri = "$baseUri/square/" . $this->sanitizeForUri($square['square_id']);
-            $entityUris['squares'][] = $squareUri;
+            $squareSlug = $this->createUrlSlug($square['square_id']);
+            $squareUri = "$baseUri/square/$squareSlug";
             $ttl .= "    excav:hasSquare <$squareUri> ;\n";
         }
     }
     
     $ttl .= "    .\n\n";
     
-    // Add location
+    // Add location with improved URI
     $ttl .= $this->generateLocationTtl($locationUri, $gpsUri, $excavationData);
     
     // Add archaeologist entity if it's a new one
@@ -465,34 +469,37 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
         $ttl .= $this->generateArchaeologistTtl($archaeologistUri, $excavationData['archaeologist']);
     }
     
-    // Add contexts
+    // Add contexts with improved URIs
     if (!empty($excavationData['entities']['contexts'])) {
         foreach ($excavationData['entities']['contexts'] as $index => $context) {
-            $contextUri = "$baseUri/context/" . $this->sanitizeForUri($context['context_id']);
+            $contextSlug = $this->createUrlSlug($context['context_id']);
+            $contextUri = "$baseUri/context/$contextSlug";
             $ttl .= $this->generateContextTtl($contextUri, $context, $excavationData['entities'], $baseUri);
         }
     }
     
-    // Add SVUs
+    // Add SVUs with improved URIs
     if (!empty($excavationData['entities']['svus'])) {
         foreach ($excavationData['entities']['svus'] as $svu) {
-            $svuUri = "$baseUri/svu/" . $this->sanitizeForUri($svu['svu_id']);
+            $svuSlug = $this->createUrlSlug($svu['svu_id']);
+            $svuUri = "$baseUri/svu/$svuSlug";
             $ttl .= $this->generateSvuTtl($svuUri, $svu);
         }
     }
     
-    // Add squares
+    // Add squares with improved URIs
     if (!empty($excavationData['entities']['squares'])) {
         foreach ($excavationData['entities']['squares'] as $square) {
-            $squareUri = "$baseUri/square/" . $this->sanitizeForUri($square['square_id']);
+            $squareSlug = $this->createUrlSlug($square['square_id']);
+            $squareUri = "$baseUri/square/$squareSlug";
             $ttl .= $this->generateSquareTtl($squareUri, $square);
         }
     }
     
-    // Add encounter events
+    // Add encounter events with improved URIs
     if (!empty($excavationData['entities']['encounters'])) {
-        foreach ($excavationData['entities']['encounters'] as $encounter) {
-            $encounterUri = "$baseUri/encounter/" . uniqid();
+        foreach ($excavationData['entities']['encounters'] as $index => $encounter) {
+            $encounterUri = "$baseUri/encounter/encounter-" . ($index + 1);
             $ttl .= $this->generateEncounterTtl($encounterUri, $encounter, $excavationUri);
         }
     }
@@ -503,7 +510,28 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
 }
 
 /**
- * Process archaeologist data for TTL generation
+ * Create a proper URL slug from a string
+ */
+private function createUrlSlug($string) {
+    // Convert to lowercase
+    $slug = strtolower($string);
+    
+    // Replace spaces and special characters with hyphens
+    $slug = preg_replace('/[^a-z0-9]+/', '-', $slug);
+    
+    // Remove leading/trailing hyphens
+    $slug = trim($slug, '-');
+    
+    // Handle empty slugs
+    if (empty($slug)) {
+        $slug = 'unknown';
+    }
+    
+    return $slug;
+}
+
+/**
+ * Process archaeologist data for TTL generation - IMPROVED URI
  */
 private function processArchaeologistForTtl($archaeologistData, $baseUri)
 {
@@ -511,9 +539,9 @@ private function processArchaeologistForTtl($archaeologistData, $baseUri)
         // Use existing archaeologist - create URI based on item ID
         return "$baseUri/archaeologist/item-" . $archaeologistData['item_id'];
     } elseif (!empty($archaeologistData['name'])) {
-        // Create new archaeologist
-        $archaeologistUri = "$baseUri/archaeologist/" . $this->sanitizeForUri($archaeologistData['name']);
-        return $archaeologistUri;
+        // Create new archaeologist with readable URI
+        $nameSlug = $this->createUrlSlug($archaeologistData['name']);
+        return "$baseUri/archaeologist/$nameSlug";
     }
     
     return null;
