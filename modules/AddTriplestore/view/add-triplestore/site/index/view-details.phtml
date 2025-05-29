@@ -218,21 +218,53 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
     
     <?php if ($resourceType === 'Excavation'): ?>
         <div class="item-set-items">
-            <h2>Artifacts in this Excavation</h2>
+            <h2>Items in this Excavation</h2>
             
             <?php 
-            // Don't use $resource->items() - it doesn't exist
-            // Instead use the $relatedItems variable which is already populated
-            $itemCount = count($relatedItems ?? []);
+            // Filter the related items to only show arrowheads
+            $arrowheadItems = [];
+            if (!empty($relatedItems)) {
+                foreach ($relatedItems as $item) {
+                    // Check if this item is an arrowhead (you may need to adjust this condition based on your data model)
+                    $isArrowhead = false;
+                    
+                    // Method 1: Check by resource class if you have a class for arrowheads
+                    $resourceClass = $item->resourceClass();
+                    if ($resourceClass && $resourceClass->term() === 'ah:Arrowhead') {
+                        $isArrowhead = true;
+                    }
+                    
+                    // Method 2: Check by resource template if you use templates to distinguish arrowheads
+                    $resourceTemplate = $item->resourceTemplate();
+                    if ($resourceTemplate && 
+                        (strpos(strtolower($resourceTemplate->label()), 'arrowhead') !== false)) {
+                        $isArrowhead = true;
+                    }
+                    
+                    // Method 3: Check by title or specific property that identifies arrowheads
+                    $title = strtolower($item->displayTitle());
+                    if (strpos($title, 'arrowhead') !== false || 
+                        strpos($title, 'arrow head') !== false ||
+                        strpos($title, 'point') !== false) {
+                        $isArrowhead = true;
+                    }
+                    
+                    if ($isArrowhead) {
+                        $arrowheadItems[] = $item;
+                    }
+                }
+            }
+            
+            $itemCount = count($arrowheadItems);
             ?>
             
             <?php if ($itemCount > 0): ?>
                 <div class="item-count-summary">
-                    <p>This excavation contains <?php echo $itemCount; ?> artifact<?php echo $itemCount !== 1 ? 's' : ''; ?>.</p>
+                    <p>This excavation contains <?php echo $itemCount; ?> arrowhead<?php echo $itemCount !== 1 ? 's' : ''; ?>.</p>
                 </div>
                 
                 <div class="item-grid">
-                    <?php foreach ($relatedItems as $item): ?>
+                    <?php foreach ($arrowheadItems as $item): ?>
                         <div class="item-card">
                             <?php if ($item->thumbnail()): ?>
                                 <div class="thumbnail">
@@ -256,12 +288,12 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
                 </div>
                 
                 <div class="add-artifacts-action">
-                    <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $resource->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add New Artifacts</a>
+                    <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $resource->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add New Arrowheads</a>
                 </div>
             <?php else: ?>
                 <div class="no-items">
-                    <p>There are no artifacts in this excavation yet.</p>
-                    <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $resource->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add Artifacts</a>
+                    <p>There are no arrowheads in this excavation yet.</p>
+                    <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $resource->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add Arrowheads</a>
                 </div>
             <?php endif; ?>
         </div>

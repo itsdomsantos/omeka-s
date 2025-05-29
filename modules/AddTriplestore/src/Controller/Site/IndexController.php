@@ -3095,7 +3095,22 @@ private function extractMeasurementUnit($rdfData, $typometryUri) {
 /**
  * Enhanced findItemByIdentifier with comprehensive search strategies
  */
-private function findItemByIdentifier($identifier) {
+private function findItemByIdentifier($identifier,  $itemSetId = null) {
+    $searchParams = [
+        'property' => [
+            [
+                'property' => 10, // dcterms:identifier property ID
+                'type' => 'eq',
+                'text' => $identifier
+            ]
+        ],
+        'limit' => 1
+    ];
+    if ($itemSetId) {
+        $searchParams['item_set_id'] = $itemSetId;
+    }
+    $response = $this->api()->search('items', $searchParams);
+
     try {
         error_log("Searching for item with identifier: '$identifier'", 3, OMEKA_PATH . '/logs/resource-links.log');
         
