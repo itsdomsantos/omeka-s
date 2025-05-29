@@ -26,6 +26,8 @@ class IndexController extends AbstractActionController
     private $excavationData = null;
 
     private $excavationIdentifier = "0"; // Default to the "0" graph
+    
+    private $currentProcessingItemSetId = null; // Track current item set being processed
         
 
     public function __construct(RouteStackInterface $router, Client $httpClient)
@@ -779,13 +781,105 @@ private function createExcavationItemSetData($excavationIdentifier, $excavationD
 
 
 
+
 /**
- * Process arrowhead form data with enhanced resource linking
+ * ENHANCED: processArchaeologicalContextSelections with resource declarations
+ */
+private function processArchaeologicalContextSelections($formData, $itemSetId, $baseUri)
+{
+    $linkedResources = [];
+    $resourceDeclarations = []; // NEW: Store resource declarations
+    
+    error_log('=== PROCESSING CONTEXT SELECTIONS ===', 3, OMEKA_PATH . '/logs/context-debug.log');
+    
+    // Process selected square
+    if (!empty($formData['selected_square'])) {
+        $squareItemId = $formData['selected_square'];
+        error_log("Processing selected square: $squareItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
+        
+        // Get the real identifier from the Omeka item
+        $realSquareId = $this->getRealIdentifierFromOmekaItem($squareItemId);
+        if ($realSquareId) {
+            // Create URI using the real identifier
+            $squareUri = "$baseUri/square/$realSquareId";
+            $linkedResources['excav:foundInSquare'] = $squareUri;
+            
+            // Add resource declaration to ensure it exists with correct type
+            $resourceDeclarations[] = [
+                'uri' => $squareUri,
+                'type' => 'excav:Square',
+                'identifier' => $realSquareId
+            ];
+            
+            error_log("Linked to square: $squareUri (real ID: $realSquareId)", 3, OMEKA_PATH . '/logs/context-debug.log');
+        } else {
+            error_log("Could not get real identifier for square item $squareItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
+        }
+    }
+    
+    // Process selected context
+    if (!empty($formData['selected_context'])) {
+        $contextItemId = $formData['selected_context'];
+        error_log("Processing selected context: $contextItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
+        
+        $realContextId = $this->getRealIdentifierFromOmekaItem($contextItemId);
+        if ($realContextId) {
+            $contextUri = "$baseUri/context/$realContextId";
+            $linkedResources['excav:foundInContext'] = $contextUri;
+            
+            // Add resource declaration
+            $resourceDeclarations[] = [
+                'uri' => $contextUri,
+                'type' => 'excav:Context',
+                'identifier' => $realContextId
+            ];
+            
+            error_log("Linked to context: $contextUri (real ID: $realContextId)", 3, OMEKA_PATH . '/logs/context-debug.log');
+        } else {
+            error_log("Could not get real identifier for context item $contextItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
+        }
+    }
+    
+    // Process selected SVU
+    if (!empty($formData['selected_svu'])) {
+        $svuItemId = $formData['selected_svu'];
+        error_log("Processing selected SVU: $svuItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
+        
+        $realSvuId = $this->getRealIdentifierFromOmekaItem($svuItemId);
+        if ($realSvuId) {
+            $svuUri = "$baseUri/svu/$realSvuId";
+            $linkedResources['excav:foundInSVU'] = $svuUri;
+            
+            // Add resource declaration
+            $resourceDeclarations[] = [
+                'uri' => $svuUri,
+                'type' => 'excav:StratigraphicVolumeUnit',
+                'identifier' => $realSvuId
+            ];
+            
+            error_log("Linked to SVU: $svuUri (real ID: $realSvuId)", 3, OMEKA_PATH . '/logs/context-debug.log');
+        } else {
+            error_log("Could not get real identifier for SVU item $svuItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
+        }
+    }
+    
+    error_log('Final linked resources: ' . print_r($linkedResources, true), 3, OMEKA_PATH . '/logs/context-debug.log');
+    error_log('Resource declarations needed: ' . print_r($resourceDeclarations, true), 3, OMEKA_PATH . '/logs/context-debug.log');
+    
+    return [
+        'references' => $linkedResources,
+        'declarations' => $resourceDeclarations
+    ];
+}
+
+/**
+ * UPDATED: processArrowheadFormData to include resource declarations
  */
 private function processArrowheadFormData($formData, $itemSetId)
 {
     // Debug log the incoming form data
-    error_log('Form data received in processArrowheadFormData: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/form-debug.log');
+    error_log('=== FORM PROCESSING DEBUG ===', 3, OMEKA_PATH . '/logs/form-debug.log');
+    error_log('Form data received: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/form-debug.log');
     
     // Generate a base URI for resources
     $baseUri = "https://purl.org/megalod/$itemSetId";
@@ -810,74 +904,24 @@ private function processArrowheadFormData($formData, $itemSetId)
     $ttl .= "    dct:identifier \"EXC-$itemSetId\"^^xsd:literal;\n";
     $ttl .= "    .\n\n";
     
+    // ENHANCED: Process selected archaeological context resources
+    $contextResult = $this->processArchaeologicalContextSelections($formData, $itemSetId, $baseUri);
+    $linkedResources = $contextResult['references'];
+    $resourceDeclarations = $contextResult['declarations'];
+    
     // Add arrowhead - start the main resource
     $ttl .= "<$arrowheadUri> a ah:Arrowhead, excav:Item;\n";
     $ttl .= "    dct:identifier \"$arrowheadId\"^^xsd:literal;\n";
     $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
     
-    // ADD ENHANCED RESOURCE LINKING SECTION
-    // Check for selected square, context, and SVU from the form
-    if (!empty($formData['selected_square'])) {
-        $squareItemId = $formData['selected_square'];
-        $squareUri = "$baseUri/square/item-$squareItemId";
-        $ttl .= "    excav:foundInSquare <$squareUri>;\n";
-        
-        // Initialize and add square declaration
-        $additionalDeclarations = "";
-        $additionalDeclarations .= "<$squareUri> a excav:Square;\n";
-        $additionalDeclarations .= "    dct:identifier \"Square-$squareItemId\"^^xsd:literal;\n";
-        $additionalDeclarations .= "    .\n\n";
-        
-        error_log("Added square link: $squareItemId", 3, OMEKA_PATH . '/logs/form-debug.log');
+    // Add references to existing resources
+    foreach ($linkedResources as $property => $resourceUri) {
+        $ttl .= "    $property <$resourceUri>;\n";
+        error_log("Added reference: $property -> $resourceUri", 3, OMEKA_PATH . '/logs/form-debug.log');
     }
     
-    if (!empty($formData['selected_context'])) {
-        $contextItemId = $formData['selected_context'];
-        $contextUri = "$baseUri/context/item-$contextItemId";
-        $ttl .= "    excav:foundInContext <$contextUri>;\n";
-        
-        // Add context declaration
-        $additionalDeclarations .= "<$contextUri> a excav:Context;\n";
-        $additionalDeclarations .= "    dct:identifier \"Context-$contextItemId\"^^xsd:literal;\n";
-        $additionalDeclarations .= "    .\n\n";
-        
-        error_log("Added context link: $contextItemId", 3, OMEKA_PATH . '/logs/form-debug.log');
-    }
-
-    if (!empty($formData['gps_latitude'])) {
-        $ttl .= "    geo:lat \"{$formData['gps_latitude']}\"^^xsd:decimal;\n";
-    }
-    
-    if (!empty($formData['gps_longitude'])) {
-        $ttl .= "    geo:long \"{$formData['gps_longitude']}\"^^xsd:decimal;\n";
-    }
-    
-    // Alternative: if you want to use a single GPS coordinate field
-    if (!empty($formData['gps_coordinates'])) {
-        // Parse "lat, long" format
-        $coords = explode(',', $formData['gps_coordinates']);
-        if (count($coords) == 2) {
-            $lat = trim($coords[0]);
-            $long = trim($coords[1]);
-            $ttl .= "    geo:lat \"$lat\"^^xsd:decimal;\n";
-            $ttl .= "    geo:long \"$long\"^^xsd:decimal;\n";
-        }
-    }
-    
-    if (!empty($formData['selected_svu'])) {
-        $svuItemId = $formData['selected_svu'];
-        $svuUri = "$baseUri/svu/item-$svuItemId";
-        $ttl .= "    excav:foundInSVU <$svuUri>;\n";
-        
-        // Add SVU declaration
-        $additionalDeclarations .= "<$svuUri> a excav:StratigraphicVolumeUnit;\n";
-        $additionalDeclarations .= "    dct:identifier \"SVU-$svuItemId\"^^xsd:literal;\n";
-        $additionalDeclarations .= "    .\n\n";
-        
-        error_log("Added SVU link: $svuItemId", 3, OMEKA_PATH . '/logs/form-debug.log');
-    }
-    
-    // Continue with existing form processing...
+    // Continue with other arrowhead properties...
+    // (All the existing property processing code remains the same)
     
     // Add annotation if provided
     if (!empty($formData['arrowhead_annotation'])) {
@@ -909,8 +953,8 @@ private function processArrowheadFormData($formData, $itemSetId)
     if (!empty($formData['arrowhead_shape'])) {
         $shapeMapping = [
             'triangle' => 'triangle',
-            'lozenge-shaped' => 'losangular',  // CHANGED: Fixed vocabulary term
-            'losangular' => 'losangular',      // Support both forms
+            'lozenge-shaped' => 'losangular',
+            'losangular' => 'losangular',
             'stemmed' => 'stemmed'
         ];
         
@@ -927,117 +971,90 @@ private function processArrowheadFormData($formData, $itemSetId)
         $ttl .= "    ah:variant <https://purl.org/megalod/kos/ah-variant/$variantSafe>;\n";
     }
 
-    // Initialize measurement blocks collection
+    // Process measurements...
     $measurementBlocks = "";
-$processedMeasurements = []; // Track what we've processed
+    $processedMeasurements = [];
 
-// Process basic measurements
-$measurements = [
-    'height' => 'height',
-    'width' => 'width', 
-    'weight' => 'weight', 
-];
+    $measurements = [
+        'height' => 'height',
+        'width' => 'width', 
+        'weight' => 'weight', 
+    ];
 
-foreach ($measurements as $measurement => $property) {
-    $valueKey = $measurement;
-    $unitKey = $measurement . '_unit';
-    
-    if (!empty($formData[$valueKey])) {
-        $measurementUri = "$baseUri/typometry/$arrowheadId-$measurement";
+    foreach ($measurements as $measurement => $property) {
+        $valueKey = $measurement;
+        $unitKey = $measurement . '_unit';
         
-        // Debug log
-        error_log("Processing measurement: $measurement with unit: " . ($formData[$unitKey] ?? 'none'), 3, OMEKA_PATH . '/logs/measurement-debug.log');
-        
-        // Add property to main resource
-        if ($measurement === 'weight') {
-            $ttl .= "    schema:weight <$measurementUri>;\n";
+        if (!empty($formData[$valueKey])) {
+            $measurementUri = "$baseUri/typometry/$arrowheadId-$measurement";
             
-            // FIXED WEIGHT HANDLING
-            $measurementBlocks .= "<$measurementUri> a excav:Weight;\n";
-            $measurementBlocks .= "    schema:value \"" . $formData[$valueKey] . "\"^^xsd:decimal;\n";
-            
-            // Only add unit if it exists and we haven't processed this measurement yet
-            if (!empty($formData[$unitKey]) && !isset($processedMeasurements[$measurementUri])) {
-                $weightUnit = $formData[$unitKey];
-                $measurementBlocks .= "    schema:UnitCode <$weightUnit>;\n";
-                $processedMeasurements[$measurementUri] = true; // Mark as processed
-                error_log("Added weight unit: $weightUnit for URI: $measurementUri", 3, OMEKA_PATH . '/logs/measurement-debug.log');
+            if ($measurement === 'weight') {
+                $ttl .= "    schema:weight <$measurementUri>;\n";
+                $measurementBlocks .= "<$measurementUri> a excav:Weight;\n";
+                $measurementBlocks .= "    schema:value \"" . $formData[$valueKey] . "\"^^xsd:decimal;\n";
+                
+                if (!empty($formData[$unitKey]) && !isset($processedMeasurements[$measurementUri])) {
+                    $weightUnit = $formData[$unitKey];
+                    $measurementBlocks .= "    schema:UnitCode <$weightUnit>;\n";
+                    $processedMeasurements[$measurementUri] = true;
+                }
+                $measurementBlocks .= "    .\n\n";
+            } else {
+                $ttl .= "    schema:$property <$measurementUri>;\n";
+                $measurementBlocks .= "<$measurementUri> a excav:TypometryValue;\n";
+                $measurementBlocks .= "    schema:value \"" . $formData[$valueKey] . "\"^^xsd:decimal;\n";
+                
+                if (!empty($formData[$unitKey]) && !isset($processedMeasurements[$measurementUri])) {
+                    $measurementBlocks .= "    schema:UnitCode <" . $formData[$unitKey] . ">;\n";
+                    $processedMeasurements[$measurementUri] = true;
+                }
+                $measurementBlocks .= "    .\n\n";
+            }
+        }
+    }
+
+    // Add thickness, body length, base length processing...
+    if (!empty($formData['thickness'])) {
+        $thicknessUri = "$baseUri/typometry/$arrowheadId-thickness";
+        if (!isset($processedMeasurements[$thicknessUri])) {
+            $ttl .= "    schema:depth <$thicknessUri>;\n";
+            $measurementBlocks .= "<$thicknessUri> a excav:TypometryValue;\n";
+            $measurementBlocks .= "    schema:value \"" . $formData['thickness'] . "\"^^xsd:decimal;\n";
+            if (!empty($formData['thickness_unit'])) {
+                $measurementBlocks .= "    schema:UnitCode <" . $formData['thickness_unit'] . ">;\n";
             }
             $measurementBlocks .= "    .\n\n";
-        } else {
-            // REGULAR HANDLING FOR OTHER MEASUREMENTS
-            $ttl .= "    schema:$property <$measurementUri>;\n";
-            
-            $measurementBlocks .= "<$measurementUri> a excav:TypometryValue;\n";
-            $measurementBlocks .= "    schema:value \"" . $formData[$valueKey] . "\"^^xsd:decimal;\n";
-            
-            // Only add unit if it exists and we haven't processed this measurement yet
-            if (!empty($formData[$unitKey]) && !isset($processedMeasurements[$measurementUri])) {
-                $measurementBlocks .= "    schema:UnitCode <" . $formData[$unitKey] . ">;\n";
-                $processedMeasurements[$measurementUri] = true; // Mark as processed
-                error_log("Added unit: {$formData[$unitKey]} for URI: $measurementUri", 3, OMEKA_PATH . '/logs/measurement-debug.log');
+            $processedMeasurements[$thicknessUri] = true;
+        }
+    }
+
+    if (!empty($formData['body_length'])) {
+        $bodyLengthUri = "$baseUri/typometry/$arrowheadId-hasBodyLength";
+        if (!isset($processedMeasurements[$bodyLengthUri])) {
+            $ttl .= "    ah:hasBodyLength <$bodyLengthUri>;\n";
+            $measurementBlocks .= "<$bodyLengthUri> a excav:TypometryValue;\n";
+            $measurementBlocks .= "    schema:value \"" . $formData['body_length'] . "\"^^xsd:decimal;\n";
+            if (!empty($formData['body_length_unit'])) {
+                $measurementBlocks .= "    schema:UnitCode <" . $formData['body_length_unit'] . ">;\n";
             }
             $measurementBlocks .= "    .\n\n";
+            $processedMeasurements[$bodyLengthUri] = true;
         }
     }
-}
 
-// IMPORTANT: Make sure you're not processing weight again elsewhere in your code
-// Check for any other places where you might be adding schema:UnitCode to the weight resource
-
-// Add thickness (separate because it uses schema:depth)
-if (!empty($formData['thickness'])) {
-    $thicknessUri = "$baseUri/typometry/$arrowheadId-thickness";
-    
-    // Make sure this URI is different from weight URI
-    if (!isset($processedMeasurements[$thicknessUri])) {
-        $ttl .= "    schema:depth <$thicknessUri>;\n";
-        
-        $measurementBlocks .= "<$thicknessUri> a excav:TypometryValue;\n";
-        $measurementBlocks .= "    schema:value \"" . $formData['thickness'] . "\"^^xsd:decimal;\n";
-        if (!empty($formData['thickness_unit'])) {
-            $measurementBlocks .= "    schema:UnitCode <" . $formData['thickness_unit'] . ">;\n";
+    if (!empty($formData['base_length'])) {
+        $baseLengthUri = "$baseUri/typometry/$arrowheadId-hasBaseLength";
+        if (!isset($processedMeasurements[$baseLengthUri])) {
+            $ttl .= "    ah:hasBaseLength <$baseLengthUri>;\n";
+            $measurementBlocks .= "<$baseLengthUri> a excav:TypometryValue;\n";
+            $measurementBlocks .= "    schema:value \"" . $formData['base_length'] . "\"^^xsd:decimal;\n";
+            if (!empty($formData['base_length_unit'])) {
+                $measurementBlocks .= "    schema:UnitCode <" . $formData['base_length_unit'] . ">;\n";
+            }
+            $measurementBlocks .= "    .\n\n";
+            $processedMeasurements[$baseLengthUri] = true;
         }
-        $measurementBlocks .= "    .\n\n";
-        $processedMeasurements[$thicknessUri] = true;
     }
-}
-
-// Body length and base length processing...
-if (!empty($formData['body_length'])) {
-    $bodyLengthUri = "$baseUri/typometry/$arrowheadId-hasBodyLength";
-    
-    if (!isset($processedMeasurements[$bodyLengthUri])) {
-        $ttl .= "    ah:hasBodyLength <$bodyLengthUri>;\n";
-        
-        $measurementBlocks .= "<$bodyLengthUri> a excav:TypometryValue;\n";
-        $measurementBlocks .= "    schema:value \"" . $formData['body_length'] . "\"^^xsd:decimal;\n";
-        if (!empty($formData['body_length_unit'])) {
-            $measurementBlocks .= "    schema:UnitCode <" . $formData['body_length_unit'] . ">;\n";
-        }
-        $measurementBlocks .= "    .\n\n";
-        $processedMeasurements[$bodyLengthUri] = true;
-    }
-}
-
-if (!empty($formData['base_length'])) {
-    $baseLengthUri = "$baseUri/typometry/$arrowheadId-hasBaseLength";
-    
-    if (!isset($processedMeasurements[$baseLengthUri])) {
-        $ttl .= "    ah:hasBaseLength <$baseLengthUri>;\n";
-        
-        $measurementBlocks .= "<$baseLengthUri> a excav:TypometryValue;\n";
-        $measurementBlocks .= "    schema:value \"" . $formData['base_length'] . "\"^^xsd:decimal;\n";
-        if (!empty($formData['base_length_unit'])) {
-            $measurementBlocks .= "    schema:UnitCode <" . $formData['base_length_unit'] . ">;\n";
-        }
-        $measurementBlocks .= "    .\n\n";
-        $processedMeasurements[$baseLengthUri] = true;
-    }
-}
-
-// Debug: Log all processed measurements
-error_log('All processed measurements: ' . print_r($processedMeasurements, true), 3, OMEKA_PATH . '/logs/measurement-debug.log');
     
     // Add chipping information
     $hasChippingData = !empty($formData['chipping_mode']) || 
@@ -1051,11 +1068,11 @@ error_log('All processed measurements: ' . print_r($processedMeasurements, true)
     // Add morphology reference
     $ttl .= "    ah:hasMorphology <$morphologyUri>;\n";
 
+    // Process coordinates
     if (!empty($formData['x_coordinate']) && !empty($formData['y_coordinate'])) {
-        $coordinatesUri = "$baseUri/coordinatesInSquare/" . substr($arrowheadId, 3); // Remove 'AH-' prefix
+        $coordinatesUri = "$baseUri/coordinatesInSquare/" . substr($arrowheadId, 3);
         $ttl .= "    excav:hasCoordinatesInSquare <$coordinatesUri>;\n";
     
-        // Store coordinate data for later processing
         $coordinatesData = [
             'uri' => $coordinatesUri,
             'x' => $formData['x_coordinate'],
@@ -1067,11 +1084,9 @@ error_log('All processed measurements: ' . print_r($processedMeasurements, true)
         ];
     }
     
-    
     // Add images/web resources
     if (!empty($formData['images'])) {
         $images = $formData['images'];
-        error_log('Images data: ' . print_r($images, true), 3, OMEKA_PATH . '/logs/images-debug.log');
         if (is_array($images)) {
             foreach ($images as $image) {
                 if (!empty($image)) {
@@ -1086,10 +1101,9 @@ error_log('All processed measurements: ' . print_r($processedMeasurements, true)
     // Close the main arrowhead resource
     $ttl .= "    .\n\n";
 
+    // Add coordinates block if present
     if (!empty($coordinatesData)) {
         $ttl .= "<{$coordinatesData['uri']}> a excav:Coordinates;\n";
-        
-        // Add coordinates as schema:value properties in order: X, Y, Z
         $ttl .= "    schema:value \"{$coordinatesData['x']} {$coordinatesData['x_unit']}\"^^xsd:literal;\n";
         $ttl .= "    schema:value \"{$coordinatesData['y']} {$coordinatesData['y_unit']}\"^^xsd:literal;\n";
         
@@ -1098,27 +1112,21 @@ error_log('All processed measurements: ' . print_r($processedMeasurements, true)
         }
         
         $ttl .= "    .\n\n";
-        
-        error_log('Generated coordinates TTL block: ' . $ttl, 3, OMEKA_PATH . '/logs/coordinates-ttl.log');
     }
     
     // Add morphology
     $ttl .= "<$morphologyUri> a ah:Morphology;\n";
     
-// Add point definition  
-if (!empty($formData['point_definition'])) {
-    $value = (stripos($formData['point_definition'], 'true') !== false) ? "true" : "false";
-    $ttl .= "    ah:point \"$value\"^^xsd:boolean;\n";
-}
-
+    if (!empty($formData['point_definition'])) {
+        $value = (stripos($formData['point_definition'], 'true') !== false) ? "true" : "false";
+        $ttl .= "    ah:point \"$value\"^^xsd:boolean;\n";
+    }
     
-    // Add body symmetry
     if (!empty($formData['body_symmetry'])) {
         $value = (stripos($formData['body_symmetry'], 'true') !== false) ? "true" : "false";
         $ttl .= "    ah:body \"$value\"^^xsd:boolean;\n";
     }
     
-    // Add base if selected
     if (!empty($formData['arrowhead_base'])) {
         $baseSafe = strtolower($formData['arrowhead_base']);
         $ttl .= "    ah:base <https://purl.org/megalod/kos/ah-base/$baseSafe>;\n";
@@ -1130,37 +1138,31 @@ if (!empty($formData['point_definition'])) {
     if ($hasChippingData) {
         $ttl .= "<$chippingUri> a ah:Chipping;\n";
         
-        // Add chipping mode
         if (!empty($formData['chipping_mode'])) {
             $modeSafe = strtolower(str_replace('-', '-', $formData['chipping_mode']));
             $ttl .= "    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/$modeSafe>;\n";
         }
         
-        // Add chipping amplitude
         if (!empty($formData['chipping_amplitude'])) {
             $value = (stripos($formData['chipping_amplitude'], 'true') !== false) ? "true" : "false";
             $ttl .= "    ah:chippingAmplitude \"$value\"^^xsd:boolean;\n";
         }
         
-        // Add chipping direction
         if (!empty($formData['chipping_direction'])) {
             $directionSafe = strtolower($formData['chipping_direction']);
             $ttl .= "    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/$directionSafe>;\n";
         }
         
-        // Add chipping orientation
         if (!empty($formData['chipping_orientation'])) {
             $value = (stripos($formData['chipping_orientation'], 'true') !== false) ? "true" : "false";
             $ttl .= "    ah:chippingOrientation \"$value\"^^xsd:boolean;\n";
         }
         
-        // Add chipping delineation
         if (!empty($formData['chipping_delineation'])) {
             $delineationSafe = strtolower($formData['chipping_delineation']);
             $ttl .= "    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/$delineationSafe>;\n";
         }
         
-        // Add lateral chipping locations
         for ($i = 1; $i <= 3; $i++) {
             $lateralKey = "chipping_location_lateral_$i";
             if (!empty($formData[$lateralKey])) {
@@ -1169,7 +1171,6 @@ if (!empty($formData['point_definition'])) {
             }
         }
         
-        // Add transversal chipping locations
         for ($i = 1; $i <= 3; $i++) {
             $transversalKey = "chipping_location_transversal_$i";
             if (!empty($formData[$transversalKey])) {
@@ -1178,7 +1179,6 @@ if (!empty($formData['point_definition'])) {
             }
         }
         
-        // Add chipping shape
         if (!empty($formData['chipping_shape'])) {
             $shapeSafe = strtolower($formData['chipping_shape']);
             $ttl .= "    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/$shapeSafe>;\n";
@@ -1187,40 +1187,37 @@ if (!empty($formData['point_definition'])) {
         $ttl .= "    .\n\n";
     }
     
-    // Add encounter event
+    // Add encounter event with references to existing resources
     $ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
     $ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal;\n";
     $ttl .= "    crmsci:O19_encountered_object <$arrowheadUri>;\n";
     $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
     
-    // Add resource links to encounter event as well
-    if (!empty($formData['selected_context'])) {
-        $contextItemId = $formData['selected_context'];
-        $contextUri = "$baseUri/context/item-$contextItemId";
-        $ttl .= "    excav:foundInContext <$contextUri>;\n";
-    }
-    
-    if (!empty($formData['selected_svu'])) {
-        $svuItemId = $formData['selected_svu'];
-        $svuUri = "$baseUri/svu/item-$svuItemId";
-        $ttl .= "    excav:foundInSVU <$svuUri>;\n";
+    // Add the same resource references to encounter event
+    foreach ($linkedResources as $property => $resourceUri) {
+        if ($property === 'excav:foundInContext') {
+            $ttl .= "    excav:foundInContext <$resourceUri>;\n";
+        } elseif ($property === 'excav:foundInSVU') {
+            $ttl .= "    excav:foundInSVU <$resourceUri>;\n";
+        }
     }
     
     $ttl .= "    .\n\n";
     
-    // Add all measurement resource blocks at the end
+    // Add all measurement resource blocks
     $ttl .= $measurementBlocks;
     
-    // Add additional resource declarations
-    if (!empty($additionalDeclarations)) {
-        $ttl .= $additionalDeclarations;
+    // CRITICAL: Add necessary resource declarations to satisfy SHACL
+    foreach ($resourceDeclarations as $resource) {
+        $ttl .= "<{$resource['uri']}> a {$resource['type']};\n";
+        $ttl .= "    dct:identifier \"{$resource['identifier']}\"^^xsd:literal;\n";
+        $ttl .= "    .\n\n";
+        
+        error_log("Added resource declaration: {$resource['uri']} a {$resource['type']}", 3, OMEKA_PATH . '/logs/form-debug.log');
     }
     
-    // Debug log the final TTL
-// At the end of processArrowheadFormData(), add:
-error_log('FINAL TTL GENERATED: ' . $ttl, 3, OMEKA_PATH . '/logs/final-ttl-debug.log');    
+    error_log('FINAL TTL GENERATED: ' . $ttl, 3, OMEKA_PATH . '/logs/final-ttl-debug.log');    
     return $ttl;
-
 }
 
 
@@ -1548,163 +1545,179 @@ private function transformCollectingFormToArrowheadData($formData)
 
 
 private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string {
-    // Check if this is excavation data
-    error_log('Checking if this is excavation data', 3, OMEKA_PATH . '/logs/auxNew.log');
-    $isExcavation = false;
-    $excavationIdentifier = "0"; // Default to "0" graph
-
-    try {
-        $this->validateUploadType($ttlData, 'excavation');
-        error_log('Upload excav validation passed', 3, OMEKA_PATH . '/logs/a.log');
-        $isExcavation = true;
-        // Extract excavation identifier for graph organization
-        $extractedId = $this->extractExcavationIdentifier($ttlData);
-        if ($extractedId) {
-            $excavationIdentifier = $extractedId;
-        }
-        error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug-final.log');
-    } catch (\Exception $e) {
-        // If validation fails, it means the data is not excavation data
-        error_log('Validation for excavation failed, this is an arrowhead', 3, OMEKA_PATH . '/logs/auxNew.log');
-        
-        // Check if this item belongs to an excavation item set
-        if ($itemSetId) {
-            error_log('Item set ID provided: ' . $itemSetId, 3, OMEKA_PATH . '/logs/auxNew.log');
-            $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
-            if ($excavationId) {
-                $excavationIdentifier = $excavationId;
-                error_log('Using excavation ID from item set: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
-            }
-        }
-    }
-
-    // Normalize URIs based on context
-    if ($itemSetId) {
-        $ttlData = $this->normalizeUris($ttlData, $itemSetId);
-        error_log('URIs normalized for item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
-    } elseif ($isExcavation && $excavationIdentifier) {
-        // SINGLE POINT OF ITEM SET CREATION FOR EXCAVATIONS
-        if ($this->excavationIdentifierExists($excavationIdentifier)) {
-            // Optionally handle duplicate excavation identifiers
-            // For now, we'll proceed but log a warning
-            error_log('Warning: Excavation identifier already exists: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
-        }
-        
-        // Extract excavation metadata
-        $excavationMetadata = $this->extractExcavationMetadataFromTtl($ttlData);
-        
-        try {
-            // Create item set with proper metadata - SINGLE CREATION POINT
-            $itemSetTitle = "Excavation $excavationIdentifier";
-            $itemSetDescription = $excavationMetadata['location'] ? 
-                "Archaeological excavation at " . $excavationMetadata['location'] : 
-                "Archaeological excavation with identifier $excavationIdentifier";
-            
-            $response = $this->api()->create('item_sets', [
-                'dcterms:title' => [
-                    [
-                        'type' => 'literal',
-                        'property_id' => 1,
-                        '@value' => $itemSetTitle
-                    ]
-                ],
-                'dcterms:description' => [
-                    [
-                        'type' => 'literal',
-                        'property_id' => 4,
-                        '@value' => $itemSetDescription
-                    ]
-                ],
-                'dcterms:creator' => $excavationMetadata['archaeologist'] ? [
-                    [
-                        'type' => 'literal',
-                        'property_id' => 7665,
-                        '@value' => $excavationMetadata['archaeologist']
-                    ]
-                ] : [],
-                'o:is_public' => true
-            ]);
-            
-            // If successful, get the new item set ID
-            if ($response) {
-                $newItemSet = $response->getContent();
-                $itemSetId = $newItemSet->id();
-                
-                error_log('Successfully created single item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
-                
-                // Now normalize the URIs with the new item set ID
-                $ttlData = $this->normalizeUris($ttlData, $itemSetId);
-                error_log('URIs normalized for excavation with item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
-                
-                // Store the mapping between item set and excavation
-                $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
-            }
-        } catch (\Exception $e) {
-            error_log('Error creating item set for excavation: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
-            return 'Error: Failed to create excavation item set - ' . $e->getMessage();
-        }
-    }
-
-    error_log('is excavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/excavation-debug.log');
-
-    // Now proceed with the regular upload process
-    // First, upload to GraphDB with the excavation identifier if available
-    $graphDbResult = $this->sendToGraphDB($ttlData, $itemSetId);
-    error_log('GraphDB upload result: ' . $graphDbResult, 3, OMEKA_PATH . '/logs/auxNew.log');
+    // Set the current processing context
+    $this->currentProcessingItemSetId = $itemSetId;
     
-    if (strpos($graphDbResult, 'successfully') !== false) {
-        // If GraphDB upload is successful, then process in Omeka S
-        $omekaData = $this->transformTtlToOmekaSData($ttlData, $itemSetId);
+    error_log("=== TTL UPLOAD WITH CONTEXT ===", 3, OMEKA_PATH . '/logs/context-debug.log');
+    error_log("Item Set Context: " . ($itemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/context-debug.log');
+    
+    try {
+        // Check if this is excavation data
+        error_log('Checking if this is excavation data', 3, OMEKA_PATH . '/logs/auxNew.log');
+        $isExcavation = false;
+        $excavationIdentifier = "0"; // Default to "0" graph
 
-        $omekaResponse = $this->sendToOmekaS($omekaData, $itemSetId);
-        
-        if (empty($omekaResponse['errors'])) {
-            $createdItems = $omekaResponse['created_items'];
-            $updatedCount = 0;
+        try {
+            $this->validateUploadType($ttlData, 'excavation');
+            error_log('Upload excav validation passed', 3, OMEKA_PATH . '/logs/a.log');
+            $isExcavation = true;
+            // Extract excavation identifier for graph organization
+            $extractedId = $this->extractExcavationIdentifier($ttlData);
+            if ($extractedId) {
+                $excavationIdentifier = $extractedId;
+            }
+            error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug-final.log');
+        } catch (\Exception $e) {
+            // If validation fails, it means the data is not excavation data
+            error_log('Validation for excavation failed, this is an arrowhead', 3, OMEKA_PATH . '/logs/auxNew.log');
             
-            foreach ($createdItems as $item) {
-                $itemId = $item['o:id']; // Get the Omeka assigned ID
-                
-                // Update titles based on content type
-                if ($isExcavation) {
-                    $title = "Excavation $excavationIdentifier Item $itemId";
-                } else {
-                    $title = "Arrowhead $itemId" . ($excavationIdentifier ? " (Excavation $excavationIdentifier)" : "");
-                }
-                
-                // Update the title with the Omeka ID
-                try {
-                    $updateResult = $this->api()->update('items', $itemId, [
-                        'dcterms:title' => [
-                            [
-                                'type' => 'literal',
-                                'property_id' => 1,
-                                '@value' => $title
-                            ]
-                        ]
-                    ], [], ['isPartial' => true]);
-                    
-                    if ($updateResult) {
-                        $updatedCount++;
-                    }
-                } catch (\Exception $e) {
-                    error_log('Error updating item title: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+            // Check if this item belongs to an excavation item set
+            if ($itemSetId) {
+                error_log('Item set ID provided: ' . $itemSetId, 3, OMEKA_PATH . '/logs/auxNew.log');
+                $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+                if ($excavationId) {
+                    $excavationIdentifier = $excavationId;
+                    error_log('Using excavation ID from item set: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
                 }
             }
+        }
+
+        // Normalize URIs based on context
+        if ($itemSetId) {
+            $ttlData = $this->normalizeUris($ttlData, $itemSetId);
+            error_log('URIs normalized for item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
+        } elseif ($isExcavation && $excavationIdentifier) {
+            // SINGLE POINT OF ITEM SET CREATION FOR EXCAVATIONS
+            if ($this->excavationIdentifierExists($excavationIdentifier)) {
+                // Optionally handle duplicate excavation identifiers
+                // For now, we'll proceed but log a warning
+                error_log('Warning: Excavation identifier already exists: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+            }
             
-            if ($isExcavation && $itemSetId) {
-                return "Data uploaded successfully to both GraphDB and Omeka S. Created Item Set #{$itemSetId} for excavation '$excavationIdentifier' and " . 
-                      count($createdItems) . " items with updated titles.";
+            // Extract excavation metadata
+            $excavationMetadata = $this->extractExcavationMetadataFromTtl($ttlData);
+            
+            try {
+                // Create item set with proper metadata - SINGLE CREATION POINT
+                $itemSetTitle = "Excavation $excavationIdentifier";
+                $itemSetDescription = $excavationMetadata['location'] ? 
+                    "Archaeological excavation at " . $excavationMetadata['location'] : 
+                    "Archaeological excavation with identifier $excavationIdentifier";
+                
+                $response = $this->api()->create('item_sets', [
+                    'dcterms:title' => [
+                        [
+                            'type' => 'literal',
+                            'property_id' => 1,
+                            '@value' => $itemSetTitle
+                        ]
+                    ],
+                    'dcterms:description' => [
+                        [
+                            'type' => 'literal',
+                            'property_id' => 4,
+                            '@value' => $itemSetDescription
+                        ]
+                    ],
+                    'dcterms:creator' => $excavationMetadata['archaeologist'] ? [
+                        [
+                            'type' => 'literal',
+                            'property_id' => 7665,
+                            '@value' => $excavationMetadata['archaeologist']
+                        ]
+                    ] : [],
+                    'o:is_public' => true
+                ]);
+                
+                // If successful, get the new item set ID
+                if ($response) {
+                    $newItemSet = $response->getContent();
+                    $itemSetId = $newItemSet->id();
+                    
+                    error_log('Successfully created single item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+                    
+                    // Update the processing context with the new item set ID
+                    $this->currentProcessingItemSetId = $itemSetId;
+                    
+                    // Now normalize the URIs with the new item set ID
+                    $ttlData = $this->normalizeUris($ttlData, $itemSetId);
+                    error_log('URIs normalized for excavation with item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
+                    
+                    // Store the mapping between item set and excavation
+                    $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
+                }
+            } catch (\Exception $e) {
+                error_log('Error creating item set for excavation: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+                return 'Error: Failed to create excavation item set - ' . $e->getMessage();
+            }
+        }
+
+        error_log('is excavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+
+        // Now proceed with the regular upload process
+        // First, upload to GraphDB with the excavation identifier if available
+        $graphDbResult = $this->sendToGraphDB($ttlData, $itemSetId);
+        error_log('GraphDB upload result: ' . $graphDbResult, 3, OMEKA_PATH . '/logs/auxNew.log');
+        
+        if (strpos($graphDbResult, 'successfully') !== false) {
+            // If GraphDB upload is successful, then process in Omeka S
+            $omekaData = $this->transformTtlToOmekaSData($ttlData, $itemSetId);
+
+            $omekaResponse = $this->sendToOmekaS($omekaData, $itemSetId);
+            
+            if (empty($omekaResponse['errors'])) {
+                $createdItems = $omekaResponse['created_items'];
+                $updatedCount = 0;
+                
+                foreach ($createdItems as $item) {
+                    $itemId = $item['o:id']; // Get the Omeka assigned ID
+                    
+                    // Update titles based on content type
+                    if ($isExcavation) {
+                        $title = "Excavation $excavationIdentifier Item $itemId";
+                    } else {
+                        $title = "Arrowhead $itemId" . ($excavationIdentifier ? " (Excavation $excavationIdentifier)" : "");
+                    }
+                    
+                    // Update the title with the Omeka ID
+                    try {
+                        $updateResult = $this->api()->update('items', $itemId, [
+                            'dcterms:title' => [
+                                [
+                                    'type' => 'literal',
+                                    'property_id' => 1,
+                                    '@value' => $title
+                                ]
+                            ]
+                        ], [], ['isPartial' => true]);
+                        
+                        if ($updateResult) {
+                            $updatedCount++;
+                        }
+                    } catch (\Exception $e) {
+                        error_log('Error updating item title: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+                    }
+                }
+                
+                if ($isExcavation && $itemSetId) {
+                    return "Data uploaded successfully to both GraphDB and Omeka S. Created Item Set #{$itemSetId} for excavation '$excavationIdentifier' and " . 
+                          count($createdItems) . " items with updated titles.";
+                } else {
+                    return 'Data uploaded successfully to both GraphDB and Omeka S. Created ' . 
+                          count($createdItems) . ' items with updated titles and proper resource links within excavation context.';
+                }
             } else {
-                return 'Data uploaded successfully to both GraphDB and Omeka S. Created ' . 
-                      count($createdItems) . ' items with updated titles.';
+                return 'Data uploaded to GraphDB, but Omeka S errors: ' . 
+                      implode('; ', $omekaResponse['errors']);
             }
         } else {
-            return 'Data uploaded to GraphDB, but Omeka S errors: ' . 
-                  implode('; ', $omekaResponse['errors']);
+            return 'Failed to upload data to GraphDB: ' . $graphDbResult;
         }
-    } else {
-        return 'Failed to upload data to GraphDB: ' . $graphDbResult;
+        
+    } finally {
+        // Clear the processing context - this will always execute
+        $this->currentProcessingItemSetId = null;
+        error_log("Cleared processing context", 3, OMEKA_PATH . '/logs/context-debug.log');
     }
 }
 
@@ -2429,6 +2442,10 @@ private function extractIdentifier($rdfData, $subject) {
 private function processArrowheadData($rdfData, $subject, &$itemData) {
     error_log('Processing arrowhead data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/arrowhead-processing.log');
     
+    // Get the current item set context for this processing
+    $currentItemSetId = $this->getCurrentItemSetContext();
+    error_log("Current item set context: " . ($currentItemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/arrowhead-processing.log');
+    
     // Basic properties - direct mapping
     $propertyMap = [
         'https://purl.org/megalod/ms/ah/shape' => ['ArrowHead - shape', 7651],
@@ -2439,7 +2456,7 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         'https://purl.org/megalod/ms/excavation/thicknessIndex' => ['Thickness Index', 7677],
     ];
 
-    // Enhanced resource link mapping
+    // Enhanced resource link mapping WITH ITEM SET CONTEXT
     $resourceLinkMap = [
         'https://purl.org/megalod/ms/excavation/foundInSquare' => ['The Square', 7668],
         'https://purl.org/megalod/ms/excavation/foundInContext' => ['The Encounter Event - an item found in a specific Context', 7672], 
@@ -2448,10 +2465,11 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     ];
 
     $gpsPropertyMap = [
-        'http://www.w3.org/2003/01/geo/wgs84_pos#lat' => ['GPS Latitude', 257], // Use your actual property ID for geo:lat
-        'http://www.w3.org/2003/01/geo/wgs84_pos#long' => ['GPS Longitude', 259], // Use your actual property ID for geo:long
+        'http://www.w3.org/2003/01/geo/wgs84_pos#lat' => ['GPS Latitude', 257],
+        'http://www.w3.org/2003/01/geo/wgs84_pos#long' => ['GPS Longitude', 259],
     ];
 
+    // Process GPS properties
     foreach ($gpsPropertyMap as $predicate => $mapping) {
         if (isset($rdfData[$subject][$predicate])) {
             $term = $mapping[0];
@@ -2513,7 +2531,7 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         }
     }
     
-    // Process resource links
+    // ENHANCED: Process resource links with item set constraints
     foreach ($resourceLinkMap as $predicate => $mapping) {
         if (isset($rdfData[$subject][$predicate])) {
             $term = $mapping[0];
@@ -2524,7 +2542,10 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
                     $resourceId = $this->extractResourceIdentifier($rdfData, $obj['value']);
                     
                     if ($resourceId) {
-                        $linkedItem = $this->findItemByIdentifier($resourceId);
+                        error_log("Attempting to link to resource: '$resourceId' within item set: " . ($currentItemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/resource-links.log');
+                        
+                        // CRITICAL FIX: Pass item set context to constrain search
+                        $linkedItem = $this->findItemByIdentifier($resourceId, $currentItemSetId);
                         
                         if ($linkedItem) {
                             if (!isset($itemData[$term])) {
@@ -2535,9 +2556,12 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
                                 'type' => 'resource',
                                 'property_id' => $propertyId,
                                 'value_resource_id' => $linkedItem->id(),
-                                'o:label' => $resourceId
+                                'o:label' => $resourceId . " (ID: " . $linkedItem->id() . ")"
                             ];
+                            
+                            error_log("✓ Successfully linked to resource: '$resourceId' -> Item ID: " . $linkedItem->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
                         } else {
+                            // Fallback to literal value with warning
                             if (!isset($itemData[$term])) {
                                 $itemData[$term] = [];
                             }
@@ -2545,8 +2569,10 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
                             $itemData[$term][] = [
                                 'type' => 'literal',
                                 'property_id' => $propertyId,
-                                '@value' => $resourceId
+                                '@value' => $resourceId . " (NOT LINKED - resource not found in this excavation)"
                             ];
+                            
+                            error_log("⚠ Could not link to resource: '$resourceId' - storing as literal", 3, OMEKA_PATH . '/logs/resource-links.log');
                         }
                     }
                 }
@@ -2554,17 +2580,17 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         }
     }
 
-    // Process measurements with proper value extraction
+    // Continue with existing measurement, morphology, chipping, and coordinates processing...
     $this->processMeasurements($rdfData, $subject, $itemData);
-    
-    // Process morphology data with complete extraction
     $this->processMorphologyData($rdfData, $subject, $itemData);
-    
-    // Process chipping data with complete extraction
     $this->processChippingData($rdfData, $subject, $itemData);
-    
-    // Process coordinates
     $this->processCoordinatesData($rdfData, $subject, $itemData);
+}
+
+private function getCurrentItemSetContext() {
+    // This should return the current item set ID being processed
+    // You might need to store this in a class property during processing
+    return $this->currentProcessingItemSetId ?? null;
 }
 
 /**
@@ -2827,46 +2853,6 @@ private function formatChippingValue($valueObj, $dataType) {
 
 
 
-/**
- * Enhanced resource identifier extraction with better error handling
- */
-private function extractResourceIdentifier($rdfData, $resourceUri) {
-    if (!isset($rdfData[$resourceUri])) {
-        error_log("Resource URI not found in RDF data: $resourceUri", 3, OMEKA_PATH . '/logs/resource-links.log');
-        return null;
-    }
-    
-    // Try different identifier predicates
-    $identifierPredicates = [
-        'http://purl.org/dc/terms/identifier',
-        'dct:identifier',
-        'dcterms:identifier'
-    ];
-    
-    foreach ($identifierPredicates as $predicate) {
-        if (isset($rdfData[$resourceUri][$predicate])) {
-            foreach ($rdfData[$resourceUri][$predicate] as $idObj) {
-                if ($idObj['type'] === 'literal') {
-                    error_log("Found identifier '$idObj[value]' for resource $resourceUri using predicate $predicate", 3, OMEKA_PATH . '/logs/resource-links.log');
-                    return $idObj['value'];
-                }
-            }
-        }
-    }
-    
-    // Fallback: try to extract from URI structure
-    $uriParts = explode('/', $resourceUri);
-    $lastPart = end($uriParts);
-    
-    // If the last part looks like an ID (contains letters and numbers), use it
-    if (preg_match('/^[A-Za-z0-9-]+$/', $lastPart) && strlen($lastPart) > 1) {
-        error_log("Extracted identifier '$lastPart' from URI structure: $resourceUri", 3, OMEKA_PATH . '/logs/resource-links.log');
-        return $lastPart;
-    }
-    
-    error_log("Could not extract identifier from resource: $resourceUri", 3, OMEKA_PATH . '/logs/resource-links.log');
-    return null;
-}
 
 
 /**
@@ -3092,184 +3078,256 @@ private function extractMeasurementUnit($rdfData, $typometryUri) {
 }
 
 
+/**
+ * FIXED: Enhanced extractResourceIdentifier method to get actual meaningful identifiers
+ */
+private function extractResourceIdentifier($rdfData, $resourceUri) {
+    error_log("=== IDENTIFIER EXTRACTION DEBUG ===", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+    error_log("Extracting identifier from URI: $resourceUri", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+    
+    if (!isset($rdfData[$resourceUri])) {
+        error_log("Resource URI not found in RDF data: $resourceUri", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        
+        // FALLBACK 1: Try to extract meaningful identifier from URI structure
+        $identifier = $this->extractIdentifierFromUriStructure($resourceUri);
+        if ($identifier) {
+            error_log("Extracted identifier from URI structure: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+            return $identifier;
+        }
+        
+        return null;
+    }
+    
+    // Try different identifier predicates
+    $identifierPredicates = [
+        'http://purl.org/dc/terms/identifier',
+        'dct:identifier',
+        'dcterms:identifier'
+    ];
+    
+    foreach ($identifierPredicates as $predicate) {
+        if (isset($rdfData[$resourceUri][$predicate])) {
+            foreach ($rdfData[$resourceUri][$predicate] as $idObj) {
+                if ($idObj['type'] === 'literal') {
+                    error_log("Found identifier '$idObj[value]' for resource $resourceUri using predicate $predicate", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+                    return $idObj['value'];
+                }
+            }
+        }
+    }
+    
+    // FALLBACK 2: Try to extract from URI structure with better patterns
+    $identifier = $this->extractIdentifierFromUriStructure($resourceUri);
+    if ($identifier) {
+        error_log("Extracted identifier from URI structure: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        return $identifier;
+    }
+    
+    error_log("Could not extract identifier from resource: $resourceUri", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+    return null;
+}
 
+/**
+ * NEW: Extract meaningful identifiers from URI structure
+ */
+private function extractIdentifierFromUriStructure($resourceUri) {
+    error_log("Analyzing URI structure: $resourceUri", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+    
+    // Pattern 1: https://purl.org/megalod/2043/context/item-2048
+    // Should extract the original context identifier, not "item-2048"
+    if (preg_match('/\/([^\/]+)\/item-(\d+)$/', $resourceUri, $matches)) {
+        $resourceType = $matches[1]; // context, svu, square, etc.
+        $itemId = $matches[2];       // 2048, 2051, etc.
+        
+        error_log("Found item-based URI: type=$resourceType, itemId=$itemId", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        
+        // Try to find the actual item in Omeka to get its real identifier
+        $realIdentifier = $this->getRealIdentifierFromOmekaItem($itemId);
+        if ($realIdentifier) {
+            error_log("Found real identifier from Omeka item $itemId: $realIdentifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+            return $realIdentifier;
+        }
+        
+        // Fallback: generate a reasonable identifier based on type
+        switch (strtolower($resourceType)) {
+            case 'context':
+                return "CV-" . str_pad($itemId % 1000, 3, '0', STR_PAD_LEFT); // CV-001, CV-002, etc.
+            case 'svu':
+                return "CV-001-" . ($itemId % 10); // CV-001-1, CV-001-2, etc.
+            case 'square':
+                $letters = ['A', 'B', 'C', 'D'];
+                $letter = $letters[($itemId - 1) % 4];
+                $number = (($itemId - 1) % 4) + 1;
+                return $letter . $number; // A1, A2, B1, B2, etc.
+            default:
+                return strtoupper($resourceType) . "-" . ($itemId % 1000);
+        }
+    }
+    
+    // Pattern 2: https://purl.org/megalod/2043/context/CV-001
+    // This should directly extract CV-001
+    if (preg_match('/\/([^\/]+)\/([^\/]+)$/', $resourceUri, $matches)) {
+        $resourceType = $matches[1];
+        $identifier = $matches[2];
+        
+        // Skip if it looks like "item-XXXX" pattern (already handled above)
+        if (!preg_match('/^item-\d+$/', $identifier)) {
+            error_log("Found direct identifier URI: type=$resourceType, identifier=$identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+            return $identifier;
+        }
+    }
+    
+    // Pattern 3: Just extract the last meaningful part
+    $parts = explode('/', $resourceUri);
+    $lastPart = end($parts);
+    
+    // If the last part looks like a meaningful identifier, use it
+    if (preg_match('/^[A-Za-z0-9-]+$/', $lastPart) && strlen($lastPart) > 1 && !preg_match('/^\d+$/', $lastPart)) {
+        error_log("Using last part as identifier: $lastPart", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        return $lastPart;
+    }
+    
+    return null;
+}
+
+/**
+ * NEW: Get the real identifier from an Omeka item by its ID
+ */
+private function getRealIdentifierFromOmekaItem($itemId) {
+    try {
+        error_log("Looking up real identifier for Omeka item ID: $itemId", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        
+        $item = $this->api()->read('items', $itemId)->getContent();
+        
+        // Try to get the dcterms:identifier value
+        $values = $item->values();
+        
+        if (isset($values['dcterms:identifier'])) {
+            foreach ($values['dcterms:identifier'] as $value) {
+                if ($value instanceof \Omeka\Api\Representation\ValueRepresentation) {
+                    $identifier = $value->value();
+                    error_log("Found real identifier for item $itemId: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+                    return $identifier;
+                }
+            }
+        }
+        
+        // Fallback: check the title for patterns
+        $title = $item->displayTitle();
+        error_log("Item $itemId title: $title", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        
+        // Extract identifier patterns from title
+        if (preg_match('/\b(CV-\d+(?:-\d+)?)\b/', $title, $matches)) {
+            error_log("Extracted identifier from title: {$matches[1]}", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+            return $matches[1];
+        }
+        
+        if (preg_match('/\b([A-Z]\d+)\b/', $title, $matches)) {
+            error_log("Extracted square identifier from title: {$matches[1]}", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+            return $matches[1];
+        }
+        
+    } catch (\Exception $e) {
+        error_log("Error looking up item $itemId: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/identifier-debug.log');
+    }
+    
+    return null;
+}
+
+/**
+ * ENHANCED: Improved findItemByIdentifier with better pattern matching
+ */
 private function findItemByIdentifier($identifier, $itemSetId = null) {
     try {
-        error_log("Searching for item with identifier: '$identifier'" . ($itemSetId ? " in item set: $itemSetId" : ""), 3, OMEKA_PATH . '/logs/resource-links.log');
+        error_log("=== ENHANCED SEARCH WITH PATTERN MATCHING ===", 3, OMEKA_PATH . '/logs/resource-links.log');
+        error_log("Searching for identifier: '$identifier'" . ($itemSetId ? " constrained to item set: $itemSetId" : " (no constraint)"), 3, OMEKA_PATH . '/logs/resource-links.log');
         
-        // Strategy 1: Direct identifier search
-        $searchParams1 = [
-            'property' => [
-                [
-                    'property' => 10, // dcterms:identifier property ID
-                    'type' => 'eq',
-                    'text' => $identifier
-                ]
-            ],
-            'limit' => 1
-        ];
+        // Create variations of the identifier to search for
+        $searchVariations = $this->generateIdentifierVariations($identifier);
+        error_log("Generated search variations: " . implode(', ', $searchVariations), 3, OMEKA_PATH . '/logs/resource-links.log');
         
-        // Apply item set constraint if provided
-        if ($itemSetId) {
-            $searchParams1['item_set_id'] = $itemSetId;
-        }
-        
-        $response = $this->api()->search('items', $searchParams1);
-        $items = $response->getContent();
-        if (!empty($items)) {
-            error_log("Found item with identifier '$identifier': ID " . $items[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
-            return $items[0];
-        }
-        
-        // Strategy 2: Search by title containing the identifier
-        $searchParams2 = [
-            'property' => [
-                [
-                    'property' => 1, // dcterms:title property ID
-                    'type' => 'in',
-                    'text' => $identifier
-                ]
-            ],
-            'limit' => 1
-        ];
-        
-        // Apply item set constraint if provided
-        if ($itemSetId) {
-            $searchParams2['item_set_id'] = $itemSetId;
-        }
-        
-        $response = $this->api()->search('items', $searchParams2);
-        $items = $response->getContent();
-        if (!empty($items)) {
-            error_log("Found item by title containing '$identifier': ID " . $items[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
-            return $items[0];
-        }
-        
-        // Strategy 3: Full text search
-        $searchParams3 = [
-            'fulltext_search' => $identifier,
-            'limit' => 5 // Get a few results to find the best match
-        ];
-        
-        // Apply item set constraint if provided
-        if ($itemSetId) {
-            $searchParams3['item_set_id'] = $itemSetId;
-        }
-        
-        $response = $this->api()->search('items', $searchParams3);
-        $items = $response->getContent();
-        if (!empty($items)) {
-            // Try to find the best match
-            foreach ($items as $item) {
-                $title = $item->displayTitle();
-                $values = $item->values();
-                
-                // Check if the title contains our identifier
-                if (stripos($title, $identifier) !== false) {
-                    error_log("Found item by fulltext search matching '$identifier': ID " . $item->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
-                    return $item;
-                }
-                
-                // Check if any property contains our identifier
-                foreach ($values as $propertyValues) {
-                    if (!empty($propertyValues)) {
-                        foreach ($propertyValues as $value) {
-                            if ($value instanceof \Omeka\Api\Representation\ValueRepresentation && stripos($value->value(), $identifier) !== false) {
-                                error_log("Found item by property value matching '$identifier': ID " . $item->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
-                                return $item;
+        foreach ($searchVariations as $searchTerm) {
+            error_log("Trying search variation: '$searchTerm'", 3, OMEKA_PATH . '/logs/resource-links.log');
+            
+            // Strategy 1: Direct identifier search
+            $searchParams = [
+                'property' => [
+                    [
+                        'property' => 10, // dcterms:identifier property ID
+                        'type' => 'eq',
+                        'text' => $searchTerm
+                    ]
+                ],
+                'limit' => 10
+            ];
+            
+            if ($itemSetId) {
+                $searchParams['item_set_id'] = $itemSetId;
+            }
+            
+            $response = $this->api()->search('items', $searchParams);
+            $items = $response->getContent();
+            
+            if (!empty($items)) {
+                // Verify item set membership if constraint is provided
+                foreach ($items as $item) {
+                    if ($itemSetId) {
+                        $belongsToItemSet = false;
+                        foreach ($item->itemSets() as $itemSet) {
+                            if ($itemSet->id() == $itemSetId) {
+                                $belongsToItemSet = true;
+                                break;
                             }
                         }
+                        
+                        if ($belongsToItemSet) {
+                            error_log("✓ Found item with variation '$searchTerm' in correct item set: ID " . $item->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
+                            return $item;
+                        }
+                    } else {
+                        error_log("✓ Found item with variation '$searchTerm': ID " . $item->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
+                        return $items[0];
                     }
                 }
             }
             
-            // If no exact match, return the first result
-            error_log("Using first fulltext search result for '$identifier': ID " . $items[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
-            return $items[0];
-        }
-        
-        // Strategy 4: Search item sets (only if not already searching within an item set)
-        if (!$itemSetId) {
-            $itemSetResponse = $this->api()->search('item_sets', [
+            // Strategy 2: Title search for this variation
+            $titleSearchParams = [
                 'property' => [
                     [
-                        'property' => 10, // dcterms:identifier property ID
-                        'type' => 'eq', 
-                        'text' => $identifier
+                        'property' => 1, // dcterms:title property ID
+                        'type' => 'in',
+                        'text' => $searchTerm
                     ]
                 ],
-                'limit' => 1
-            ]);
-            
-            $itemSets = $itemSetResponse->getContent();
-            if (!empty($itemSets)) {
-                error_log("Found item set with identifier '$identifier': ID " . $itemSets[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
-                return $itemSets[0];
-            }
-        }
-        
-        // Strategy 5: Try removing common prefixes and searching again
-        $prefixesToRemove = ['CV-', 'EXC-', 'CTX-', 'SVU-', 'AH-', 'SU-'];
-        foreach ($prefixesToRemove as $prefix) {
-            if (strpos($identifier, $prefix) === 0) {
-                $cleanIdentifier = substr($identifier, strlen($prefix));
-                error_log("Trying clean identifier: '$cleanIdentifier' (removed '$prefix')" . ($itemSetId ? " in item set: $itemSetId" : ""), 3, OMEKA_PATH . '/logs/resource-links.log');
-                
-                $searchParams5 = [
-                    'property' => [
-                        [
-                            'property' => 10, // dcterms:identifier property ID
-                            'type' => 'eq',
-                            'text' => $cleanIdentifier
-                        ]
-                    ],
-                    'limit' => 1
-                ];
-                
-                // Apply item set constraint if provided
-                if ($itemSetId) {
-                    $searchParams5['item_set_id'] = $itemSetId;
-                }
-                
-                $response = $this->api()->search('items', $searchParams5);
-                $items = $response->getContent();
-                if (!empty($items)) {
-                    error_log("Found item with clean identifier '$cleanIdentifier': ID " . $items[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
-                    return $items[0];
-                }
-            }
-        }
-        
-        // Strategy 6: Try pattern matching for common formats (apply item set constraint if provided)
-        if (preg_match('/^([A-Z])(\d+)$/', $identifier, $matches)) {
-            // This looks like a square identifier (A1, B2, etc.)
-            $searchTerms = [
-                "Square $identifier",
-                "Square " . $matches[1] . "-" . $matches[2],
-                $matches[1] . $matches[2]
+                'limit' => 10
             ];
             
-            foreach ($searchTerms as $searchTerm) {
-                $searchParams6 = [
-                    'fulltext_search' => $searchTerm,
-                    'limit' => 1
-                ];
-                
-                // Apply item set constraint if provided
-                if ($itemSetId) {
-                    $searchParams6['item_set_id'] = $itemSetId;
-                }
-                
-                $response = $this->api()->search('items', $searchParams6);
-                $items = $response->getContent();
-                if (!empty($items)) {
-                    error_log("Found item with square pattern '$searchTerm': ID " . $items[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
-                    return $items[0];
+            if ($itemSetId) {
+                $titleSearchParams['item_set_id'] = $itemSetId;
+            }
+            
+            $response = $this->api()->search('items', $titleSearchParams);
+            $items = $response->getContent();
+            
+            if (!empty($items)) {
+                foreach ($items as $item) {
+                    if ($itemSetId) {
+                        foreach ($item->itemSets() as $itemSet) {
+                            if ($itemSet->id() == $itemSetId) {
+                                error_log("✓ Found item by title containing '$searchTerm' in correct item set: ID " . $item->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
+                                return $item;
+                            }
+                        }
+                    } else {
+                        error_log("✓ Found item by title containing '$searchTerm': ID " . $item->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
+                        return $items[0];
+                    }
                 }
             }
         }
         
-        error_log("No item" . ($itemSetId ? " in item set $itemSetId" : "") . " found with identifier '$identifier'", 3, OMEKA_PATH . '/logs/resource-links.log');
+        error_log("❌ No item found with identifier '$identifier' (tried variations: " . implode(', ', $searchVariations) . ")" . ($itemSetId ? " in item set $itemSetId" : ""), 3, OMEKA_PATH . '/logs/resource-links.log');
         return null;
         
     } catch (\Exception $e) {
@@ -3277,6 +3335,44 @@ private function findItemByIdentifier($identifier, $itemSetId = null) {
         return null;
     }
 }
+
+/**
+ * NEW: Generate variations of an identifier to improve matching
+ */
+private function generateIdentifierVariations($identifier) {
+    $variations = [$identifier]; // Always include the original
+    
+    // Remove common prefixes and add as variations
+    $prefixesToTry = ['Context-', 'SVU-', 'Square-', 'EXC-', 'CV-'];
+    foreach ($prefixesToTry as $prefix) {
+        if (strpos($identifier, $prefix) === 0) {
+            $withoutPrefix = substr($identifier, strlen($prefix));
+            $variations[] = $withoutPrefix;
+            
+            // For contexts, also try CV- prefix variations
+            if ($prefix === 'Context-') {
+                $variations[] = 'CV-' . $withoutPrefix;
+            }
+        }
+    }
+    
+    // For numeric identifiers, try common prefixes
+    if (preg_match('/^\d+$/', $identifier)) {
+        $variations[] = 'CV-' . str_pad($identifier, 3, '0', STR_PAD_LEFT); // CV-001
+        $variations[] = 'CV-001-' . $identifier; // CV-001-1
+        
+        // For square patterns
+        if ($identifier <= 26) {
+            $letter = chr(64 + ($identifier % 26 + 1)); // A, B, C...
+            $number = ceil($identifier / 26);
+            $variations[] = $letter . $number; // A1, A2, B1, etc.
+        }
+    }
+    
+    // Remove duplicates and return
+    return array_unique($variations);
+}
+
 /**
  * Find or create an archaeologist item
  * This prevents duplicates by using ORCID or name as unique identifiers

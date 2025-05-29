@@ -17,89 +17,105 @@
 @prefix excav: <https://purl.org/megalod/ms/excavation/> .
 @prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
 
-<https://purl.org/megalod/1871> a excav:Excavation;
-    dct:identifier "EXC-1871"^^xsd:literal;
+<https://purl.org/megalod/2043> a excav:Excavation;
+    dct:identifier "EXC-2043"^^xsd:literal;
     .
 
-<https://purl.org/megalod/1871/item/testeArrowhead> a ah:Arrowhead, excav:Item;
-    dct:identifier "testeArrowhead"^^xsd:literal;
-    excav:foundInExcavation <https://purl.org/megalod/1871>;
-    geo:lat "134.2"^^xsd:decimal;
-    geo:long "124.1"^^xsd:decimal;
-    dbo:Annotation "fjkakefjbajef"^^xsd:literal;
+<https://purl.org/megalod/2043/item/AH-02> a ah:Arrowhead, excav:Item;
+    dct:identifier "AH-02"^^xsd:literal;
+    excav:foundInExcavation <https://purl.org/megalod/2043>;
+    excav:foundInSquare <https://purl.org/megalod/2043/square/item-2045>;
+    excav:foundInContext <https://purl.org/megalod/2043/context/item-2049>;
+    geo:lat "40.5767"^^xsd:decimal;
+    geo:long "8.4125"^^xsd:decimal;
+    excav:foundInSVU <https://purl.org/megalod/2043/svu/item-2051>;
+    dbo:Annotation "arrowhead 1"^^xsd:literal;
     crm:E3_Condition_State "true"^^xsd:boolean;
-    crm:E55_Type "false"^^xsd:boolean;
-    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Medium>;
+    crm:E55_Type "true"^^xsd:boolean;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Short>;
     crm:E57_Material <http://collection.britishmuseum.org/id/thesaurus/material/flint>;
-    ah:shape <https://purl.org/megalod/kos/ah-shape/lozenge-shaped>;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/triangle>;
     ah:variant <https://purl.org/megalod/kos/ah-variant/raised>;
-    schema:height <https://purl.org/megalod/1871/typometry/testeArrowhead-height>;
-    schema:width <https://purl.org/megalod/1871/typometry/testeArrowhead-width>;
-    schema:weight <https://purl.org/megalod/1871/typometry/testeArrowhead-weight>;
-    schema:depth <https://purl.org/megalod/1871/typometry/testeArrowhead-thickness>;
-    ah:hasBodyLength <https://purl.org/megalod/1871/typometry/testeArrowhead-bodyLength>;
-    ah:hasBaseLength <https://purl.org/megalod/1871/typometry/testeArrowhead-baseLength>;
-    ah:hasChipping <https://purl.org/megalod/1871/chipping/testeArrowhead>;
-    ah:hasMorphology <https://purl.org/megalod/1871/morphology/testeArrowhead>;
-    excav:hasCoordinatesInSquare <https://purl.org/megalod/1871/coordinatesInSquare/w>;
+    schema:height <https://purl.org/megalod/2043/typometry/AH-02-height>;
+    schema:width <https://purl.org/megalod/2043/typometry/AH-02-width>;
+    schema:weight <https://purl.org/megalod/2043/typometry/AH-02-weight>;
+    schema:depth <https://purl.org/megalod/2043/typometry/AH-02-thickness>;
+    ah:hasBodyLength <https://purl.org/megalod/2043/typometry/AH-02-hasBodyLength>;
+    ah:hasBaseLength <https://purl.org/megalod/2043/typometry/AH-02-hasBaseLength>;
+    ah:hasChipping <https://purl.org/megalod/2043/chipping/AH-02>;
+    ah:hasMorphology <https://purl.org/megalod/2043/morphology/AH-02>;
+    excav:hasCoordinatesInSquare <https://purl.org/megalod/2043/coordinatesInSquare/02>;
     .
 
-<https://purl.org/megalod/1871/coordinatesInSquare/w> a excav:Coordinates;
-    schema:value "34 8"^^xsd:literal;
-    schema:value "22 8"^^xsd:literal;
-    schema:value "3 8"^^xsd:literal;
+<https://purl.org/megalod/2043/coordinatesInSquare/02> a excav:Coordinates;
+    schema:value "23 MMT"^^xsd:literal;
+    schema:value "44 MMT"^^xsd:literal;
+    schema:value "12 MMT"^^xsd:literal;
     .
 
-<https://purl.org/megalod/1871/morphology/testeArrowhead> a ah:Morphology;
-    ah:point "false"^^xsd:boolean;
+<https://purl.org/megalod/2043/morphology/AH-02> a ah:Morphology;
+    ah:point "true"^^xsd:boolean;
     ah:body "true"^^xsd:boolean;
-    ah:base <https://purl.org/megalod/kos/ah-base/straight>;
+    ah:base <https://purl.org/megalod/kos/ah-base/convex>;
     .
 
-<https://purl.org/megalod/1871/chipping/testeArrowhead> a ah:Chipping;
-    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/sub-parallel>;
-    ah:chippingAmplitude "true"^^xsd:boolean;
+<https://purl.org/megalod/2043/chipping/AH-02> a ah:Chipping;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/plane>;
+    ah:chippingAmplitude "false"^^xsd:boolean;
     ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/reverse>;
-    ah:chippingOrientation "true"^^xsd:boolean;
+    ah:chippingOrientation "false"^^xsd:boolean;
     ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/composite>;
     ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/distal>;
-    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/proximal>;
-    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex>;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/median>;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/sinuous>;
     .
 
-<https://purl.org/megalod/1871/encounter/testeArrowhead> a excav:EncounterEvent;
-    dct:date "2025-05-25"^^xsd:literal;
-    crmsci:O19_encountered_object <https://purl.org/megalod/1871/item/testeArrowhead>;
-    excav:foundInExcavation <https://purl.org/megalod/1871>;
+<https://purl.org/megalod/2043/encounter/AH-02> a excav:EncounterEvent;
+    dct:date "2025-05-29"^^xsd:literal;
+    crmsci:O19_encountered_object <https://purl.org/megalod/2043/item/AH-02>;
+    excav:foundInExcavation <https://purl.org/megalod/2043>;
+    excav:foundInContext <https://purl.org/megalod/2043/context/item-2049>;
+    excav:foundInSVU <https://purl.org/megalod/2043/svu/item-2051>;
     .
 
-<https://purl.org/megalod/1871/typometry/testeArrowhead-height> a excav:TypometryValue;
-    schema:value "22"^^xsd:decimal;
-    schema:UnitCode <GRM>;
-    .
-
-<https://purl.org/megalod/1871/typometry/testeArrowhead-width> a excav:TypometryValue;
-    schema:value "32"^^xsd:decimal;
+<https://purl.org/megalod/2043/typometry/AH-02-height> a excav:TypometryValue;
+    schema:value "12"^^xsd:decimal;
     schema:UnitCode <MMT>;
     .
 
-<https://purl.org/megalod/1871/typometry/testeArrowhead-weight> a excav:Weight;
-    schema:value "11"^^xsd:decimal;
-    schema:UnitCode <05>;
+<https://purl.org/megalod/2043/typometry/AH-02-width> a excav:TypometryValue;
+    schema:value "13"^^xsd:decimal;
+    schema:UnitCode <MMT>;
     .
 
-<https://purl.org/megalod/1871/typometry/testeArrowhead-thickness> a excav:TypometryValue;
+<https://purl.org/megalod/2043/typometry/AH-02-weight> a excav:Weight;
+    schema:value "23"^^xsd:decimal;
+    schema:UnitCode <GRM>;
+    .
+
+<https://purl.org/megalod/2043/typometry/AH-02-thickness> a excav:TypometryValue;
+    schema:value "14"^^xsd:decimal;
+    schema:UnitCode <MMT>;
+    .
+
+<https://purl.org/megalod/2043/typometry/AH-02-hasBodyLength> a excav:TypometryValue;
+    schema:value "34"^^xsd:decimal;
+    schema:UnitCode <MMT>;
+    .
+
+<https://purl.org/megalod/2043/typometry/AH-02-hasBaseLength> a excav:TypometryValue;
     schema:value "12"^^xsd:decimal;
-    schema:UnitCode <MMQ>;
+    schema:UnitCode <MMT>;
     .
 
-<https://purl.org/megalod/1871/typometry/testeArrowhead-bodyLength> a excav:TypometryValue;
-    schema:value "15"^^xsd:decimal;
-    schema:UnitCode <25>;
+<https://purl.org/megalod/2043/square/item-2045> a excav:Square;
+    dct:identifier "Square-2045"^^xsd:literal;
     .
 
-<https://purl.org/megalod/1871/typometry/testeArrowhead-baseLength> a excav:TypometryValue;
-    schema:value "16"^^xsd:decimal;
-    schema:UnitCode <08>;
+<https://purl.org/megalod/2043/context/item-2049> a excav:Context;
+    dct:identifier "Context-2049"^^xsd:literal;
     .
 
+<https://purl.org/megalod/2043/svu/item-2051> a excav:StratigraphicVolumeUnit;
+    dct:identifier "SVU-2051"^^xsd:literal;
+    .
