@@ -3092,30 +3092,13 @@ private function extractMeasurementUnit($rdfData, $typometryUri) {
 }
 
 
-/**
- * Enhanced findItemByIdentifier with comprehensive search strategies
- */
-private function findItemByIdentifier($identifier,  $itemSetId = null) {
-    $searchParams = [
-        'property' => [
-            [
-                'property' => 10, // dcterms:identifier property ID
-                'type' => 'eq',
-                'text' => $identifier
-            ]
-        ],
-        'limit' => 1
-    ];
-    if ($itemSetId) {
-        $searchParams['item_set_id'] = $itemSetId;
-    }
-    $response = $this->api()->search('items', $searchParams);
 
+private function findItemByIdentifier($identifier, $itemSetId = null) {
     try {
-        error_log("Searching for item with identifier: '$identifier'", 3, OMEKA_PATH . '/logs/resource-links.log');
+        error_log("Searching for item with identifier: '$identifier'" . ($itemSetId ? " in item set: $itemSetId" : ""), 3, OMEKA_PATH . '/logs/resource-links.log');
         
         // Strategy 1: Direct identifier search
-        $response = $this->api()->search('items', [
+        $searchParams1 = [
             'property' => [
                 [
                     'property' => 10, // dcterms:identifier property ID
@@ -3124,8 +3107,14 @@ private function findItemByIdentifier($identifier,  $itemSetId = null) {
                 ]
             ],
             'limit' => 1
-        ]);
+        ];
         
+        // Apply item set constraint if provided
+        if ($itemSetId) {
+            $searchParams1['item_set_id'] = $itemSetId;
+        }
+        
+        $response = $this->api()->search('items', $searchParams1);
         $items = $response->getContent();
         if (!empty($items)) {
             error_log("Found item with identifier '$identifier': ID " . $items[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
@@ -3133,7 +3122,7 @@ private function findItemByIdentifier($identifier,  $itemSetId = null) {
         }
         
         // Strategy 2: Search by title containing the identifier
-        $response = $this->api()->search('items', [
+        $searchParams2 = [
             'property' => [
                 [
                     'property' => 1, // dcterms:title property ID
@@ -3142,8 +3131,14 @@ private function findItemByIdentifier($identifier,  $itemSetId = null) {
                 ]
             ],
             'limit' => 1
-        ]);
+        ];
         
+        // Apply item set constraint if provided
+        if ($itemSetId) {
+            $searchParams2['item_set_id'] = $itemSetId;
+        }
+        
+        $response = $this->api()->search('items', $searchParams2);
         $items = $response->getContent();
         if (!empty($items)) {
             error_log("Found item by title containing '$identifier': ID " . $items[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
@@ -3151,11 +3146,17 @@ private function findItemByIdentifier($identifier,  $itemSetId = null) {
         }
         
         // Strategy 3: Full text search
-        $response = $this->api()->search('items', [
+        $searchParams3 = [
             'fulltext_search' => $identifier,
             'limit' => 5 // Get a few results to find the best match
-        ]);
+        ];
         
+        // Apply item set constraint if provided
+        if ($itemSetId) {
+            $searchParams3['item_set_id'] = $itemSetId;
+        }
+        
+        $response = $this->api()->search('items', $searchParams3);
         $items = $response->getContent();
         if (!empty($items)) {
             // Try to find the best match
@@ -3187,22 +3188,24 @@ private function findItemByIdentifier($identifier,  $itemSetId = null) {
             return $items[0];
         }
         
-        // Strategy 4: Search item sets (in case it's an excavation reference)
-        $itemSetResponse = $this->api()->search('item_sets', [
-            'property' => [
-                [
-                    'property' => 10, // dcterms:identifier property ID
-                    'type' => 'eq', 
-                    'text' => $identifier
-                ]
-            ],
-            'limit' => 1
-        ]);
-        
-        $itemSets = $itemSetResponse->getContent();
-        if (!empty($itemSets)) {
-            error_log("Found item set with identifier '$identifier': ID " . $itemSets[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
-            return $itemSets[0];
+        // Strategy 4: Search item sets (only if not already searching within an item set)
+        if (!$itemSetId) {
+            $itemSetResponse = $this->api()->search('item_sets', [
+                'property' => [
+                    [
+                        'property' => 10, // dcterms:identifier property ID
+                        'type' => 'eq', 
+                        'text' => $identifier
+                    ]
+                ],
+                'limit' => 1
+            ]);
+            
+            $itemSets = $itemSetResponse->getContent();
+            if (!empty($itemSets)) {
+                error_log("Found item set with identifier '$identifier': ID " . $itemSets[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
+                return $itemSets[0];
+            }
         }
         
         // Strategy 5: Try removing common prefixes and searching again
@@ -3210,9 +3213,9 @@ private function findItemByIdentifier($identifier,  $itemSetId = null) {
         foreach ($prefixesToRemove as $prefix) {
             if (strpos($identifier, $prefix) === 0) {
                 $cleanIdentifier = substr($identifier, strlen($prefix));
-                error_log("Trying clean identifier: '$cleanIdentifier' (removed '$prefix')", 3, OMEKA_PATH . '/logs/resource-links.log');
+                error_log("Trying clean identifier: '$cleanIdentifier' (removed '$prefix')" . ($itemSetId ? " in item set: $itemSetId" : ""), 3, OMEKA_PATH . '/logs/resource-links.log');
                 
-                $response = $this->api()->search('items', [
+                $searchParams5 = [
                     'property' => [
                         [
                             'property' => 10, // dcterms:identifier property ID
@@ -3221,8 +3224,14 @@ private function findItemByIdentifier($identifier,  $itemSetId = null) {
                         ]
                     ],
                     'limit' => 1
-                ]);
+                ];
                 
+                // Apply item set constraint if provided
+                if ($itemSetId) {
+                    $searchParams5['item_set_id'] = $itemSetId;
+                }
+                
+                $response = $this->api()->search('items', $searchParams5);
                 $items = $response->getContent();
                 if (!empty($items)) {
                     error_log("Found item with clean identifier '$cleanIdentifier': ID " . $items[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
@@ -3231,8 +3240,7 @@ private function findItemByIdentifier($identifier,  $itemSetId = null) {
             }
         }
         
-        // Strategy 6: Try pattern matching for common formats
-        // Handle patterns like "A1", "B2" (squares), "001", "002" (contexts/SVUs)
+        // Strategy 6: Try pattern matching for common formats (apply item set constraint if provided)
         if (preg_match('/^([A-Z])(\d+)$/', $identifier, $matches)) {
             // This looks like a square identifier (A1, B2, etc.)
             $searchTerms = [
@@ -3242,11 +3250,17 @@ private function findItemByIdentifier($identifier,  $itemSetId = null) {
             ];
             
             foreach ($searchTerms as $searchTerm) {
-                $response = $this->api()->search('items', [
+                $searchParams6 = [
                     'fulltext_search' => $searchTerm,
                     'limit' => 1
-                ]);
+                ];
                 
+                // Apply item set constraint if provided
+                if ($itemSetId) {
+                    $searchParams6['item_set_id'] = $itemSetId;
+                }
+                
+                $response = $this->api()->search('items', $searchParams6);
                 $items = $response->getContent();
                 if (!empty($items)) {
                     error_log("Found item with square pattern '$searchTerm': ID " . $items[0]->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
@@ -3255,7 +3269,7 @@ private function findItemByIdentifier($identifier,  $itemSetId = null) {
             }
         }
         
-        error_log("No item or item set found with identifier '$identifier'", 3, OMEKA_PATH . '/logs/resource-links.log');
+        error_log("No item" . ($itemSetId ? " in item set $itemSetId" : "") . " found with identifier '$identifier'", 3, OMEKA_PATH . '/logs/resource-links.log');
         return null;
         
     } catch (\Exception $e) {
