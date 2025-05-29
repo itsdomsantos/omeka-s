@@ -408,6 +408,22 @@
         sh:class excav:Square ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path excav:wasEncounteredIn ;
+        sh:name "Item was encountered in Event" ;
+        sh:class excav:EncounterEvent ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:description "Links an Item to the Encounter Event in which it was found" ;
+    ] ;
+    sh:property [
+        sh:path excav:foundInLocation ;
+        sh:name "Item found in a Location" ;
+        sh:class excav:Location ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+        sh:description "Links an Item to the Location where it was found" ;
     ] .
 
 # =========== Coordinates Shape ===========
@@ -542,6 +558,13 @@
         sh:path ah:hasChipping ;
         sh:name "The arrowhead has Chipping" ;
         sh:class ah:Chipping ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
+        sh:path crmsci:O19_was_encountered_in ;
+        sh:name "Arrowhead was encountered in Event (CIDOC-CRM)" ;
+        sh:class excav:EncounterEvent ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] .

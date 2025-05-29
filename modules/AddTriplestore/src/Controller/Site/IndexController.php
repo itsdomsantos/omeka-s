@@ -702,21 +702,28 @@ private function generateSquareTtl($squareUri, $square)
     return $ttl;
 }
 
-/**
- * Generate encounter event TTL
- */
-private function generateEncounterTtl($encounterUri, $encounter, $excavationUri)
+private function generateEncounterTtl($encounterUri, $encounter, $excavationUri, $itemUri)
 {
-    $ttl = "<$encounterUri> a excav:EncounterEvent ;\n";
+    $ttl = "<$encounterUri> a excav:EncounterEvent;\n";
     
     if (!empty($encounter['encounter_date'])) {
-        $ttl .= "    dct:date \"" . $encounter['encounter_date'] . "\"^^xsd:literal ;\n";
+        $ttl .= "    dct:date \"" . $encounter['encounter_date'] . "\"^^xsd:literal;\n";
     }
     
-    $ttl .= "    excav:foundInExcavation <$excavationUri> ;\n";
+    $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
+    
+    // Add link to the location if available
+    if (isset($encounter['location_uri']) && $encounter['location_uri']) {
+        $ttl .= "    excav:foundInLocation <" . $encounter['location_uri'] . ">;\n";
+    }
+    
+    // Add link to the encountered object (arrowhead)
+    if ($itemUri) {
+        $ttl .= "    crmsci:O19_encountered_object <$itemUri>;\n";
+    }
     
     if (!empty($encounter['encounter_depth'])) {
-        $ttl .= "    dbo:depth \"" . $encounter['encounter_depth'] . "\"^^xsd:decimal ;\n";
+        $ttl .= "    dbo:depth \"" . $encounter['encounter_depth'] . "\"^^xsd:decimal;\n";
     }
     
     $ttl .= "    .\n\n";
@@ -909,10 +916,15 @@ private function processArrowheadFormData($formData, $itemSetId)
     $linkedResources = $contextResult['references'];
     $resourceDeclarations = $contextResult['declarations'];
     
-    // Add arrowhead - start the main resource
     $ttl .= "<$arrowheadUri> a ah:Arrowhead, excav:Item;\n";
     $ttl .= "    dct:identifier \"$arrowheadId\"^^xsd:literal;\n";
     $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
+
+    // If location information is available
+    if (!empty($formData['location']) || !empty($baseLocation)) {
+        $locationUri = !empty($formData['location']) ? $formData['location'] : "$baseUri/location/excavation-location";
+        $ttl .= "    excav:foundInLocation <$locationUri>;\n";
+    }
     
     // Add references to existing resources
     foreach ($linkedResources as $property => $resourceUri) {
@@ -920,6 +932,10 @@ private function processArrowheadFormData($formData, $itemSetId)
         error_log("Added reference: $property -> $resourceUri", 3, OMEKA_PATH . '/logs/form-debug.log');
     }
     
+
+    // link to the encounter event
+    $ttl .= "    excav:wasEncounteredIn <$encounterUri>;\n";
+
     // Continue with other arrowhead properties...
     // (All the existing property processing code remains the same)
     
@@ -1465,6 +1481,28 @@ private function transformCollectingFormToArrowheadData($formData)
         }
     }
 
+    $itemSetId = isset($formData['item_set_id']) ? $formData['item_set_id'] : null;
+    
+    // If we have an item set ID, try to find and add the location from the excavation
+    if ($itemSetId) {
+        try {
+            // Get the excavation ID from the item set
+            $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
+            
+            if ($excavationId) {
+                // Find the location associated with this excavation
+                $locationUri = $this->getExcavationLocationUri($excavationId);
+                
+                if ($locationUri) {
+                    error_log("Found location for excavation $excavationId: $locationUri", 3, OMEKA_PATH . '/logs/location-debug.log');
+                    $arrowheadData['location'] = $locationUri;
+                }
+            }
+        } catch (\Exception $e) {
+            error_log('Error retrieving excavation location: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/location-debug.log');
+        }
+    }
+
     // Remove unit fields if their corresponding value fields are empty
     $valuesToCheck = [
         'thickness' => 'thickness_unit',
@@ -1485,7 +1523,10 @@ private function transformCollectingFormToArrowheadData($formData)
     return $arrowheadData;
 }
 
-
+private function getExcavationLocationUri($excavationId) {
+    // Standard location URI pattern based on excavation ID
+    return "https://purl.org/megalod/$excavationId/location/excavation-location";
+}
 
     private function processFileUpload($request, ?string $uploadType, ?int $itemSetId): string
     {
@@ -2457,11 +2498,16 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     ];
 
     // Enhanced resource link mapping WITH ITEM SET CONTEXT
+
+// In the processArrowheadData method, update the resourceLinkMap:
     $resourceLinkMap = [
         'https://purl.org/megalod/ms/excavation/foundInSquare' => ['The Square', 7668],
         'https://purl.org/megalod/ms/excavation/foundInContext' => ['The Encounter Event - an item found in a specific Context', 7672], 
         'https://purl.org/megalod/ms/excavation/foundInSVU' => ['Encounter Event - an item found in a specific Stratigraphic Unit', 7671],
         'https://purl.org/megalod/ms/excavation/foundInExcavation' => ['The Encounter Event - an item found in an Excavation', 7673],
+        'https://purl.org/megalod/ms/excavation/foundInLocation' => ['Item found in a Location', 7680], // Add this line
+        'https://purl.org/megalod/ms/excavation/wasEncounteredIn' => ['Arrowhead was encountered in Event', 7681],
+        'crmsci:O19_was_encountered_in' => ['Arrowhead was encountered in Event', 7681],
     ];
 
     $gpsPropertyMap = [
@@ -2486,6 +2532,52 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
                         'property_id' => $propertyId,
                         '@value' => $object['value']
                     ];
+                }
+            }
+        }
+    }
+
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/foundInLocation'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/foundInLocation'] as $locObj) {
+            if ($locObj['type'] === 'uri') {
+                $locationUri = $locObj['value'];
+                $locationId = $this->extractResourceIdentifier($rdfData, $locationUri);
+                
+                // Try to find the location item in Omeka
+                $locationItem = $this->findItemByIdentifier($locationId, $currentItemSetId);
+                
+                if ($locationItem) {
+                    if (!isset($itemData['Item found in a Location'])) {
+                        $itemData['Item found in a Location'] = [];
+                    }
+                    
+                    $itemData['Item found in a Location'][] = [
+                        'type' => 'resource',
+                        'property_id' => 7680, // The new property ID for foundInLocation
+                        'value_resource_id' => $locationItem->id(),
+                        'o:label' => "Location: " . $locationId
+                    ];
+                    
+                    error_log("✓ Successfully linked to location: '$locationId' -> Item ID: " . $locationItem->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
+                } else {
+                    // Extract location name if available in the RDF data
+                    $locationName = null;
+                    if (isset($rdfData[$locationUri])) {
+                        // Try to get a readable label from the location
+                        $locationName = $this->extractLocationName($rdfData, $locationUri);
+                    }
+                    
+                    if (!isset($itemData['Item found in a Location'])) {
+                        $itemData['Item found in a Location'] = [];
+                    }
+                    
+                    $itemData['Item found in a Location'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7681,
+                        '@value' => $locationName ?: "Location: $locationId (NOT LINKED - resource not found)"
+                    ];
+                    
+                    error_log("⚠ Could not link to location: '$locationId' - storing as literal", 3, OMEKA_PATH . '/logs/resource-links.log');
                 }
             }
         }
@@ -2585,6 +2677,8 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     $this->processMorphologyData($rdfData, $subject, $itemData);
     $this->processChippingData($rdfData, $subject, $itemData);
     $this->processCoordinatesData($rdfData, $subject, $itemData);
+    $this->processEncounterEventLinks($rdfData, $subject, $itemData);
+
 }
 
 private function getCurrentItemSetContext() {
@@ -4348,6 +4442,73 @@ private function extractTimelineRange($rdfData, $timelineUri) {
 }
 
 
+// Add this new method
+
+/**
+ * Process links between arrowheads and encounter events
+ */
+private function processEncounterEventLinks($rdfData, $subject, &$itemData) {
+    $currentItemSetId = $this->getCurrentItemSetContext();
+    error_log("Processing encounter event links for: $subject", 3, OMEKA_PATH . '/logs/encounter-events.log');
+    
+    // Check for the new wasEncounteredIn property
+    $encounterLinks = [
+        'https://purl.org/megalod/ms/excavation/wasEncounteredIn',
+        'http://cidoc-crm.org/extensions/crmsci/O19_was_encountered_in'
+    ];
+    
+    foreach ($encounterLinks as $predicate) {
+        if (isset($rdfData[$subject][$predicate])) {
+            error_log("Found $predicate relationship", 3, OMEKA_PATH . '/logs/encounter-events.log');
+            
+            foreach ($rdfData[$subject][$predicate] as $encounterObj) {
+                if ($encounterObj['type'] === 'uri') {
+                    $encounterUri = $encounterObj['value'];
+                    
+                    // Extract encounter event identifier
+                    $encounterId = $this->extractResourceIdentifier($rdfData, $encounterUri);
+                    error_log("Extracted encounter ID: $encounterId", 3, OMEKA_PATH . '/logs/encounter-events.log');
+                    
+                    if ($encounterId) {
+                        // Try to find the encounter event item in Omeka, constrained to the item set
+                        $encounterItem = $this->findItemByIdentifier($encounterId, $currentItemSetId);
+                        
+                        if ($encounterItem) {
+                            if (!isset($itemData['Arrowhead was encountered in Event'])) {
+                                $itemData['Arrowhead was encountered in Event'] = [];
+                            }
+                            
+                            $itemData['Arrowhead was encountered in Event'][] = [
+                                'type' => 'resource',
+                                'property_id' => 7681,
+                                'value_resource_id' => $encounterItem->id(),
+                                'o:label' => "Encounter Event: $encounterId"
+                            ];
+                            
+                            error_log("Successfully linked to encounter event: $encounterId (ID: " . $encounterItem->id() . ")", 
+                                     3, OMEKA_PATH . '/logs/encounter-events.log');
+                        } else {
+                            // Create a literal reference if we can't find the item
+                            if (!isset($itemData['Arrowhead was encountered in Event'])) {
+                                $itemData['Arrowhead was encountered in Event'] = [];
+                            }
+                            
+                            $itemData['Arrowhead was encountered in Event'][] = [
+                                'type' => 'literal',
+                                'property_id' => 7681,
+                                '@value' => "Encounter Event: $encounterId (item not found)"
+                            ];
+                            
+                            error_log("Could not find encounter event item for: $encounterId", 
+                                     3, OMEKA_PATH . '/logs/encounter-events.log');
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
 /**
  * REPLACE the extractCommonProperties method with this improved version
  */
@@ -4356,8 +4517,11 @@ private function extractCommonProperties($rdfData, $subject, &$itemData) {
     $commonPropertyMap = [
         'http://dbpedia.org/ontology/Annotation' => ['Description', 4], // Use description instead
         'http://www.cidoc-crm.org/cidoc-crm/E3_Condition_State' => ['Condition State', 476],
-        'http://www.cidoc-crm.org/cidoc-crm/E55_Type' => ['Type', 399]
+        'http://www.cidoc-crm.org/cidoc-crm/E55_Type' => ['Type', 399],
+        'https://purl.org/megalod/ms/excavation/wasEncounteredIn' => ['Arrowhead was encountered in Event', 7681],
+        'http://cidoc-crm.org/extensions/crmsci/O19_was_encountered_in' => ['Arrowhead was encountered in Event', 7681],
     ];
+    
     
     foreach ($commonPropertyMap as $predicate => $mapping) {
         if (isset($rdfData[$subject][$predicate])) {
