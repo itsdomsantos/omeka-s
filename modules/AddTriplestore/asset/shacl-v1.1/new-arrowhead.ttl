@@ -1,121 +1,160 @@
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
-@prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix dct: <http://purl.org/dc/terms/> .
-@prefix foaf: <http://xmlns.com/foaf/0.1/> .
-@prefix dbo: <http://dbpedia.org/ontology/> .
-@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
-@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
-@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
-@prefix edm: <http://www.europeana.eu/schemas/edm/> .
-@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
-@prefix time: <http://www.w3.org/2006/time#> .
-@prefix schema: <http://schema.org/> .
 @prefix ah: <https://purl.org/megalod/ms/ah/> .
 @prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix schema: <http://schema.org/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
 @prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
 
-<https://purl.org/megalod/2043> a excav:Excavation;
-    dct:identifier "EXC-2043"^^xsd:literal;
-    .
-
-<https://purl.org/megalod/2043/item/AH-02> a ah:Arrowhead, excav:Item;
-    dct:identifier "AH-02"^^xsd:literal;
-    excav:foundInExcavation <https://purl.org/megalod/2043>;
-    excav:foundInSquare <https://purl.org/megalod/2043/square/item-2045>;
-    excav:foundInContext <https://purl.org/megalod/2043/context/item-2049>;
+# Base URI will be normalized by the system based on the excavation context
+<https://purl.org/megalod/example/item/AH-003> a ah:Arrowhead, excav:Item;
+    dct:identifier "AH-003"^^xsd:literal;
+    
+    # Link to excavation (will be updated to match the target excavation)
+    excav:foundInExcavation <https://purl.org/megalod/example/excavation/TestExcavation>;
+    
+    # Archaeological context - these will be linked to existing resources in the target excavation
+    excav:foundInSquare <https://purl.org/megalod/example/square/A1>;
+    excav:foundInContext <https://purl.org/megalod/example/context/CV-001>;
+    excav:foundInSVU <https://purl.org/megalod/example/svu/CV-001-1>;
+    
+    # Location information (will inherit from excavation if not specified)
+    excav:foundInLocation <https://purl.org/megalod/example/location/excavation-site>;
+    
+    # GPS coordinates (specific to this find)
     geo:lat "40.5767"^^xsd:decimal;
     geo:long "8.4125"^^xsd:decimal;
-    excav:foundInSVU <https://purl.org/megalod/2043/svu/item-2051>;
-    dbo:Annotation "arrowhead 1"^^xsd:literal;
-    crm:E3_Condition_State "true"^^xsd:boolean;
-    crm:E55_Type "true"^^xsd:boolean;
-    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Short>;
+    
+    # Basic item properties
+    dbo:Annotation "Complete triangular arrowhead with excellent preservation and fine bifacial working"^^xsd:literal;
+    crm:E3_Condition_State "true"^^xsd:boolean;  # true = complete, false = broken
+    crm:E55_Type "true"^^xsd:boolean;            # true = elongated, false = short
+    
+    # Material
     crm:E57_Material <http://collection.britishmuseum.org/id/thesaurus/material/flint>;
+    
+    # Arrowhead-specific properties
     ah:shape <https://purl.org/megalod/kos/ah-shape/triangle>;
-    ah:variant <https://purl.org/megalod/kos/ah-variant/raised>;
-    schema:height <https://purl.org/megalod/2043/typometry/AH-02-height>;
-    schema:width <https://purl.org/megalod/2043/typometry/AH-02-width>;
-    schema:weight <https://purl.org/megalod/2043/typometry/AH-02-weight>;
-    schema:depth <https://purl.org/megalod/2043/typometry/AH-02-thickness>;
-    ah:hasBodyLength <https://purl.org/megalod/2043/typometry/AH-02-hasBodyLength>;
-    ah:hasBaseLength <https://purl.org/megalod/2043/typometry/AH-02-hasBaseLength>;
-    ah:hasChipping <https://purl.org/megalod/2043/chipping/AH-02>;
-    ah:hasMorphology <https://purl.org/megalod/2043/morphology/AH-02>;
-    excav:hasCoordinatesInSquare <https://purl.org/megalod/2043/coordinatesInSquare/02>;
+    ah:variant <https://purl.org/megalod/kos/ah-variant/flat>;
+    
+    # Measurements
+    schema:height <https://purl.org/megalod/example/typometry/AH-003-height>;
+    schema:width <https://purl.org/megalod/example/typometry/AH-003-width>;
+    schema:depth <https://purl.org/megalod/example/typometry/AH-003-thickness>;
+    schema:weight <https://purl.org/megalod/example/weight/AH-003>;
+    ah:hasBodyLength <https://purl.org/megalod/example/typometry/AH-003-bodyLength>;
+    ah:hasBaseLength <https://purl.org/megalod/example/typometry/AH-003-baseLength>;
+    
+    # Classification indices
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated>;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin>;
+    
+    # Coordinates within the excavation square
+    excav:hasCoordinatesInSquare <https://purl.org/megalod/example/coordinates/AH-003>;
+    
+    # Morphological and technical analysis
+    ah:hasMorphology <https://purl.org/megalod/example/morphology/AH-003>;
+    ah:hasChipping <https://purl.org/megalod/example/chipping/AH-003>;
+    
+    # Link to encounter event
+    excav:wasEncounteredIn <https://purl.org/megalod/example/encounter/AH-003>;
+    
+    # Media files (optional)
+    edm:Webresource <https://purl.org/megalod/example/images/AH-003-photo1.jpg>;
+    edm:Webresource <https://purl.org/megalod/example/images/AH-003-3d-model.obj>;
     .
 
-<https://purl.org/megalod/2043/coordinatesInSquare/02> a excav:Coordinates;
-    schema:value "23 MMT"^^xsd:literal;
-    schema:value "44 MMT"^^xsd:literal;
-    schema:value "12 MMT"^^xsd:literal;
+# Coordinates within square
+<https://purl.org/megalod/example/coordinates/AH-003> a excav:Coordinates;
+    schema:value "25.5 CMT"^^xsd:literal;  # X coordinate
+    schema:value "47.2 CMT"^^xsd:literal;  # Y coordinate  
+    schema:value "15.3 CMT"^^xsd:literal;  # Z coordinate (depth)
     .
 
-<https://purl.org/megalod/2043/morphology/AH-02> a ah:Morphology;
-    ah:point "true"^^xsd:boolean;
-    ah:body "true"^^xsd:boolean;
+# Morphological analysis
+<https://purl.org/megalod/example/morphology/AH-003> a ah:Morphology;
+    ah:point "true"^^xsd:boolean;   # true = sharp, false = fractured
+    ah:body "true"^^xsd:boolean;    # true = symmetrical, false = non-symmetrical
     ah:base <https://purl.org/megalod/kos/ah-base/convex>;
     .
 
-<https://purl.org/megalod/2043/chipping/AH-02> a ah:Chipping;
-    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/plane>;
-    ah:chippingAmplitude "false"^^xsd:boolean;
-    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/reverse>;
-    ah:chippingOrientation "false"^^xsd:boolean;
-    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/composite>;
+# Chipping analysis
+<https://purl.org/megalod/example/chipping/AH-003> a ah:Chipping;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/parallel>;
+    ah:chippingAmplitude "false"^^xsd:boolean;  # false = deep, true = marginal
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/bifacial>;
+    ah:chippingOrientation "true"^^xsd:boolean;  # true = lateral, false = transverse
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/continuous>;
     ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/distal>;
-    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/median>;
-    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/sinuous>;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/median>;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/distal>;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex>;
     .
 
-<https://purl.org/megalod/2043/encounter/AH-02> a excav:EncounterEvent;
-    dct:date "2025-05-29"^^xsd:literal;
-    crmsci:O19_encountered_object <https://purl.org/megalod/2043/item/AH-02>;
-    excav:foundInExcavation <https://purl.org/megalod/2043>;
-    excav:foundInContext <https://purl.org/megalod/2043/context/item-2049>;
-    excav:foundInSVU <https://purl.org/megalod/2043/svu/item-2051>;
+# Encounter event
+<https://purl.org/megalod/example/encounter/AH-003> a excav:EncounterEvent;
+    dct:date "2025-05-30"^^xsd:literal;
+    crmsci:O19_encountered_object <https://purl.org/megalod/example/item/AH-003>;
+    excav:foundInExcavation <https://purl.org/megalod/example/excavation/TestExcavation>;
+    excav:foundInContext <https://purl.org/megalod/example/context/CV-001>;
+    excav:foundInSVU <https://purl.org/megalod/example/svu/CV-001-1>;
+    dbo:depth "45.3"^^xsd:decimal;
     .
 
-<https://purl.org/megalod/2043/typometry/AH-02-height> a excav:TypometryValue;
-    schema:value "12"^^xsd:decimal;
+# Measurement values with units
+<https://purl.org/megalod/example/typometry/AH-003-height> a excav:TypometryValue;
+    schema:value "34.7"^^xsd:decimal;
+    schema:UnitCode <MMT>;  # Millimeters
+    .
+
+<https://purl.org/megalod/example/typometry/AH-003-width> a excav:TypometryValue;
+    schema:value "18.3"^^xsd:decimal;
     schema:UnitCode <MMT>;
     .
 
-<https://purl.org/megalod/2043/typometry/AH-02-width> a excav:TypometryValue;
-    schema:value "13"^^xsd:decimal;
+<https://purl.org/megalod/example/typometry/AH-003-thickness> a excav:TypometryValue;
+    schema:value "4.2"^^xsd:decimal;
     schema:UnitCode <MMT>;
     .
 
-<https://purl.org/megalod/2043/typometry/AH-02-weight> a excav:Weight;
-    schema:value "23"^^xsd:decimal;
-    schema:UnitCode <GRM>;
+<https://purl.org/megalod/example/weight/AH-003> a excav:Weight;
+    schema:value "6.8"^^xsd:decimal;
+    schema:UnitCode <GRM>;  # Grams
     .
 
-<https://purl.org/megalod/2043/typometry/AH-02-thickness> a excav:TypometryValue;
-    schema:value "14"^^xsd:decimal;
+<https://purl.org/megalod/example/typometry/AH-003-bodyLength> a excav:TypometryValue;
+    schema:value "28.4"^^xsd:decimal;
     schema:UnitCode <MMT>;
     .
 
-<https://purl.org/megalod/2043/typometry/AH-02-hasBodyLength> a excav:TypometryValue;
-    schema:value "34"^^xsd:decimal;
+<https://purl.org/megalod/example/typometry/AH-003-baseLength> a excav:TypometryValue;
+    schema:value "12.8"^^xsd:decimal;
     schema:UnitCode <MMT>;
     .
 
-<https://purl.org/megalod/2043/typometry/AH-02-hasBaseLength> a excav:TypometryValue;
-    schema:value "12"^^xsd:decimal;
-    schema:UnitCode <MMT>;
+# Resource declarations for context entities (these would typically exist from excavation upload)
+<https://purl.org/megalod/example/excavation/TestExcavation> a excav:Excavation;
+    dct:identifier "TEST-EXC-001"^^xsd:literal;
     .
 
-<https://purl.org/megalod/2043/square/item-2045> a excav:Square;
-    dct:identifier "Square-2045"^^xsd:literal;
+<https://purl.org/megalod/example/square/A1> a excav:Square;
+    dct:identifier "A1"^^xsd:literal;
     .
 
-<https://purl.org/megalod/2043/context/item-2049> a excav:Context;
-    dct:identifier "Context-2049"^^xsd:literal;
+<https://purl.org/megalod/example/context/CV-001> a excav:Context;
+    dct:identifier "CV-001"^^xsd:literal;
     .
 
-<https://purl.org/megalod/2043/svu/item-2051> a excav:StratigraphicVolumeUnit;
-    dct:identifier "SVU-2051"^^xsd:literal;
+<https://purl.org/megalod/example/svu/CV-001-1> a excav:StratigraphicVolumeUnit;
+    dct:identifier "CV-001-1"^^xsd:literal;
+    .
+
+<https://purl.org/megalod/example/location/excavation-site> a excav:Location;
+    dbo:informationName "Test Archaeological Site"^^xsd:literal;
     .
