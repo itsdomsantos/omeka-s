@@ -1231,8 +1231,29 @@ private function processArrowheadFormData($formData, $itemSetId)
         
         error_log("Added resource declaration: {$resource['uri']} a {$resource['type']}", 3, OMEKA_PATH . '/logs/form-debug.log');
     }
+
+    if (strpos($ttl, 'excav:foundInLocation') !== false) {
+        // Extract all location URIs referenced
+        preg_match_all('/excav:foundInLocation\s+<([^>]+)>/', $ttl, $matches);
+        
+        if (!empty($matches[1])) {
+            foreach ($matches[1] as $locationUri) {
+                // Check if this location is already declared with a type
+                if (strpos($ttl, "<$locationUri> a excav:Location") === false) {
+                    // Location is referenced but not properly declared, add the declaration
+                    $ttl .= "<$locationUri> a excav:Location;\n";
+                    $ttl .= "    rdfs:label \"Excavation Location\"^^xsd:string;\n";
+                    $ttl .= "    .\n\n";
+                    
+                    error_log("Added missing location type declaration for $locationUri", 3, OMEKA_PATH . '/logs/ttl-fixes.log');
+                }
+            }
+        }
+    }
     
     error_log('FINAL TTL GENERATED: ' . $ttl, 3, OMEKA_PATH . '/logs/final-ttl-debug.log');    
+
+    
     return $ttl;
 }
 
@@ -2487,6 +2508,8 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     $currentItemSetId = $this->getCurrentItemSetContext();
     error_log("Current item set context: " . ($currentItemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/arrowhead-processing.log');
     
+    $excavationUri = null;
+
     // Basic properties - direct mapping
     $propertyMap = [
         'https://purl.org/megalod/ms/ah/shape' => ['ArrowHead - shape', 7651],
@@ -2672,13 +2695,112 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         }
     }
 
-    // Continue with existing measurement, morphology, chipping, and coordinates processing...
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/foundInExcavation'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/foundInExcavation'] as $obj) {
+            if ($obj['type'] === 'uri') {
+                $excavationUri = $obj['value'];
+                error_log("Found excavation reference: $excavationUri", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+                break;
+            }
+        }
+    }
+
+// If we have an excavation URI, try to get its GPS coordinates
+    if ($excavationUri && isset($rdfData[$excavationUri])) {
+        error_log("Looking for location in excavation: $excavationUri", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+        
+        // Find the location linked to the excavation
+        if (isset($rdfData[$excavationUri]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
+            foreach ($rdfData[$excavationUri]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'] as $locObj) {
+                if ($locObj['type'] === 'uri' && isset($rdfData[$locObj['value']])) {
+                    $locationUri = $locObj['value'];
+                    error_log("Found location URI: $locationUri", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+                    
+                    // Find GPS coordinates linked to the location
+                    if (isset($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates'])) {
+                        foreach ($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates'] as $gpsObj) {
+                            if ($gpsObj['type'] === 'uri' && isset($rdfData[$gpsObj['value']])) {
+                                $gpsUri = $gpsObj['value'];
+                                error_log("Found GPS URI: $gpsUri", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+                                
+                                // Extract lat/long from GPS coordinates
+                                $lat = null;
+                                $long = null;
+                                
+                                if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'])) {
+                                    foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'] as $latObj) {
+                                        if ($latObj['type'] === 'literal') {
+                                            $lat = $latObj['value'];
+                                            error_log("Found latitude: $lat", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+                                        }
+                                    }
+                                }
+                                
+                                if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'])) {
+                                    foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'] as $longObj) {
+                                        if ($longObj['type'] === 'literal') {
+                                            $long = $longObj['value'];
+                                            error_log("Found longitude: $long", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+                                        }
+                                    }
+                                }
+                                
+                                // Add GPS coordinates to arrowhead
+                                if ($lat !== null) {
+                                    if (!isset($itemData['GPS Latitude'])) {
+                                        $itemData['GPS Latitude'] = [];
+                                    }
+                                    $itemData['GPS Latitude'][] = [
+                                        'type' => 'literal',
+                                        'property_id' => 257, // GPS Latitude property ID
+                                        '@value' => $lat
+                                    ];
+                                }
+                                
+                                if ($long !== null) {
+                                    if (!isset($itemData['GPS Longitude'])) {
+                                        $itemData['GPS Longitude'] = [];
+                                    }
+                                    $itemData['GPS Longitude'][] = [
+                                        'type' => 'literal',
+                                        'property_id' => 259, // GPS Longitude property ID
+                                        '@value' => $long
+                                    ];
+                                }
+                                
+                                // Also add combined GPS coordinates
+                                if ($lat !== null && $long !== null) {
+                                    if (!isset($itemData['GPS Coordinates'])) {
+                                        $itemData['GPS Coordinates'] = [];
+                                    }
+                                    $itemData['GPS Coordinates'][] = [
+                                        'type' => 'literal',
+                                        'property_id' => 7664, // GPS Coordinates property ID
+                                        '@value' => "Latitude: $lat, Longitude: $long"
+                                    ];
+                                    
+                                    error_log("Added GPS coordinates to arrowhead: Lat=$lat, Long=$long", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+                                }
+                            }
+                        }
+                    } else {
+                        error_log("No GPS coordinates found for location", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+                    }
+                }
+            }
+        } else {
+            error_log("No location found for excavation", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+        }
+    } else {
+        error_log("No valid excavation reference or excavation not found in RDF data", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+    }
+    
+    // Continue with existing code (measurements, morphology, etc.)
     $this->processMeasurements($rdfData, $subject, $itemData);
     $this->processMorphologyData($rdfData, $subject, $itemData);
     $this->processChippingData($rdfData, $subject, $itemData);
     $this->processCoordinatesData($rdfData, $subject, $itemData);
     $this->processEncounterEventLinks($rdfData, $subject, $itemData);
-
 }
 
 private function getCurrentItemSetContext() {
