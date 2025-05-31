@@ -1731,35 +1731,36 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
                 $createdItems = $omekaResponse['created_items'];
                 $updatedCount = 0;
                 
-                foreach ($createdItems as $item) {
-                    $itemId = $item['o:id']; // Get the Omeka assigned ID
-                    
-                    // Update titles based on content type
-                    if ($isExcavation) {
-                        $title = "Excavation $excavationIdentifier Item $itemId";
-                    } else {
-                        $title = "Arrowhead $itemId" . ($excavationIdentifier ? " (Excavation $excavationIdentifier)" : "");
-                    }
-                    
-                    // Update the title with the Omeka ID
-                    try {
-                        $updateResult = $this->api()->update('items', $itemId, [
-                            'dcterms:title' => [
-                                [
-                                    'type' => 'literal',
-                                    'property_id' => 1,
-                                    '@value' => $title
-                                ]
-                            ]
-                        ], [], ['isPartial' => true]);
-                        
-                        if ($updateResult) {
-                            $updatedCount++;
-                        }
-                    } catch (\Exception $e) {
-                        error_log('Error updating item title: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
-                    }
-                }
+foreach ($createdItems as $item) {
+    $itemId = $item['o:id']; // Get the Omeka assigned ID
+    
+    // Update titles based on content type
+    if ($isExcavation) {
+        $title = "Excavation $excavationIdentifier Item $itemId";
+    } else {
+        $title = "Arrowhead $itemId" . ($excavationIdentifier ? " (Excavation $excavationIdentifier)" : "");
+    }
+    
+    // Update the title with the Omeka ID
+    try {
+        $updateResult = $this->api()->update('items', $itemId, [
+            'dcterms:title' => [
+                [
+                    'type' => 'literal',
+                    'property_id' => 1,
+                    '@value' => $title
+                ]
+            ]
+        ], [], ['isPartial' => true]);
+        
+        if ($updateResult) {
+            $updatedCount++;
+            error_log("Updated title for item $itemId: '$title'", 3, OMEKA_PATH . '/logs/excavation-debug.log');
+        }
+    } catch (\Exception $e) {
+        error_log('Error updating item title: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-debug.log');
+    }
+}
                 
                 if ($isExcavation && $itemSetId) {
                     return "Data uploaded successfully to both GraphDB and Omeka S. Created Item Set #{$itemSetId} for excavation '$excavationIdentifier' and " . 
@@ -2444,7 +2445,10 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
     foreach ($rdfData as $subject => $predicates) {
         if (isset($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
             foreach ($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
-                if ($typeObj['type'] === 'uri' && isset($mainSubjectTypes[$typeObj['value']])) {
+                // Skip encounter events
+                if ($typeObj['type'] === 'uri' && 
+                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/EncounterEvent' &&
+                    isset($mainSubjectTypes[$typeObj['value']])) {
                     $subjects[$subject] = $mainSubjectTypes[$typeObj['value']];
                     break; // Found the type, move to next subject
                 }
@@ -2605,6 +2609,48 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
             }
         }
     }
+
+
+
+// In processArrowheadData, keep or add this block:
+if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/wasEncounteredIn'])) {
+    foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/wasEncounteredIn'] as $encounterObj) {
+        if ($encounterObj['type'] === 'uri') {
+            $encounterUri = $encounterObj['value'];
+            
+            // Extract encounter metadata directly
+            $encounterDate = null;
+            
+            if (isset($rdfData[$encounterUri])) {
+                // Get encounter date if available
+                if (isset($rdfData[$encounterUri]['http://purl.org/dc/terms/date'])) {
+                    foreach ($rdfData[$encounterUri]['http://purl.org/dc/terms/date'] as $dateObj) {
+                        if ($dateObj['type'] === 'literal') {
+                            $encounterDate = $dateObj['value'];
+                        }
+                    }
+                }
+                
+                
+            }
+            
+            // Add encounter information to arrowhead item
+            if (!isset($itemData['Encounter Date'])) {
+                $itemData['Encounter Date'] = [];
+            }
+            
+            if ($encounterDate) {
+                $itemData['Encounter Date'][] = [
+                    'type' => 'literal',
+                    'property_id' => 7, // Use appropriate property ID for encounter date
+                    '@value' => $encounterDate
+                ];
+            }
+            
+            
+        }
+    }
+}
     
     // Process basic properties
     foreach ($propertyMap as $predicate => $mapping) {
@@ -2800,7 +2846,6 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     $this->processMorphologyData($rdfData, $subject, $itemData);
     $this->processChippingData($rdfData, $subject, $itemData);
     $this->processCoordinatesData($rdfData, $subject, $itemData);
-    $this->processEncounterEventLinks($rdfData, $subject, $itemData);
 }
 
 private function getCurrentItemSetContext() {
@@ -4431,533 +4476,6 @@ private function extractTimelineRange($rdfData, $timelineUri) {
 }
 
 
-
-private function processEncounterEventLinks($rdfData, $subject, &$itemData) {
-    $title = "Encounter Event";
-
-    $currentItemSetId = $this->getCurrentItemSetContext();
-    error_log("Processing encounter event links for: $subject", 3, OMEKA_PATH . '/logs/encounter-events.log');
-    
-    // Check for encounter event references
-    $encounterLinks = [
-        'https://purl.org/megalod/ms/excavation/wasEncounteredIn',
-        'http://cidoc-crm.org/extensions/crmsci/O19_was_encountered_in'
-    ];
-
-    
-    unset($itemData['Item was encountered in Event']);
-    unset($itemData['Arrowhead was encountered in Event']);
-    
-    foreach ($encounterLinks as $predicate) {
-        if (isset($rdfData[$subject][$predicate])) {
-            foreach ($rdfData[$subject][$predicate] as $encounterObj) {
-                if ($encounterObj['type'] === 'uri') {
-                    $encounterUri = $encounterObj['value'];
-                    error_log("Found encounter event reference: $encounterUri", 3, OMEKA_PATH . '/logs/encounter-events.log');
-                    
-                    // Extract a useful identifier for the encounter event
-                    $encounterId = $this->extractResourceIdentifier($rdfData, $encounterUri);
-                    if (!$encounterId) {
-                        // Try to derive an ID from the URI structure
-                        $parts = explode('/', $encounterUri);
-                        $encounterId = end($parts);
-                    }
-                    
-                    error_log("Encounter identifier: $encounterId", 3, OMEKA_PATH . '/logs/encounter-events.log');
-                    
-                    // First, check if this event already exists in Omeka
-                    $encounterItem = null;
-                    if ($currentItemSetId) {
-                        $encounterItem = $this->findItemByIdentifier($encounterId, $currentItemSetId);
-                    }
-                    
-                    if (!$encounterItem && isset($rdfData[$encounterUri])) {
-    // Extract encounter event details from RDF
-    $encounterData = $this->extractEncounterEventData($rdfData, $encounterUri);
-    error_log("Encounter data: " . print_r($encounterData, true), 3, OMEKA_PATH . '/logs/encounter-events.log');
-    
-    if ($currentItemSetId) {
-        // Create encounter event as an Omeka item
-        try {
-            // Create title in format: "Encounter Event - CTX - SVU"
-            $title = "Encounter Event";
-            
-            if (!empty($encounterData['context']) && !empty($encounterData['svu'])) {
-    $title = "Encounter Event - " . $encounterData['context'] . " - " . $encounterData['svu'];
-} elseif (!empty($encounterData['context'])) {
-    $title = "Encounter Event - " . $encounterData['context'];
-} elseif (!empty($encounterData['svu'])) {
-    $title = "Encounter Event - " . $encounterData['svu'];
-} else {
-    $title = "Encounter Event - " . ($encounterId ?: date('Y-m-d-H:i:s'));
-}
-            
-            error_log("Creating encounter event with title: '$title'", 3, OMEKA_PATH . '/logs/encounter-events.log');
-            
-            // Build description from all available data
-            $descriptionParts = [];
-            
-            if (!empty($encounterData['date'])) {
-                $descriptionParts[] = "Date: " . $encounterData['date'];
-            }
-            
-            if (!empty($encounterData['context'])) {
-                $descriptionParts[] = "Context: " . $encounterData['context'];
-            }
-            
-            if (!empty($encounterData['svu'])) {
-                $descriptionParts[] = "SVU: " . $encounterData['svu'];
-            }
-            
-            if (!empty($encounterData['depth'])) {
-                $descriptionParts[] = "Depth: " . $encounterData['depth'];
-            }
-            
-            if (!empty($encounterData['excavation'])) {
-                $descriptionParts[] = "Excavation: " . $encounterData['excavation'];
-            }
-            
-            $description = !empty($descriptionParts) ? implode("; ", $descriptionParts) : "Archaeological encounter event";
-
-            $encounterItemData = [
-    'o:resource_class' => ['o:id' => 1], // Use the same class ID as other items (Agent)
-    'o:item_set' => [
-        ['o:id' => $currentItemSetId]
-    ],
-    'dcterms:title' => [
-        [
-            'type' => 'literal',
-            'property_id' => 1,
-            '@value' => $title
-        ]
-    ],
-    'dcterms:description' => [
-        [
-            'type' => 'literal',
-            'property_id' => 4,
-            '@value' => $description
-        ]
-    ],
-    'dcterms:identifier' => [
-        [
-            'type' => 'literal',
-            'property_id' => 10,
-            '@value' => $encounterId
-        ]
-    ],
-    'o:is_public' => true
-];
-            
-            // Add date if available
-            if (!empty($encounterData['date'])) {
-                $encounterItemData['dcterms:date'] = [
-                    [
-                        'type' => 'literal',
-                        'property_id' => 7, // ID for dcterms:date
-                        '@value' => $encounterData['date']
-                    ]
-                ];
-            }
-            
-            // Add depth if available
-            if (!empty($encounterData['depth'])) {
-                $encounterItemData['Depth'] = [
-                    [
-                        'type' => 'literal',
-                        'property_id' => 7245, // ID for depth property
-                        '@value' => $encounterData['depth']
-                    ]
-                ];
-            }
-            
-            // Create the encounter event item with the title set from the beginning
-            // Create the encounter event item with the title set from the beginning
-$response = $this->api()->create('items', $encounterItemData);
-$encounterItem = $response->getContent();
-
-error_log("Created encounter event item with title '$title': " . $encounterItem->id(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-
-// Force refresh the item to ensure title is properly set
-try {
-    // Read the item back immediately to refresh it
-    $refreshedItem = $this->api()->read('items', $encounterItem->id())->getContent();
-    
-    if ($refreshedItem) {
-        $currentTitle = $refreshedItem->displayTitle();
-        error_log("Refreshed item title: '" . $currentTitle . "'", 3, OMEKA_PATH . '/logs/encounter-events.log');
-        
-        // If still no title, force update it again
-        if ($currentTitle === '[Sem título]' || empty($currentTitle) || $currentTitle === 'Sem título') {
-            error_log("Title still empty/invalid, forcing update...", 3, OMEKA_PATH . '/logs/encounter-events.log');
-            
-            $forceUpdate = $this->api()->update('items', $encounterItem->id(), [
-                'dcterms:title' => [
-                    [
-                        'type' => 'literal',
-                        'property_id' => 1,
-                        '@value' => $title
-                    ]
-                ]
-            ], [], ['isPartial' => true]);
-            
-            error_log("Force update result: " . ($forceUpdate ? 'success' : 'failed'), 3, OMEKA_PATH . '/logs/encounter-events.log');
-            
-            // Verify the force update worked
-            if ($forceUpdate) {
-                $finalItem = $this->api()->read('items', $encounterItem->id())->getContent();
-                if ($finalItem) {
-                    error_log("Final title after force update: '" . $finalItem->displayTitle() . "'", 3, OMEKA_PATH . '/logs/encounter-events.log');
-                }
-            }
-        }
-    } else {
-        error_log("Failed to refresh item - null response", 3, OMEKA_PATH . '/logs/encounter-events.log');
-    }
-} catch (\Exception $e) {
-    error_log("Error refreshing item: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-    
-    // Fallback: try to verify using the original item
-    try {
-        $verifiedTitle = $encounterItem->displayTitle();
-        error_log("Verified original item title: '" . $verifiedTitle . "'", 3, OMEKA_PATH . '/logs/encounter-events.log');
-    } catch (\Exception $e2) {
-        error_log("Error getting original item title: " . $e2->getMessage(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-    }
-}
-            
-            error_log("Created encounter event item with title '$title': " . $encounterItem->id(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-            
-            // Verify the title was set correctly
-            $verifiedTitle = $encounterItem->displayTitle();
-            error_log("Verified encounter event title: '$verifiedTitle'", 3, OMEKA_PATH . '/logs/encounter-events.log');
-            
-            // Now create the resource links for context, SVU, etc.
-            $this->createEncounterEventLinks($encounterItem, $encounterData, $currentItemSetId);
-            
-            // Now update the arrowhead item to link to the encounter event
-            if (!isset($itemData['Arrowhead was encountered in Event'])) {
-                $itemData['Arrowhead was encountered in Event'] = [];
-            }
-            
-            $itemData['Arrowhead was encountered in Event'][] = [
-                'type' => 'resource',
-                'property_id' => 7681,
-                'value_resource_id' => $encounterItem->id(),
-                'o:label' => $title // Use the same title here for consistency
-            ];
-            
-            // Remove the literal entry if it exists
-            if (isset($itemData['Item was encountered in Event'])) {
-                unset($itemData['Item was encountered in Event']);
-            }
-            
-            error_log("Added encounter event link to arrowhead", 3, OMEKA_PATH . '/logs/encounter-events.log');
-            
-        } catch (\Exception $e) {
-            error_log("Error creating encounter event: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-            
-            // Fallback to literal reference if item creation fails
-            if (!isset($itemData['Item was encountered in Event'])) {
-                $itemData['Item was encountered in Event'] = [];
-            }
-            
-            $itemData['Item was encountered in Event'][] = [
-                'type' => 'literal',
-                'property_id' => 7681,
-                '@value' => "Encounter Event: $encounterId (item creation failed: " . $e->getMessage() . ")"
-            ];
-        }
-    }
-                    } else if ($encounterItem) {
-    // Link to the existing encounter event
-    if (!isset($itemData['Arrowhead was encountered in Event'])) {
-        $itemData['Arrowhead was encountered in Event'] = [];
-    }
-    
-    // Verify the encounter item has a title, update it if needed
-    $encounterTitle = $encounterItem->displayTitle();
-    if ($encounterTitle === "[Sem título]" || empty($encounterTitle) || $encounterTitle === "Encounter Event") {
-        // Get encounter data and create a title in the correct format
-        $encounterData = $this->extractEncounterEventData($rdfData, $encounterUri);
-        
-        $newTitle = "Encounter Event";
-        if (!empty($encounterData['context']) && !empty($encounterData['svu'])) {
-            $newTitle = "Encounter Event - " . $encounterData['context'] . " - " . $encounterData['svu'];
-        } elseif (!empty($encounterData['context'])) {
-            $newTitle = "Encounter Event - " . $encounterData['context'];
-        } elseif (!empty($encounterData['svu'])) {
-            $newTitle = "Encounter Event - " . $encounterData['svu'];
-        } else {
-            $newTitle = "Encounter Event - " . ($encounterId ?: date('Y-m-d-H:i:s'));
-        }
-        
-        // Update the encounter item title
-        try {
-            $titleUpdateResult = $this->api()->update(
-                'items',
-                $encounterItem->id(),
-                [
-                    'dcterms:title' => [
-                        [
-                            'type' => 'literal',
-                            'property_id' => 1,
-                            '@value' => $newTitle
-                        ]
-                    ]
-                ],
-                [],
-                ['isPartial' => true]
-            );
-            
-            error_log("Updated title for existing encounter: " . $encounterItem->id() . " -> '$newTitle'", 3, OMEKA_PATH . '/logs/encounter-events.log');
-            $encounterTitle = $newTitle;
-        } catch (\Exception $e) {
-            error_log("Failed to update encounter title: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-        }
-    }
-    
-    $itemData['Arrowhead was encountered in Event'][] = [
-        'type' => 'resource',
-        'property_id' => 7681,
-        'value_resource_id' => $encounterItem->id(),
-        'o:label' => $encounterTitle
-    ];
-    
-    // Remove the literal entry if it exists
-    if (isset($itemData['Item was encountered in Event'])) {
-        unset($itemData['Item was encountered in Event']);
-    }
-    
-    error_log("Linked to existing encounter event: " . $encounterItem->id(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-} else {
-                        // Encounter not found in RDF and not in Omeka, add as literal
-                        if (!isset($itemData['Item was encountered in Event'])) {
-                            $itemData['Item was encountered in Event'] = [];
-                        }
-                        
-                        $itemData['Item was encountered in Event'][] = [
-                            'type' => 'literal',
-                            'property_id' => 7681,
-                            '@value' => "$encounterId (NOT LINKED - resource not found)"
-                        ];
-                        
-                        error_log("Could not link to encounter event: $encounterId", 3, OMEKA_PATH . '/logs/encounter-events.log');
-                    }
-                }
-            }
-        }
-    }
-}
-
-/**
- * Helper method to create links for an encounter event
- */
-private function createEncounterEventLinks($encounterItem, $encounterData, $itemSetId) {
-    // Create links to context, SVU and excavation
-    try {
-        error_log("Creating links for encounter event: " . $encounterItem->id(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-        
-        // Link to excavation
-        if (!empty($encounterData['excavation'])) {
-            // Try to find the excavation by ID
-            $excavItem = $this->findItemByIdentifier($encounterData['excavation'], $itemSetId);
-            
-            // If not found by ID, try to find the excavation item itself (it might be named differently)
-            if (!$excavItem) {
-                $excavationResponse = $this->api()->search('items', [
-                    'item_set_id' => $itemSetId,
-                    'resource_class_id' => 1 // Assuming this is the Excavation class ID
-                ]);
-                
-                if ($excavationResponse->getTotalResults() > 0) {
-                    $excavationItems = $excavationResponse->getContent();
-                    $excavItem = $excavationItems[0]; // Use the first one found
-                }
-            }
-            
-            if ($excavItem) {
-                $this->api()->update('items', $encounterItem->id(), [
-                    'The Encounter Event - an item found in an Excavation' => [
-                        [
-                            'type' => 'resource',
-                            'property_id' => 7673,
-                            'value_resource_id' => $excavItem->id()
-                        ]
-                    ]
-                ], [], ['isPartial' => true]);
-                
-                error_log("Linked encounter to excavation: " . $excavItem->id(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-            }
-        }
-        
-        // Link to context
-        if (!empty($encounterData['context'])) {
-            $contextItem = $this->findItemByIdentifier($encounterData['context'], $itemSetId);
-            if ($contextItem) {
-                $this->api()->update('items', $encounterItem->id(), [
-                    'The Encounter Event - an item found in a specific Context' => [
-                        [
-                            'type' => 'resource',
-                            'property_id' => 7672,
-                            'value_resource_id' => $contextItem->id()
-                        ]
-                    ]
-                ], [], ['isPartial' => true]);
-                
-                error_log("Linked encounter to context: " . $contextItem->id(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-            }
-        }
-        
-        // Link to SVU
-        if (!empty($encounterData['svu'])) {
-            $svuItem = $this->findItemByIdentifier($encounterData['svu'], $itemSetId);
-            if ($svuItem) {
-                $this->api()->update('items', $encounterItem->id(), [
-                    'Encounter Event - an item found in a specific Stratigraphic Unit' => [
-                        [
-                            'type' => 'resource',
-                            'property_id' => 7671,
-                            'value_resource_id' => $svuItem->id()
-                        ]
-                    ]
-                ], [], ['isPartial' => true]);
-                
-                error_log("Linked encounter to SVU: " . $svuItem->id(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-            }
-        }
-        
-        error_log("Finished creating links for encounter event: " . $encounterItem->id(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-        
-    } catch (\Exception $e) {
-        error_log("Error creating links for encounter event: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/encounter-events.log');
-    }
-}
-/**
- * Extract encounter event details from RDF data - IMPROVED VERSION
- */
-private function extractEncounterEventData($rdfData, $encounterUri) {
-    $data = [
-        'date' => null,
-        'depth' => null,
-        'context' => null,
-        'svu' => null,
-        'excavation' => null
-    ];
-    
-    if (!isset($rdfData[$encounterUri])) {
-        error_log("Encounter URI not found in RDF data: $encounterUri", 3, OMEKA_PATH . '/logs/encounter-events.log');
-        return $data;
-    }
-    
-    error_log("Extracting data from encounter: $encounterUri", 3, OMEKA_PATH . '/logs/encounter-events.log');
-    error_log("Available predicates: " . implode(', ', array_keys($rdfData[$encounterUri])), 3, OMEKA_PATH . '/logs/encounter-events.log');
-    
-    // Extract date
-    $datePredicates = [
-        'http://purl.org/dc/terms/date',
-        'dct:date'
-    ];
-    
-    foreach ($datePredicates as $predicate) {
-        if (isset($rdfData[$encounterUri][$predicate])) {
-            foreach ($rdfData[$encounterUri][$predicate] as $dateObj) {
-                if ($dateObj['type'] === 'literal') {
-                    $data['date'] = $dateObj['value'];
-                    error_log("Found encounter date: {$data['date']}", 3, OMEKA_PATH . '/logs/encounter-events.log');
-                    break 2;
-                }
-            }
-        }
-    }
-    
-    // Extract depth
-    $depthPredicates = [
-        'http://dbpedia.org/ontology/depth',
-        'dbo:depth'
-    ];
-    
-    foreach ($depthPredicates as $predicate) {
-        if (isset($rdfData[$encounterUri][$predicate])) {
-            foreach ($rdfData[$encounterUri][$predicate] as $depthObj) {
-                if ($depthObj['type'] === 'literal') {
-                    $data['depth'] = $depthObj['value'];
-                    error_log("Found encounter depth: {$data['depth']}", 3, OMEKA_PATH . '/logs/encounter-events.log');
-                    break 2;
-                }
-            }
-        }
-    }
-    
-    // Extract context
-    $contextPredicates = [
-        'https://purl.org/megalod/ms/excavation/foundInContext',
-        'excav:foundInContext'
-    ];
-    
-    foreach ($contextPredicates as $predicate) {
-        if (isset($rdfData[$encounterUri][$predicate])) {
-            foreach ($rdfData[$encounterUri][$predicate] as $contextObj) {
-                if ($contextObj['type'] === 'uri') {
-                    $contextUri = $contextObj['value'];
-                    $data['context'] = $this->extractResourceIdentifier($rdfData, $contextObj['value']) ?: 
-                                      $this->extractLastSegment($contextUri);
-                    error_log("Found encounter context: {$data['context']}", 3, OMEKA_PATH . '/logs/encounter-events.log');
-                    break 2;
-                }
-            }
-        }
-    }
-    
-    // Extract SVU
-    $svuPredicates = [
-        'https://purl.org/megalod/ms/excavation/foundInSVU',
-        'excav:foundInSVU'
-    ];
-    
-    foreach ($svuPredicates as $predicate) {
-        if (isset($rdfData[$encounterUri][$predicate])) {
-            foreach ($rdfData[$encounterUri][$predicate] as $svuObj) {
-                if ($svuObj['type'] === 'uri') {
-                    $svuUri = $svuObj['value'];
-                    $data['svu'] = $this->extractResourceIdentifier($rdfData, $svuObj['value']) ?: 
-                                  $this->extractLastSegment($svuUri);
-                    error_log("Found encounter SVU: {$data['svu']}", 3, OMEKA_PATH . '/logs/encounter-events.log');
-                    break 2;
-                }
-            }
-        }
-    }
-    
-    // Extract excavation
-    $excavPredicates = [
-        'https://purl.org/megalod/ms/excavation/foundInExcavation',
-        'excav:foundInExcavation'
-    ];
-    
-    foreach ($excavPredicates as $predicate) {
-        if (isset($rdfData[$encounterUri][$predicate])) {
-            foreach ($rdfData[$encounterUri][$predicate] as $excavObj) {
-                if ($excavObj['type'] === 'uri') {
-                    $excavUri = $excavObj['value'];
-                    $data['excavation'] = $this->extractResourceIdentifier($rdfData, $excavObj['value']) ?: 
-                                         $this->extractLastSegment($excavUri);
-                    error_log("Found encounter excavation: {$data['excavation']}", 3, OMEKA_PATH . '/logs/encounter-events.log');
-                    break 2;
-                }
-            }
-        }
-    }
-    
-    return $data;
-}
-
-/**
- * Extract the last segment of a URI
- */
-private function extractLastSegment($uri) {
-    $parts = explode('/', $uri);
-    return end($parts);
-}
 
 /**
  * REPLACE the extractCommonProperties method with this improved version

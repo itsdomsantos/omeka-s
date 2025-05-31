@@ -35730,3 +35730,11 @@ _:a2e3c042-1045-4e99-ae25-e22dc0a5ea6c-56 <http://www.w3.org/ns/shacl#class> <ht
 2025-05-31T13:33:45+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-05-31T13:36:52+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-05-31T13:40:25+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-31T13:43:42+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-31T13:50:18+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-31T13:55:00+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-31T14:11:21+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-31T14:33:09+00:00 INFO (6): Response Status: 500 | Response Body: Invalid IRI value
+Failed to upload data: Response Status: 500 | Response Body: Invalid IRI value2025-05-31T14:33:09+00:00 ERR (3): Failed to upload data: Response Status: 500 | Response Body: Invalid IRI value
+2025-05-31T14:41:39+00:00 ERR (3): Failed to upload data due to an exception: Read timed out after 60 seconds
+Failed to upload data due to an exception: Read timed out after 60 seconds
