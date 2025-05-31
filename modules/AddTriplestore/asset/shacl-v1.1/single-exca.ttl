@@ -1,0 +1,74 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
+@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+# ==========================================================================
+# EXCAVATION 1: CASTRO DE MONTE ALTO
+# ==========================================================================
+
+<https://purl.org/megalod/example/excavation/EXC-001> a excav:Excavation ;
+    dct:identifier "EXC-001"^^xsd:literal ;
+    dul:hasLocation <https://purl.org/megalod/example/location/monte-alto> ;
+    excav:hasPersonInCharge <https://purl.org/megalod/example/archaeologist/ana-silva> ;
+    excav:hasSquare <https://purl.org/megalod/example/square/A1>, <https://purl.org/megalod/example/square/A2> ;
+    excav:hasContext <https://purl.org/megalod/example/context/CTX-001> .
+
+<https://purl.org/megalod/example/location/monte-alto> a excav:Location ;
+    dbo:informationName "Castro de Monte Alto"^^xsd:literal ;
+    dbo:country <http://dbpedia.org/resource/Portugal> ;
+    dbo:district <http://dbpedia.org/resource/Porto_District> ;
+    dbo:parish <http://dbpedia.org/resource/Vila_do_Conde> ;
+    excav:hasGPSCoordinates <https://purl.org/megalod/example/gps/monte-alto> .
+
+<https://purl.org/megalod/example/gps/monte-alto> a excav:GPSCoordinates ;
+    geo:lat "41.3515"^^xsd:decimal ;
+    geo:long "-8.7389"^^xsd:decimal .
+
+<https://purl.org/megalod/example/archaeologist/ana-silva> a excav:Archaeologist ;
+    foaf:account <https://orcid.org/0000-0001-2345-6789> ;
+    foaf:name "Ana Silva"^^xsd:literal ;
+    foaf:mbox <mailto:ana.silva@archaeology.pt> .
+
+<https://purl.org/megalod/example/square/A1> a excav:Square ;
+    dct:identifier "A1"^^xsd:literal ;
+    geo:lat "41.3515"^^xsd:decimal ;
+    geo:long "-8.7389"^^xsd:decimal .
+
+<https://purl.org/megalod/example/square/A2> a excav:Square ;
+    dct:identifier "A2"^^xsd:literal ;
+    geo:lat "41.3516"^^xsd:decimal ;
+    geo:long "-8.7390"^^xsd:decimal .
+
+<https://purl.org/megalod/example/context/CTX-001> a excav:Context ;
+    dct:identifier "CTX-001"^^xsd:literal ;
+    excav:hasSVU <https://purl.org/megalod/example/svu/SVU-001-1> .
+
+<https://purl.org/megalod/example/svu/SVU-001-1> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "SVU-001-1"^^xsd:literal ;
+    dct:description "Bronze Age occupation layer"^^xsd:literal ;
+    excav:hasTimeline <https://purl.org/megalod/example/timeline/bronze-age> .
+
+<https://purl.org/megalod/example/timeline/bronze-age> a excav:TimeLine ;
+    time:hasBeginning <https://purl.org/megalod/example/instant/3200BC> ;
+    time:hasEnd <https://purl.org/megalod/example/instant/1200BC> .
+
+<https://purl.org/megalod/example/instant/3200BC> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-3200"^^xsd:gYear .
+
+<https://purl.org/megalod/example/instant/1200BC> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-1200"^^xsd:gYear .

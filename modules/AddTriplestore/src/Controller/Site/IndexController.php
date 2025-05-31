@@ -1607,42 +1607,50 @@ private function getExcavationLocationUri($excavationId) {
 
 
 private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string {
+    error_log("=== UPLOAD TTL DATA DEBUG START ===", 3, OMEKA_PATH . '/logs/upload-debug.log');
+    error_log("Item Set ID: " . ($itemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/upload-debug.log');
+    error_log("TTL Data Length: " . strlen($ttlData), 3, OMEKA_PATH . '/logs/upload-debug.log');
+    error_log("TTL Data Sample (first 1000 chars): " . substr($ttlData, 0, 1000), 3, OMEKA_PATH . '/logs/upload-debug.log');
+    error_log("itemsetid: " . ($itemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/hkjfhkj-debug.log');
     // Set the current processing context
     $this->currentProcessingItemSetId = $itemSetId;
     
-    error_log("=== TTL UPLOAD WITH CONTEXT ===", 3, OMEKA_PATH . '/logs/context-debug.log');
-    error_log("Item Set Context: " . ($itemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/context-debug.log');
-    
     try {
         // Check if this is excavation data
-        error_log('Checking if this is excavation data', 3, OMEKA_PATH . '/logs/auxNew.log');
+        error_log('=== CHECKING IF EXCAVATION DATA ===', 3, OMEKA_PATH . '/logs/upload-debug.log');
         $isExcavation = false;
         $excavationIdentifier = "0"; // Default to "0" graph
 
         try {
             $this->validateUploadType($ttlData, 'excavation');
-            error_log('Upload excav validation passed', 3, OMEKA_PATH . '/logs/a.log');
+            error_log('✓ Excavation validation passed', 3, OMEKA_PATH . '/logs/upload-debug.log');
             $isExcavation = true;
+            
             // Extract excavation identifier for graph organization
             $extractedId = $this->extractExcavationIdentifier($ttlData);
             if ($extractedId) {
                 $excavationIdentifier = $extractedId;
+                error_log('✓ Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/upload-debug.log');
+            } else {
+                error_log('⚠ Could not extract excavation identifier', 3, OMEKA_PATH . '/logs/upload-debug.log');
             }
-            error_log('Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug-final.log');
         } catch (\Exception $e) {
-            // If validation fails, it means the data is not excavation data
-            error_log('Validation for excavation failed, this is an arrowhead', 3, OMEKA_PATH . '/logs/auxNew.log');
+            error_log('❌ Excavation validation failed: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/upload-debug.log');
             
             // Check if this item belongs to an excavation item set
             if ($itemSetId) {
-                error_log('Item set ID provided: ' . $itemSetId, 3, OMEKA_PATH . '/logs/auxNew.log');
+                error_log('Item set ID provided: ' . $itemSetId, 3, OMEKA_PATH . '/logs/upload-debug.log');
                 $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
                 if ($excavationId) {
                     $excavationIdentifier = $excavationId;
-                    error_log('Using excavation ID from item set: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+                    error_log('Using excavation ID from item set: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/upload-debug.log');
                 }
             }
         }
+
+        error_log('Final determination - isExcavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/upload-debug.log');
+        error_log('Excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/upload-debug.log');
+
 
         // Normalize URIs based on context
         if ($itemSetId) {
@@ -1696,7 +1704,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
                     $newItemSet = $response->getContent();
                     $itemSetId = $newItemSet->id();
                     
-                    error_log('Successfully created single item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+                    error_log('Successfully created single item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/kkkkkkkkkkklllllll-debug.log');
                     
                     // Update the processing context with the new item set ID
                     $this->currentProcessingItemSetId = $itemSetId;
@@ -1853,28 +1861,35 @@ private function storeMappingBetweenItemSetAndExcavation($itemSetId, $excavation
 
 
 
-/**
- * Extract the excavation identifier from TTL data
- * 
- * @param string $ttlData
- * @return string|null
- */
 private function extractExcavationIdentifier(string $ttlData): ?string {
-    // First try to find dcterms:identifier
-    if (preg_match('/dct:identifier\s+"([^"]+)"\^\^xsd:literal\s*;/', $ttlData, $matches)) {
+    error_log('Extracting excavation identifier from TTL', 3, OMEKA_PATH . '/logs/excavation-identifier.log');
+    
+    // Pattern 1: Direct dct:identifier pattern from your TTL
+    if (preg_match('/dct:identifier\s+"([^"]+)"\^\^xsd:literal/', $ttlData, $matches)) {
+        error_log('Found identifier via dct:identifier: ' . $matches[1], 3, OMEKA_PATH . '/logs/excavation-identifier.log');
         return $matches[1];
     }
     
-    // Try alternative pattern for identifier
+    // Pattern 2: Alternative dcterms:identifier
     if (preg_match('/dcterms:identifier\s+"([^"]+)"/', $ttlData, $matches)) {
+        error_log('Found identifier via dcterms:identifier: ' . $matches[1], 3, OMEKA_PATH . '/logs/excavation-identifier.log');
         return $matches[1];
     }
     
-    // Try looking for identifier after a colon (common format in TTL)
-    if (preg_match('/identifier:\s+"([^"]+)"/', $ttlData, $matches)) {
-        return $matches[1];
+    // Pattern 3: Extract from excavation URI pattern
+    if (preg_match('/<https:\/\/purl\.org\/megalod\/([^\/]+)\/excavation\/([^>]+)>/', $ttlData, $matches)) {
+        $identifier = $matches[2]; // This should be "EXC-001"
+        error_log('Found identifier from URI pattern: ' . $identifier, 3, OMEKA_PATH . '/logs/excavation-identifier.log');
+        return $identifier;
     }
     
+    // Pattern 4: Look for any EXC-XXX pattern in the file
+    if (preg_match('/EXC-\d+/', $ttlData, $matches)) {
+        error_log('Found EXC pattern: ' . $matches[0], 3, OMEKA_PATH . '/logs/excavation-identifier.log');
+        return $matches[0];
+    }
+    
+    error_log('No excavation identifier found in TTL', 3, OMEKA_PATH . '/logs/excavation-identifier.log');
     return null;
 }
 
@@ -1885,34 +1900,52 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
         return; // No upload type specified, skip validation
     }
 
-    error_log('ttlData: ' . $ttlData, 3, OMEKA_PATH . '/logs/a.log');
+    error_log('Validating upload type: ' . $uploadType, 3, OMEKA_PATH . '/logs/validation.log');
+    error_log('TTL data sample: ' . substr($ttlData, 0, 500), 3, OMEKA_PATH . '/logs/validation.log');
+    
+    // UPDATED patterns to match your TTL file
     $excavationPatterns = [
         'a excav:Excavation',
+        'excav:Excavation',
         'crmarchaeo:A9_Archaeological_Excavation',
-        'a crmarchaeo:A9_Archaeological_Excavation'
+        'a crmarchaeo:A9_Archaeological_Excavation',
+        'excav:hasPersonInCharge',
+        'excav:hasSquare',
+        'excav:hasContext'
     ];
+    
     $arrowheadPatterns = [
         'a ah:Arrowhead',
-        'a crm:E24_Physical_Man-Made_Thing',
-        '<https://purl.org/megalod/ms/ah/Arrowhead',
+        'ah:Arrowhead',
+        'a excav:Item',
+        'excav:Item',
         'ah:shape',
         'ah:variant',
-        'ah:hasMorphology'
+        'ah:hasMorphology',
+        'ah:hasChipping'
     ];
+    
     $isExcavation = false;
     foreach ($excavationPatterns as $pattern) {
         if (strpos($ttlData, $pattern) !== false) {
             $isExcavation = true;
+            error_log("Found excavation pattern: $pattern", 3, OMEKA_PATH . '/logs/validation.log');
             break;
         }
     }
+    
     $isArrowhead = false;
     foreach ($arrowheadPatterns as $pattern) {
         if (strpos($ttlData, $pattern) !== false) {
             $isArrowhead = true;
+            error_log("Found arrowhead pattern: $pattern", 3, OMEKA_PATH . '/logs/validation.log');
             break;
         }
     }
+    
+    error_log("Validation results - isExcavation: " . ($isExcavation ? 'true' : 'false') . 
+              ", isArrowhead: " . ($isArrowhead ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/validation.log');
+    
     if ($uploadType === 'excavation' && !$isExcavation) {
         // Check if it's actually an arrowhead being uploaded to an excavation context
         if ($isArrowhead) {
@@ -2423,61 +2456,77 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
     return $omekaData;
 }
 
-/**
- * Identify main subjects that should become Omeka items
- */
 private function identifyMainSubjects($rdfData, $itemSetId = null) {
     $subjects = [];
     
-    // Define what constitutes a "main" subject (should become an Omeka item)
+    error_log('=== IDENTIFYING MAIN SUBJECTS ===', 3, OMEKA_PATH . '/logs/main-subjects.log');
+    error_log('Total RDF subjects: ' . count($rdfData), 3, OMEKA_PATH . '/logs/main-subjects.log');
+    
+    // UPDATED patterns to match your TTL namespace
     $mainSubjectTypes = [
         'https://purl.org/megalod/ms/ah/Arrowhead' => 'arrowhead',
         'https://purl.org/megalod/ms/excavation/Item' => 'item',
-        'http://www.cidoc-crm.org/cidoc-crm/E24_Physical_Man-Made_Thing' => 'arrowhead',
         'https://purl.org/megalod/ms/excavation/Excavation' => 'excavation',
-        'http://www.cidoc-crm.org/extensions/crmarchaeo/A9_Archaeological_Excavation' => 'excavation',
         'https://purl.org/megalod/ms/excavation/Context' => 'context',
         'https://purl.org/megalod/ms/excavation/StratigraphicVolumeUnit' => 'svu',
-        'https://purl.org/megalod/ms/excavation/Square' => 'square'
+        'https://purl.org/megalod/ms/excavation/Square' => 'square',
+        'https://purl.org/megalod/ms/excavation/Archaeologist' => 'archaeologist',
+        'https://purl.org/megalod/ms/excavation/Location' => 'location',
+        'https://purl.org/megalod/ms/excavation/GPSCoordinates' => 'gps'
     ];
     
     // Scan all subjects for type declarations
     foreach ($rdfData as $subject => $predicates) {
+        error_log("Checking subject: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+        
         if (isset($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
             foreach ($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
-                // Skip encounter events
+                error_log("  Found type: " . $typeObj['value'], 3, OMEKA_PATH . '/logs/main-subjects.log');
+                
+                // Skip encounter events and other auxiliary types
                 if ($typeObj['type'] === 'uri' && 
                     $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/EncounterEvent' &&
+                    $typeObj['value'] !== 'https://purl.org/megalod/ms/ah/Morphology' &&
+                    $typeObj['value'] !== 'https://purl.org/megalod/ms/ah/Chipping' &&
+                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/TypometryValue' &&
+                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/Weight' &&
+                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/Coordinates' &&
+                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/TimeLine' &&
+                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/Instant' &&
                     isset($mainSubjectTypes[$typeObj['value']])) {
+                    
                     $subjects[$subject] = $mainSubjectTypes[$typeObj['value']];
+                    error_log("  ✓ Added as main subject: {$mainSubjectTypes[$typeObj['value']]}", 3, OMEKA_PATH . '/logs/main-subjects.log');
                     break; // Found the type, move to next subject
                 }
             }
         }
     }
     
-    // If we're in an item set context (adding to existing excavation), prioritize arrowheads
-    if ($itemSetId && !empty($subjects)) {
-        $arrowheadSubjects = array_filter($subjects, function($type) {
-            return in_array($type, ['arrowhead', 'item']);
-        });
-        
-        if (!empty($arrowheadSubjects)) {
-            error_log('Found ' . count($arrowheadSubjects) . ' arrowhead subjects for item set ' . $itemSetId, 3, OMEKA_PATH . '/logs/transform.log');
-            return $arrowheadSubjects;
-        }
-    }
-    
     // If no subjects found with explicit types, look for subjects with identifiers
     if (empty($subjects)) {
+        error_log('No typed subjects found, looking for identifiers...', 3, OMEKA_PATH . '/logs/main-subjects.log');
         foreach ($rdfData as $subject => $predicates) {
             if (isset($predicates['http://purl.org/dc/terms/identifier'])) {
                 $subjects[$subject] = 'unknown';
+                error_log("Added subject with identifier: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
             }
         }
     }
     
-    error_log('Identified ' . count($subjects) . ' main subjects: ' . implode(', ', array_keys($subjects)), 3, OMEKA_PATH . '/logs/transform.log');
+    // If we're in an item set context (adding to existing excavation), prioritize items over excavations
+    if ($itemSetId && !empty($subjects)) {
+        $itemSubjects = array_filter($subjects, function($type) {
+            return in_array($type, ['arrowhead', 'item']);
+        });
+        
+        if (!empty($itemSubjects)) {
+            error_log('Found ' . count($itemSubjects) . ' item subjects for item set ' . $itemSetId, 3, OMEKA_PATH . '/logs/main-subjects.log');
+            return $itemSubjects;
+        }
+    }
+    
+    error_log('Final subjects identified: ' . print_r($subjects, true), 3, OMEKA_PATH . '/logs/main-subjects.log');
     
     return $subjects;
 }
