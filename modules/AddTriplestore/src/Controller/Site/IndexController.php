@@ -2456,6 +2456,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
     return $omekaData;
 }
 
+
 private function identifyMainSubjects($rdfData, $itemSetId = null) {
     $subjects = [];
     
@@ -2471,11 +2472,24 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         'https://purl.org/megalod/ms/excavation/StratigraphicVolumeUnit' => 'svu',
         'https://purl.org/megalod/ms/excavation/Square' => 'square',
         'https://purl.org/megalod/ms/excavation/Archaeologist' => 'archaeologist',
-        'https://purl.org/megalod/ms/excavation/Location' => 'location',
-        'https://purl.org/megalod/ms/excavation/GPSCoordinates' => 'gps'
+        // Add direct references to your actual namespaces used in data
+        'https://purl.org/megalod/ms/excavation/Excavation' => 'excavation',
+        'excav:Excavation' => 'excavation',
+        'excav:Context' => 'context',
+        'excav:Archaeologist' => 'archaeologist',
     ];
     
-    // Scan all subjects for type declarations
+    // Define the excluded subject types to prevent creating empty objects
+    $excludedTypes = [
+        'https://purl.org/megalod/ms/excavation/Location',
+        'https://purl.org/megalod/ms/excavation/GPSCoordinates',
+        'http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#Location',
+        'http://dbpedia.org/ontology/Location',
+        'excav:Location',
+        'excav:GPSCoordinates'
+    ];
+
+    // First pass: find all properly typed subjects
     foreach ($rdfData as $subject => $predicates) {
         error_log("Checking subject: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
         
@@ -2493,26 +2507,65 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
                     $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/Coordinates' &&
                     $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/TimeLine' &&
                     $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/Instant' &&
+                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/Location' &&
+                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/GPSCoordinates' &&
+                    $typeObj['value'] !== 'excav:Location' &&
+                    $typeObj['value'] !== 'excav:GPSCoordinates' &&
                     isset($mainSubjectTypes[$typeObj['value']])) {
                     
                     $subjects[$subject] = $mainSubjectTypes[$typeObj['value']];
                     error_log("  ✓ Added as main subject: {$mainSubjectTypes[$typeObj['value']]}", 3, OMEKA_PATH . '/logs/main-subjects.log');
                     break; // Found the type, move to next subject
                 }
+                
+                // If it's an excluded type, mark it to prevent processing in the fallback
+                if (in_array($typeObj['value'], $excludedTypes)) {
+                    $subjects[$subject] = 'excluded';
+                    error_log("  ✓ Marked as excluded auxiliary type: {$typeObj['value']}", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                    break;
+                }
             }
         }
     }
     
-    // If no subjects found with explicit types, look for subjects with identifiers
-    if (empty($subjects)) {
+    // CRITICAL FIX: Only look for subjects with identifiers if we found NO proper subjects
+    $foundSubjects = array_filter($subjects, function($type) { 
+        return $type !== 'excluded'; 
+    });
+    
+    if (count($foundSubjects) === 0) {
         error_log('No typed subjects found, looking for identifiers...', 3, OMEKA_PATH . '/logs/main-subjects.log');
         foreach ($rdfData as $subject => $predicates) {
+            // Skip if we already identified this subject (even as excluded)
+            if (isset($subjects[$subject])) {
+                continue;
+            }
+            
             if (isset($predicates['http://purl.org/dc/terms/identifier'])) {
-                $subjects[$subject] = 'unknown';
-                error_log("Added subject with identifier: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                // Additional check: Try to determine the entity type from URI pattern
+                $isAuxiliary = false;
+                
+                // Check URI patterns that suggest auxiliary entities
+                if (strpos($subject, '/location/') !== false || 
+                    strpos($subject, '/gps/') !== false ||
+                    strpos($subject, '/Timeline/') !== false ||
+                    strpos($subject, '/archaeologist/') !== false) { // Also exclude archaeologist
+                    $isAuxiliary = true;
+                    error_log("Skipping auxiliary entity with identifier: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                }
+                
+                if (!$isAuxiliary) {
+                    $subjects[$subject] = 'unknown';
+                    error_log("Added subject with identifier: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                }
             }
         }
     }
+    
+    // Remove excluded subjects from the result
+    $subjects = array_filter($subjects, function($type) {
+        return $type !== 'excluded';
+    });
     
     // If we're in an item set context (adding to existing excavation), prioritize items over excavations
     if ($itemSetId && !empty($subjects)) {
@@ -3742,11 +3795,13 @@ private function transformCollectingFormToExcavationData($formData)
     return $excavationData;
 }
 
+
 /**
- * Generate location TTL with proper structure - UPDATED
+ * Generate location TTL with proper structure - UPDATED WITH CLASS DECLARATIONS
  */
 private function generateLocationTtl($locationUri, $gpsUri, $excavationData)
 {
+    // Initialize the TTL string for the main location entity
     $ttl = "<$locationUri> a excav:Location ;\n";
     
     // Use site_name as the informationName (Name of the Location from form)
@@ -3754,22 +3809,43 @@ private function generateLocationTtl($locationUri, $gpsUri, $excavationData)
         $ttl .= "    dbo:informationName \"" . $excavationData['site_name'] . "\"^^xsd:literal ;\n";
     }
     
-    // Add Country as DBpedia resource
+    // References to entities (to be created after the main location)
+    $entityDeclarations = "";
+    
+    // Add Country as DBpedia resource with class declaration
     if (!empty($excavationData['country'])) {
-        $countryUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $excavationData['country']);
+        $countrySlug = str_replace(' ', '_', $excavationData['country']);
+        $countryUri = "http://dbpedia.org/resource/" . $countrySlug;
         $ttl .= "    dbo:Country <$countryUri> ;\n";
+        
+        // Add country declaration
+        $entityDeclarations .= "<$countryUri> a dbo:Country ;\n";
+        $entityDeclarations .= "    rdfs:label \"" . $excavationData['country'] . "\"^^xsd:literal ;\n";
+        $entityDeclarations .= "    .\n\n";
     }
     
-    // Add District as DBpedia resource
+    // Add District as DBpedia resource with class declaration
     if (!empty($excavationData['district'])) {
-        $districtUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $excavationData['district']);
+        $districtSlug = str_replace(' ', '_', $excavationData['district']);
+        $districtUri = "http://dbpedia.org/resource/" . $districtSlug;
         $ttl .= "    dbo:District <$districtUri> ;\n";
+        
+        // Add district declaration
+        $entityDeclarations .= "<$districtUri> a dbo:District ;\n";
+        $entityDeclarations .= "    rdfs:label \"" . $excavationData['district'] . "\"^^xsd:literal ;\n";
+        $entityDeclarations .= "    .\n\n";
     }
     
-    // Add Parish as DBpedia resource
+    // Add Parish as DBpedia resource with class declaration
     if (!empty($excavationData['parish'])) {
-        $parishUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $excavationData['parish']);
+        $parishSlug = str_replace(' ', '_', $excavationData['parish']);
+        $parishUri = "http://dbpedia.org/resource/" . $parishSlug;
         $ttl .= "    dbo:Parish <$parishUri> ;\n";
+        
+        // Add parish declaration
+        $entityDeclarations .= "<$parishUri> a dbo:Parish ;\n";
+        $entityDeclarations .= "    rdfs:label \"" . $excavationData['parish'] . "\"^^xsd:literal ;\n";
+        $entityDeclarations .= "    .\n\n";
     }
     
     // Add GPS coordinates if available
@@ -3777,7 +3853,11 @@ private function generateLocationTtl($locationUri, $gpsUri, $excavationData)
         $ttl .= "    excav:hasGPSCoordinates <$gpsUri> ;\n";
     }
     
+    // Close the location entity
     $ttl .= "    .\n\n";
+    
+    // Add the entity declarations
+    $ttl .= $entityDeclarations;
     
     // Add GPS coordinates resource if available
     if (!empty($excavationData['latitude']) || !empty($excavationData['longitude'])) {
