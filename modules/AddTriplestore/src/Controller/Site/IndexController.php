@@ -934,10 +934,10 @@ private function processArrowheadFormData($formData, $itemSetId)
     
 
     // link to the encounter event
-    $ttl .= "    excav:wasEncounteredIn <$encounterUri>;\n";
-
-    // Continue with other arrowhead properties...
-    // (All the existing property processing code remains the same)
+    //  link to the encounter event using CIDOC-CRM property
+    $ttl .= "    crmsci:O19i_was_object_encountered_through <$encounterUri>;\n";
+    
+   
     
     // Add annotation if provided
     if (!empty($formData['arrowhead_annotation'])) {
@@ -2716,8 +2716,8 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
 
 
 // In processArrowheadData, keep or add this block:
-if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/wasEncounteredIn'])) {
-    foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/wasEncounteredIn'] as $encounterObj) {
+if (isset($rdfData[$subject]['http://cidoc-crm.org/extensions/crmsci/O19i_was_object_encountered_through'])) {
+    foreach ($rdfData[$subject]['http://cidoc-crm.org/extensions/crmsci/O19i_was_object_encountered_through'] as $encounterObj) {
         if ($encounterObj['type'] === 'uri') {
             $encounterUri = $encounterObj['value'];
             
