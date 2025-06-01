@@ -36319,3 +36319,13 @@ _:eacfe149-2774-4a2c-82eb-d47bbfb782c5-7 <http://www.w3.org/ns/shacl#class> <htt
 2025-05-31T15:58:29+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-05-31T16:06:17+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-05-31T16:08:45+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-31T16:12:09+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-31T16:15:25+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-31T16:16:44+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-05-31T16:20:20+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-01T13:59:11+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-01T14:14:39+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-01T14:17:15+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-01T14:18:49+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-01T14:31:44+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found 'a' [line 69]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found 'a' [line 69]2025-06-01T14:31:44+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found 'a' [line 69]

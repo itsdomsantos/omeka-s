@@ -1663,6 +1663,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
                 // For now, we'll proceed but log a warning
                 error_log('Warning: Excavation identifier already exists: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
             }
+            //log new ttlData
             
             // Extract excavation metadata
             $excavationMetadata = $this->extractExcavationMetadataFromTtl($ttlData);
@@ -1721,6 +1722,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
                 return 'Error: Failed to create excavation item set - ' . $e->getMessage();
             }
         }
+        error_log('New TTL data for excavation: ' . $ttlData, 3, OMEKA_PATH . '/logs/ttlttl-debug.log');
 
         error_log('is excavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/excavation-debug.log');
 
@@ -2471,12 +2473,10 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         'https://purl.org/megalod/ms/excavation/Context' => 'context',
         'https://purl.org/megalod/ms/excavation/StratigraphicVolumeUnit' => 'svu',
         'https://purl.org/megalod/ms/excavation/Square' => 'square',
-        'https://purl.org/megalod/ms/excavation/Archaeologist' => 'archaeologist',
-        // Add direct references to your actual namespaces used in data
-        'https://purl.org/megalod/ms/excavation/Excavation' => 'excavation',
+        // 'https://purl.org/megalod/ms/excavation/Archaeologist' => 'archaeologist', // Removed to prevent separate item creation
         'excav:Excavation' => 'excavation',
         'excav:Context' => 'context',
-        'excav:Archaeologist' => 'archaeologist',
+        // 'excav:Archaeologist' => 'archaeologist', // Removed to prevent separate item creation
     ];
     
     // Define the excluded subject types to prevent creating empty objects
@@ -2486,7 +2486,9 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         'http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#Location',
         'http://dbpedia.org/ontology/Location',
         'excav:Location',
-        'excav:GPSCoordinates'
+        'excav:GPSCoordinates',
+        'https://purl.org/megalod/ms/excavation/Archaeologist', // Add Archaeologist to excluded if not a main subject
+        'excav:Archaeologist' // Add Archaeologist to excluded if not a main subject
     ];
 
     // First pass: find all properly typed subjects
@@ -3215,105 +3217,150 @@ private function formatChippingValue($valueObj, $dataType) {
 
 
 
-
-
-
-/**
- * Normalize URIs in TTL data to follow the standard pattern
- * 
- * @param string $ttlData The original TTL data
- * @param int $itemSetId The Omeka S item set ID
- * @return string The modified TTL data with normalized URIs
- */
 private function normalizeUris($ttlData, $itemSetId) {
-    // Use regex to find all resource URIs in the TTL
-    $pattern = '/<https:\/\/purl\.org\/megalod\/example\/([^\/]+)\/([^>]+)>/';
+    // New pattern to match URIs like <https://purl.org/megalod/ANY_ID_SEGMENT/rest/of/path>
+    // It captures the ID segment (e.g., excavationIdentifier) and the rest of the path.
+    $pattern = '/<https:\/\/purl\.org\/megalod\/([^\/]+)(\/[^>]+)>/';
     
-    // Map of original URIs to new URIs
     $uriMappings = [];
     
-    // Find all URIs and create mappings
     preg_match_all($pattern, $ttlData, $matches, PREG_SET_ORDER);
     
+    error_log("normalizeUris: Found " . count($matches) . " potential URIs to normalize for itemSetId: $itemSetId", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
+
     foreach ($matches as $match) {
-        $fullUri = $match[0];
-        $resourceType = $match[1]; // e.g., "arrowhead", "morphology", etc.
-        $resourceId = $match[2];   // e.g., "CV-AH-001"
-        
-        // Create new URI that maintains the resource type and ID
-        $newUri = "<https://purl.org/megalod/{$itemSetId}/{$resourceType}/{$resourceId}>";
-        
-        // Store the mapping
-        $uriMappings[$fullUri] = $newUri;
+        $fullUri = $match[0];             // The complete matched URI, e.g., <https://purl.org/megalod/EXC-001/excavation/EXC-001>
+        $currentIdSegment = $match[1];    // The segment to be replaced, e.g., "EXC-001" or an old itemSetId
+        $resourcePath = $match[2];        // The rest of the URI path, e.g., "/excavation/EXC-001" or "/item/AH-123"
+
+        if ($currentIdSegment !== (string)$itemSetId && strpos($resourcePath, '/kos/') === false) {
+            $newUri = "<https://purl.org/megalod/{$itemSetId}{$resourcePath}>";
+            if (!isset($uriMappings[$fullUri])) { 
+                $uriMappings[$fullUri] = $newUri;
+                error_log("normalizeUris: Mapping '$fullUri' to '$newUri'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
+            }
+        } else {
+            if (strpos($resourcePath, '/kos/') !== false) {
+                error_log("normalizeUris: Skipping KOS URI '$fullUri'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
+            } else {
+                error_log("normalizeUris: Skipping '$fullUri' as current ID segment '{$currentIdSegment}' matches itemSetId '{$itemSetId}' or is a KOS URI.", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
+            }
+        }
     }
     
-    // Add declarations for referenced resources
-    $declarations = $this->generateResourceDeclarations($uriMappings, $itemSetId);
-    
-    // Replace all occurrences
     $modifiedTtl = $ttlData;
-    foreach ($uriMappings as $oldUri => $newUri) {
-        $modifiedTtl = str_replace($oldUri, $newUri, $modifiedTtl);
+    if (!empty($uriMappings)) {
+        $modifiedTtl = strtr($ttlData, $uriMappings);
+        error_log('normalizeUris: TTL modified with new URIs for itemSetId ' . $itemSetId . '. URI changes made: ' . count($uriMappings), 3, OMEKA_PATH . '/logs/ttl-modification.log');
+    } else {
+        error_log('normalizeUris: No URI modifications needed or made for itemSetId ' . $itemSetId, 3, OMEKA_PATH . '/logs/ttl-modification.log');
     }
     
+    // Generate and append resource declarations if there were any URI mappings.
+    // These declarations are based on the *new* URIs.
+    if (!empty($uriMappings)) {
+        $declarations = $this->generateResourceDeclarations($uriMappings, $itemSetId);
+        if (!empty($declarations)) {
+            $modifiedTtl .= "\n" . $declarations;
+            error_log('normalizeUris: Appended resource declarations for itemSetId ' . $itemSetId, 3, OMEKA_PATH . '/logs/ttl-modification.log');
+        }
+    }
     
-    
-    error_log('Modified TTL with new URIs: ' . $modifiedTtl, 3, OMEKA_PATH . '/logs/ttl-modification.log');
     return $modifiedTtl;
 }
 
 /**
  * Generate declarations for referenced resources
  * 
- * @param array $uriMappings Map of original URIs to new URIs
+ * @param array $uriMappings Map of original URIs to new URIs (key: oldUri, value: newUri)
  * @param int $itemSetId The Omeka S item set ID
  * @return string TTL declarations for referenced resources
  */
 private function generateResourceDeclarations($uriMappings, $itemSetId) {
     $declarations = '';
-    $declaredResources = [];
+    $declaredResources = []; // To avoid duplicate declarations for the same resource
     
-    // Extract unique resource types and IDs from the mappings
+    error_log("generateResourceDeclarations: Processing " . count($uriMappings) . " URI mappings for itemSetId: $itemSetId", 3, OMEKA_PATH . '/logs/resource-declarations.log');
+
+    // The pattern should match the structure of the *new* URIs
+    // e.g., <https://purl.org/megalod/ITEM_SET_ID/resourceType/resourceIdentifier>
+    $newUriPattern = '/<https:\/\/purl\.org\/megalod\/' . preg_quote((string)$itemSetId, '/') . '\/([^\/]+)\/([^>]+)>/';
+
     foreach ($uriMappings as $oldUri => $newUri) {
-        // Extract resource type and ID from the old URI
-        if (preg_match('/<https:\/\/purl\.org\/megalod\/example\/([^\/]+)\/([^>]+)>/', $oldUri, $match)) {
-            $resourceType = $match[1];
-            $resourceId = $match[2];
+        // We need to parse the $newUri to get the resourceType and resourceId
+        // as these declarations are for the *normalized* resources.
+        if (preg_match($newUriPattern, $newUri, $match)) {
+            $resourceType = $match[1]; // e.g., "context", "svu", "square", "item"
+            $resourceId = $match[2];   // e.g., "CV-001", "SVU-1", "A1", "AH-123"
             
-            // Skip if we've already declared this resource
-            if (isset($declaredResources[$resourceType][$resourceId])) {
+            // Create a unique key for this resource to avoid duplicate declarations
+            $resourceKey = $resourceType . '/' . $resourceId;
+
+            if (isset($declaredResources[$resourceKey])) {
+                error_log("generateResourceDeclarations: Skipping already declared resource: $newUri", 3, OMEKA_PATH . '/logs/resource-declarations.log');
                 continue;
             }
             
-            // Skip controlled vocabulary terms
-            if (strpos($oldUri, 'kos') !== false) {
+            // Skip controlled vocabulary terms (KOS)
+            if (strpos($newUri, '/kos/') !== false) {
+                error_log("generateResourceDeclarations: Skipping KOS URI: $newUri", 3, OMEKA_PATH . '/logs/resource-declarations.log');
                 continue;
             }
-            
-            // Add declaration based on resource type
-            switch ($resourceType) {
+
+            $declarationMade = false;
+            // Add declaration based on resource type using the $newUri
+            switch (strtolower($resourceType)) {
                 case 'excavation':
-                    $declarations .= "{$newUri} a excav:Excavation ;\n    dct:identifier \"{$resourceId}\"^^xsd:literal .\n\n";
+                    // Excavation itself should ideally be declared where it's fully defined,
+                    // but if referenced and needs a basic declaration:
+                    $declarations .= "$newUri a excav:Excavation ;\n    dct:identifier \"$resourceId\"^^xsd:string .\n\n";
+                    $declarationMade = true;
                     break;
-                    
                 case 'context':
-                    $declarations .= "{$newUri} a excav:Context ;\n    dct:identifier \"{$resourceId}\"^^xsd:literal .\n\n";
+                    $declarations .= "$newUri a excav:Context ;\n    dct:identifier \"$resourceId\"^^xsd:string .\n\n";
+                    $declarationMade = true;
                     break;
-                    
                 case 'svu':
-                    $declarations .= "{$newUri} a excav:StratigraphicVolumeUnit ;\n    dct:identifier \"{$resourceId}\"^^xsd:literal .\n\n";
+                case 'stratigraphicvolumeunit': // Allow for full name
+                    $declarations .= "$newUri a excav:StratigraphicVolumeUnit ;\n    dct:identifier \"$resourceId\"^^xsd:string .\n\n";
+                    $declarationMade = true;
                     break;
-                    
                 case 'square':
-                    // Extract just the square ID without any prefix
-                    $squareId = preg_replace('/^[A-Za-z]+-/', '', $resourceId);
-                    $declarations .= "{$newUri} a excav:Square ;\n    dct:identifier \"{$squareId}\"^^xsd:literal .\n\n";
+                    $declarations .= "$newUri a excav:Square ;\n    dct:identifier \"$resourceId\"^^xsd:string .\n\n";
+                    $declarationMade = true;
+                    break;
+                case 'item': // For items like arrowheads
+                    $declarations .= "$newUri a excav:Item ;\n    dct:identifier \"$resourceId\"^^xsd:string .\n\n";
+                    // Potentially add ah:Arrowhead if it's specifically an arrowhead,
+                    // but excav:Item is a good general declaration.
+                    // $declarations .= "$newUri a excav:Item, ah:Arrowhead ;\n    dct:identifier \"$resourceId\"^^xsd:string .\n\n";
+                    $declarationMade = true;
+                    break;
+                case 'location':
+                     $declarations .= "$newUri a excav:Location ;\n    rdfs:label \"Location $resourceId\"^^xsd:string .\n\n"; // Basic label
+                     $declarationMade = true;
+                     break;
+                // Add other cases as needed, e.g., 'morphology', 'chipping', 'typometryvalue'
+                // However, these are often complex objects defined elsewhere, not just simple declarations.
+                default:
+                    error_log("generateResourceDeclarations: No specific declaration rule for resource type '$resourceType' in URI: $newUri", 3, OMEKA_PATH . '/logs/resource-declarations.log');
                     break;
             }
             
-            // Mark this resource as declared
-            $declaredResources[$resourceType][$resourceId] = true;
+            if ($declarationMade) {
+                $declaredResources[$resourceKey] = true;
+                error_log("generateResourceDeclarations: Added declaration for: $newUri (Type: $resourceType, ID: $resourceId)", 3, OMEKA_PATH . '/logs/resource-declarations.log');
+            }
+
+        } else {
+            error_log("generateResourceDeclarations: Could not parse new URI with pattern '$newUriPattern': $newUri (Original old URI: $oldUri)", 3, OMEKA_PATH . '/logs/resource-declarations.log');
         }
+    }
+    
+    if (!empty($declarations)) {
+        error_log("generateResourceDeclarations: Generated declarations:\n$declarations", 3, OMEKA_PATH . '/logs/resource-declarations.log');
+    } else {
+        error_log("generateResourceDeclarations: No declarations generated for itemSetId: $itemSetId", 3, OMEKA_PATH . '/logs/resource-declarations.log');
     }
     
     return $declarations;
