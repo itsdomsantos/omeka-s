@@ -719,7 +719,7 @@ private function generateEncounterTtl($encounterUri, $encounter, $excavationUri,
     
     // Add link to the encountered object (arrowhead)
     if ($itemUri) {
-        $ttl .= "    crmsci:O19i_was_encounter_for <$itemUri>;\n";
+        $ttl .= "    crmsci:O19_encountered_object <$itemUri>;\n";
     }
     
     if (!empty($encounter['encounter_depth'])) {
@@ -934,7 +934,8 @@ private function processArrowheadFormData($formData, $itemSetId)
     
 
     // link to the encounter event
-    $ttl .= "    crmsci:O19i_was_object_encountered_through <$encounterUri>;\n";
+    $ttl .= "    excav:wasEncounteredIn <$encounterUri>;\n";
+
     // Continue with other arrowhead properties...
     // (All the existing property processing code remains the same)
     
@@ -2712,8 +2713,11 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         }
     }
 
-    if (isset($rdfData[$subject]['crmsci:O19i_was_object_encountered_through'])) {
-    foreach ($rdfData[$subject]['crmsci:O19i_was_object_encountered_through'] as $encounterObj) {
+
+
+// In processArrowheadData, keep or add this block:
+if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/wasEncounteredIn'])) {
+    foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/wasEncounteredIn'] as $encounterObj) {
         if ($encounterObj['type'] === 'uri') {
             $encounterUri = $encounterObj['value'];
             
@@ -2729,6 +2733,8 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
                         }
                     }
                 }
+                
+                
             }
             
             // Add encounter information to arrowhead item
@@ -2743,6 +2749,8 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
                     '@value' => $encounterDate
                 ];
             }
+            
+            
         }
     }
 }
