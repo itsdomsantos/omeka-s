@@ -719,7 +719,7 @@ private function generateEncounterTtl($encounterUri, $encounter, $excavationUri,
     
     // Add link to the encountered object (arrowhead)
     if ($itemUri) {
-        $ttl .= "    crmsci:O19_encountered_object <$itemUri>;\n";
+        $ttl .= "    crmsci:O19i_was_encounter_for <$itemUri>;\n";
     }
     
     if (!empty($encounter['encounter_depth'])) {
@@ -934,8 +934,7 @@ private function processArrowheadFormData($formData, $itemSetId)
     
 
     // link to the encounter event
-    $ttl .= "    excav:wasEncounteredIn <$encounterUri>;\n";
-
+    $ttl .= "    crmsci:O19i_was_object_encountered_through <$encounterUri>;\n";
     // Continue with other arrowhead properties...
     // (All the existing property processing code remains the same)
     
@@ -1207,8 +1206,8 @@ private function processArrowheadFormData($formData, $itemSetId)
     $ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
     $ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal;\n";
     $ttl .= "    crmsci:O19_encountered_object <$arrowheadUri>;\n";
-    $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
-    
+    $ttl .= "    excav:foundInExcavation <$excavationUri>;\n"; // Make sure there's a semicolon here
+
     // Add the same resource references to encounter event
     foreach ($linkedResources as $property => $resourceUri) {
         if ($property === 'excav:foundInContext') {
@@ -1216,7 +1215,7 @@ private function processArrowheadFormData($formData, $itemSetId)
         } elseif ($property === 'excav:foundInSVU') {
             $ttl .= "    excav:foundInSVU <$resourceUri>;\n";
         }
-    }
+    }   
     
     $ttl .= "    .\n\n";
     
@@ -2616,7 +2615,7 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     $currentItemSetId = $this->getCurrentItemSetContext();
     error_log("Current item set context: " . ($currentItemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/arrowhead-processing.log');
     
-    $excavationUri = null;
+    $excavationUri = "https://purl.org/megalod/$itemSetId";
 
     // Basic properties - direct mapping
     $propertyMap = [
@@ -2637,8 +2636,7 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         'https://purl.org/megalod/ms/excavation/foundInSVU' => ['Encounter Event - an item found in a specific Stratigraphic Unit', 7671],
         'https://purl.org/megalod/ms/excavation/foundInExcavation' => ['The Encounter Event - an item found in an Excavation', 7673],
         'https://purl.org/megalod/ms/excavation/foundInLocation' => ['Item found in a Location', 7680], // Add this line
-        'https://purl.org/megalod/ms/excavation/wasEncounteredIn' => ['Arrowhead was encountered in Event', 7681],
-        'crmsci:O19_was_encountered_in' => ['Arrowhead was encountered in Event', 7681],
+        'crmsci:O19i_was_object_encountered_through' => ['Item was encountered in Event', 375],
     ];
 
     $gpsPropertyMap = [
@@ -2714,11 +2712,8 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
         }
     }
 
-
-
-// In processArrowheadData, keep or add this block:
-if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/wasEncounteredIn'])) {
-    foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/wasEncounteredIn'] as $encounterObj) {
+    if (isset($rdfData[$subject]['crmsci:O19i_was_object_encountered_through'])) {
+    foreach ($rdfData[$subject]['crmsci:O19i_was_object_encountered_through'] as $encounterObj) {
         if ($encounterObj['type'] === 'uri') {
             $encounterUri = $encounterObj['value'];
             
@@ -2734,8 +2729,6 @@ if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/wasEncounte
                         }
                     }
                 }
-                
-                
             }
             
             // Add encounter information to arrowhead item
@@ -2750,8 +2743,6 @@ if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/wasEncounte
                     '@value' => $encounterDate
                 ];
             }
-            
-            
         }
     }
 }

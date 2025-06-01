@@ -272,9 +272,10 @@
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
+    # With a clearer relationship name:
     sh:property [
-        sh:path crmsci:O19_encountered_object ;
-        sh:name "The finding" ;
+        sh:path crmsci:O19i_was_encounter_for ;
+        sh:name "Was encounter for Item" ;
         sh:class excav:Item ;
         sh:minCount 0 ;
     ] ;
@@ -410,7 +411,7 @@
         sh:maxCount 1 ;
     ] ;
     sh:property [
-        sh:path excav:wasEncounteredIn ;
+        sh:path crmsci:O19i_was_object_encountered_through ;
         sh:name "Item was encountered in Event" ;
         sh:class excav:EncounterEvent ;
         sh:minCount 0 ;
@@ -562,7 +563,7 @@
         sh:maxCount 1 ;
     ] ;
     sh:property [
-        sh:path crmsci:O19_was_encountered_in ;
+        sh:path crmsci:O19i_was_object_encountered_through ;
         sh:name "Arrowhead was encountered in Event (CIDOC-CRM)" ;
         sh:class excav:EncounterEvent ;
         sh:minCount 0 ;
