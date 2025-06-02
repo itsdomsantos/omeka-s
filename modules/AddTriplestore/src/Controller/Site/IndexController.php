@@ -1350,6 +1350,8 @@ error_log("Encounter event linked to excavation: $excavationUri", 3, OMEKA_PATH 
         
         // Transform collecting form data to format expected by processArrowheadFormData
         $arrowheadData = $this->transformCollectingFormToArrowheadData($formData);
+        error_log('Transformed arrowhead data: ' . print_r($arrowheadData, true), 3, OMEKA_PATH . '/logs/property-debug.log');
+
         
     // Process the transformed data
     if (!empty($arrowheadData)) {
@@ -1396,80 +1398,78 @@ private function transformCollectingFormToArrowheadData($formData)
     $arrowheadData = [];
     
     // Updated field mappings based on your actual form structure
-    $fieldMappings = [
-        'prompt_53' => 'arrowhead_identifier',    // ID field 
-        'prompt_54' => 'images',          // Type field
-        'prompt_55' => 'arrowhead_annotation',    // Observations/annotations
-        'prompt_56' => 'condition_state',         // Complete/Broken
-        'prompt_65' => 'arrowhead_type',          // Elongate/Short
-        'prompt_69' => 'arrowhead_variant',       // Flat/Raised/Thick
-        'prompt_70' => 'arrowhead_shape',         // Triangle/Losangular/Stemmed
-        'prompt_71' => 'point_definition',        // Sharp/Fractured
-        'prompt_72' => 'body_symmetry',           // Symmetrical/Non-symmetrical
-        'prompt_73' => 'arrowhead_base',          // Base type
-        'prompt_93' => 'arrowhead_material',      // Material
-        
-        // Measurements with values and units
-        'prompt_57' => 'weight',                  // Weight value
-        'prompt_58' => 'weight_unit',             // Weight unit
-        'prompt_59' => 'height',                  // Height value
-        'prompt_60' => 'height_unit',             // Height unit
-        'prompt_61' => 'width',                   // Width value
-        'prompt_62' => 'width_unit',              // Width unit
-        'prompt_63' => 'thickness',               // Thickness value
-        'prompt_64' => 'thickness_unit',          // Thickness unit
-        'prompt_74' => 'body_length',             // Body length value
-        'prompt_75' => 'body_length_unit',        // Body length unit
-        'prompt_76' => 'base_length',             // Base length value
-        'prompt_77' => 'base_length_unit',        // Base length unit
-        
-        // Elongation index
-        'prompt_66' => 'elongation_index',        // Medium/Elongated/Short
-        
-        // Chipping properties
-        'prompt_78' => 'chipping_mode',           // Plane/Parallel/Sub-parallel
-        'prompt_79' => 'chipping_amplitude',      // Marginal/Deep
-        'prompt_80' => 'chipping_direction',      // Direct/Reverse/Bifacial
-        'prompt_81' => 'chipping_orientation',    // Side/Transverse
-        'prompt_82' => 'chipping_delineation',    // Continuous/Composite/Denticulated
-        'prompt_83' => 'chipping_location_lateral_1',    // Distal/Median/Proximal
-        'prompt_84' => 'chipping_location_lateral_2',
-        'prompt_85' => 'chipping_location_lateral_3',
-        'prompt_86' => 'chipping_location_transversal_1', // Distal/Median/Proximal
-        'prompt_87' => 'chipping_location_transversal_2',
-        'prompt_88' => 'chipping_location_transversal_3',
-        'prompt_89' => 'chipping_shape',          // Straight/Convex/Concave/Sinuous
-        
-        // Square coordinates
-        'prompt_90' => 'x_coordinate',
-        'prompt_91' => 'y_coordinate',
-        'prompt_92' => 'z_coordinate',
-
-        'prompt_94' => 'x_coordinate_unit',     // X coordinate unit
-        'prompt_95' => 'y_coordinate_unit',     // Y coordinate unit  
-        'prompt_96' => 'z_coordinate_unit',     // Z coordinate unit
-
-        // gps coordinates
-        'prompt_67' => 'gps_latitude',          // GPS latitude
-        'prompt_68' => 'gps_longitude',         // GPS longitude
-    ];
+$fieldMappings = [
+    'prompt_53' => 'arrowhead_identifier',    // ID field 
+    'prompt_54' => 'images',                  // Images (empty in your case)
+    'prompt_55' => 'arrowhead_annotation',    // Observations/annotations
+    'prompt_56' => 'condition_state',         // Complete/Broken
+    'prompt_57' => 'weight',                  // Weight value
+    'prompt_58' => 'weight_unit',             // Weight unit
+    'prompt_59' => 'height',                  // Height value
+    'prompt_60' => 'height_unit',             // Height unit
+    'prompt_61' => 'width',                   // Width value
+    'prompt_62' => 'width_unit',              // Width unit
+    'prompt_63' => 'thickness',               // Thickness value
+    'prompt_64' => 'thickness_unit',          // Thickness unit
+    'prompt_65' => 'arrowhead_type',          // Elongate/Short
+    'prompt_66' => 'elongation_index',        // Medium/Elongated/Short
+    'prompt_67' => 'gps_latitude',            // GPS latitude (empty in your case)
+    'prompt_68' => 'gps_longitude',           // GPS longitude (empty in your case)
+    'prompt_69' => 'arrowhead_variant',       // Flat/Raised/Thick
+    'prompt_70' => 'arrowhead_shape',         // Triangle/Losangular/Stemmed
+    'prompt_71' => 'point_definition',        // Sharp/Fractured
+    'prompt_72' => 'body_symmetry',           // Symmetrical/Non-symmetrical
+    'prompt_73' => 'arrowhead_base',          // Base type
+    'prompt_74' => 'body_length',             // Body length value
+    'prompt_75' => 'body_length_unit',        // Body length unit
+    'prompt_76' => 'base_length',             // Base length value
+    'prompt_77' => 'base_length_unit',        // Base length unit
+    
+    // Chipping properties
+    'prompt_78' => 'chipping_mode',           // Plane/Parallel/Sub-parallel
+    'prompt_79' => 'chipping_amplitude',      // Marginal/Deep
+    'prompt_80' => 'chipping_direction',      // Direct/Reverse/Bifacial
+    'prompt_81' => 'chipping_orientation',    // Side/Transverse
+    'prompt_82' => 'chipping_delineation',    // Continuous/Composite/Denticulated
+    'prompt_83' => 'chipping_location_lateral_1',    // Distal/Median/Proximal
+    'prompt_84' => 'chipping_location_lateral_2',
+    'prompt_85' => 'chipping_location_lateral_3',
+    'prompt_86' => 'chipping_location_transversal_1', // Distal/Median/Proximal
+    'prompt_87' => 'chipping_location_transversal_2',
+    'prompt_88' => 'chipping_location_transversal_3',
+    'prompt_89' => 'chipping_shape',          // Straight/Convex/Concave/Sinuous
+    
+    // Square coordinates
+    'prompt_90' => 'x_coordinate',
+    'prompt_91' => 'y_coordinate',
+    'prompt_92' => 'z_coordinate',
+    'prompt_93' => 'arrowhead_material',      // Material
+    'prompt_94' => 'x_coordinate_unit',       // X coordinate unit
+    'prompt_95' => 'y_coordinate_unit',       // Y coordinate unit  
+    'prompt_96' => 'z_coordinate_unit',       // Z coordinate unit
+];
     
     // Process the mapping
-    foreach ($fieldMappings as $collectingField => $arrowheadField) {
-        if (isset($formData[$collectingField]) && !empty($formData[$collectingField])) {
-            $value = $formData[$collectingField];
-            
-            // Clean up boolean values from collecting form
-            if (strpos($value, 'True') === 0) {
-                $arrowheadData[$arrowheadField] = 'true';
-            } elseif (strpos($value, 'False') === 0) {
-                $arrowheadData[$arrowheadField] = 'false';
-            } else {
-                $arrowheadData[$arrowheadField] = $value;
-            }
+// In transformCollectingFormToArrowheadData method, add this logic:
+
+foreach ($fieldMappings as $collectingField => $arrowheadField) {
+    if (isset($formData[$collectingField]) && !empty($formData[$collectingField])) {
+        $value = $formData[$collectingField];
+        
+        // Enhanced boolean processing
+        if (strpos($value, 'True') === 0 || strpos($value, 'true') === 0) {
+            $arrowheadData[$arrowheadField] = 'true';
+        } elseif (strpos($value, 'False') === 0 || strpos($value, 'false') === 0) {
+            $arrowheadData[$arrowheadField] = 'false';
+        } else {
+            // Clean up parenthetical explanations
+            // "True (Elongate)" becomes "true"
+            // "Raised" stays "Raised"
+            $cleanValue = preg_replace('/\s*\([^)]*\)/', '', $value);
+            $arrowheadData[$arrowheadField] = trim($cleanValue);
         }
     }
-
+}
     // ENHANCED: Process archaeological context selections
     // These come from the form template's archaeological context section
     if (!empty($formData['selected_square'])) {
@@ -2709,6 +2709,8 @@ private function extractIdentifier($rdfData, $subject) {
  * Process arrowhead specific data with complete value extraction
  */
 private function processArrowheadData($rdfData, $subject, &$itemData) {
+    error_log('=== DEBUGGING PROPERTY MAPPING ===', 3, OMEKA_PATH . '/logs/property-debug.log');
+
     error_log('Processing arrowhead data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/arrowhead-processing.log');
     
     // Get the current item set context for this processing
@@ -2859,6 +2861,10 @@ if (isset($rdfData[$subject]['http://cidoc-crm.org/extensions/crmsci/O19i_was_ob
         if (isset($rdfData[$subject][$predicate])) {
             $term = $mapping[0];
             $propertyId = $mapping[1];
+
+            error_log("Processing property: $predicate -> $term (ID: $propertyId)", 3, OMEKA_PATH . '/logs/property-debug.log');
+        error_log("RDF data for this property: " . print_r($rdfData[$subject][$predicate], true), 3, OMEKA_PATH . '/logs/property-debug.log');
+        
             
             if (!isset($itemData[$term])) {
                 $itemData[$term] = [];
@@ -2891,6 +2897,9 @@ if (isset($rdfData[$subject]['http://cidoc-crm.org/extensions/crmsci/O19i_was_ob
                     ];
                 }
             }
+        }
+        else {
+            error_log("Property not found in RDF: $predicate", 3, OMEKA_PATH . '/logs/property-debug.log');
         }
     }
     
