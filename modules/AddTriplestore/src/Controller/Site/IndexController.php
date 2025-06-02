@@ -1212,7 +1212,6 @@ $ttl .= "    crmsci:O19_encountered_object <$arrowheadUri>;\n";
 $ttl .= "    excav:foundInExcavation <$excavationUri>;\n"; // Make sure there's a semicolon here
 
 error_log("Encounter event linked to excavation: $excavationUri", 3, OMEKA_PATH . '/logs/form.log');
-    $ttl .= "    .\n\n";
 
 
     // Add the same resource references to encounter event
@@ -2466,6 +2465,8 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
 }
 
 
+
+
 private function identifyMainSubjects($rdfData, $itemSetId = null) {
     $subjects = [];
     
@@ -2480,10 +2481,10 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         'https://purl.org/megalod/ms/excavation/Context' => 'context',
         'https://purl.org/megalod/ms/excavation/StratigraphicVolumeUnit' => 'svu',
         'https://purl.org/megalod/ms/excavation/Square' => 'square',
-        // 'https://purl.org/megalod/ms/excavation/Archaeologist' => 'archaeologist', // Removed to prevent separate item creation
         'excav:Excavation' => 'excavation',
         'excav:Context' => 'context',
-        // 'excav:Archaeologist' => 'archaeologist', // Removed to prevent separate item creation
+        'ah:Arrowhead' => 'arrowhead',
+        'excav:Item' => 'item',
     ];
     
     // Define the excluded subject types to prevent creating empty objects
@@ -2494,12 +2495,74 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         'http://dbpedia.org/ontology/Location',
         'excav:Location',
         'excav:GPSCoordinates',
-        'https://purl.org/megalod/ms/excavation/Archaeologist', // Add Archaeologist to excluded if not a main subject
-        'excav:Archaeologist' // Add Archaeologist to excluded if not a main subject
+        'https://purl.org/megalod/ms/excavation/Archaeologist',
+        'excav:Archaeologist',
+        // Add these to exclude referenced objects in arrowhead uploads
+        'https://purl.org/megalod/ms/excavation/Square',
+        'excav:Square',
+        'https://purl.org/megalod/ms/excavation/Context',
+        'excav:Context',
+        'https://purl.org/megalod/ms/excavation/StratigraphicVolumeUnit',
+        'excav:StratigraphicVolumeUnit',
+        // Always exclude excavation objects when in item set context
+        'excav:Excavation',
     ];
+    
+    // If we are in an item set context, also exclude excavation types
+    if ($itemSetId) {
+        $excludedTypes[] = 'https://purl.org/megalod/ms/excavation/Excavation';
+        $excludedTypes[] = 'excav:Excavation';
+    }
 
+    // First find all arrowhead/item subjects - if we're in an item set context and find any,
+    // we'll prioritize ONLY these arrowheads/items and ignore everything else
+    $arrowheadSubjects = [];
+
+    foreach ($rdfData as $subject => $predicates) {
+        if (isset($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
+            foreach ($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
+                if ($typeObj['type'] === 'uri') {
+                    // Check for arrowhead or item type
+                    if ($typeObj['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' ||
+                        $typeObj['value'] === 'https://purl.org/megalod/ms/excavation/Item' ||
+                        $typeObj['value'] === 'ah:Arrowhead' ||
+                        $typeObj['value'] === 'excav:Item') {
+                        
+                        $arrowheadSubjects[$subject] = ($typeObj['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' || 
+                                                      $typeObj['value'] === 'ah:Arrowhead') 
+                            ? 'arrowhead' : 'item';
+                        
+                        error_log("✓ Found arrowhead/item subject: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                    }
+                    
+                    // CRITICAL: If we're in an item set context, we need to explicitly EXCLUDE excavation subjects
+                    if ($itemSetId && 
+                        ($typeObj['value'] === 'https://purl.org/megalod/ms/excavation/Excavation' ||
+                         $typeObj['value'] === 'excav:Excavation')) {
+                        
+                        error_log("⚠ EXCLUDING excavation subject in item set context: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                        $subjects[$subject] = 'excluded';
+                    }
+                }
+            }
+        }
+    }
+
+    // If we're in an item set context and found arrowheads/items, ONLY return those
+    if ($itemSetId && !empty($arrowheadSubjects)) {
+        error_log('Found ' . count($arrowheadSubjects) . ' arrowhead/item subjects in item set ' . $itemSetId . 
+                  ' - IGNORING all other subjects to prevent duplicate creation', 3, OMEKA_PATH . '/logs/main-subjects.log');
+        return $arrowheadSubjects;
+    }
+
+    // If no arrowheads found or not in an item set context, proceed with normal subject identification
     // First pass: find all properly typed subjects
     foreach ($rdfData as $subject => $predicates) {
+        // Skip subjects that were already marked as excluded
+        if (isset($subjects[$subject]) && $subjects[$subject] === 'excluded') {
+            continue;
+        }
+
         error_log("Checking subject: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
         
         if (isset($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
@@ -2520,7 +2583,18 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
                     $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/GPSCoordinates' &&
                     $typeObj['value'] !== 'excav:Location' &&
                     $typeObj['value'] !== 'excav:GPSCoordinates' &&
+                    !in_array($typeObj['value'], $excludedTypes) &&  // Check against the excluded types
                     isset($mainSubjectTypes[$typeObj['value']])) {
+                    
+                    // ADDITIONAL CHECK: If we're in an item set context, don't create duplicate contexts,
+                    // squares, or other supporting objects - only create new arrowheads/items
+                    if ($itemSetId) {
+                        $subjectType = $mainSubjectTypes[$typeObj['value']];
+                        if (in_array($subjectType, ['context', 'svu', 'square', 'excavation'])) {
+                            error_log("  ⚠ Skipping subject type '$subjectType' in item set context to prevent duplicates", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                            continue;
+                        }
+                    }
                     
                     $subjects[$subject] = $mainSubjectTypes[$typeObj['value']];
                     error_log("  ✓ Added as main subject: {$mainSubjectTypes[$typeObj['value']]}", 3, OMEKA_PATH . '/logs/main-subjects.log');
@@ -2558,9 +2632,27 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
                 if (strpos($subject, '/location/') !== false || 
                     strpos($subject, '/gps/') !== false ||
                     strpos($subject, '/Timeline/') !== false ||
-                    strpos($subject, '/archaeologist/') !== false) { // Also exclude archaeologist
+                    strpos($subject, '/archaeologist/') !== false ||
+                    // Also exclude common supporting entities when in item set context
+                    ($itemSetId && (
+                        strpos($subject, '/square/') !== false ||
+                        strpos($subject, '/context/') !== false ||
+                        strpos($subject, '/svu/') !== false
+                    ))) {
                     $isAuxiliary = true;
                     error_log("Skipping auxiliary entity with identifier: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                }
+                
+                // CRITICAL: Explicitly check if this is an excavation subject in an item set context
+                if ($itemSetId) {
+                    // Check if this is an excavation URI
+                    foreach ($predicates['http://purl.org/dc/terms/identifier'] as $idObj) {
+                        if ($idObj['type'] === 'literal' && strpos($idObj['value'], 'EXC-') === 0) {
+                            $isAuxiliary = true;
+                            error_log("Skipping excavation entity with identifier {$idObj['value']} in itemset context: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                            break;
+                        }
+                    }
                 }
                 
                 if (!$isAuxiliary) {
@@ -3223,10 +3315,10 @@ private function formatChippingValue($valueObj, $dataType) {
 
 
 
+
 private function normalizeUris($ttlData, $itemSetId) {
-    // New pattern to match URIs like <https://purl.org/megalod/ANY_ID_SEGMENT/rest/of/path>
-    // It captures the ID segment (e.g., excavationIdentifier) and the rest of the path.
-    $pattern = '/<https:\/\/purl\.org\/megalod\/([^\/]+)(\/[^>]+)>/';
+    // Use a more precise pattern that avoids double matches
+    $pattern = '/<(https:\/\/purl\.org\/megalod\/)([^\/]+)(\/[^>]+)>/';
     
     $uriMappings = [];
     
@@ -3235,22 +3327,32 @@ private function normalizeUris($ttlData, $itemSetId) {
     error_log("normalizeUris: Found " . count($matches) . " potential URIs to normalize for itemSetId: $itemSetId", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
 
     foreach ($matches as $match) {
-        $fullUri = $match[0];             // The complete matched URI, e.g., <https://purl.org/megalod/EXC-001/excavation/EXC-001>
-        $currentIdSegment = $match[1];    // The segment to be replaced, e.g., "EXC-001" or an old itemSetId
-        $resourcePath = $match[2];        // The rest of the URI path, e.g., "/excavation/EXC-001" or "/item/AH-123"
+        $fullUri = $match[0];             // The complete matched URI
+        $baseUrl = $match[1];             // Base URL part: "https://purl.org/megalod/"
+        $currentIdSegment = $match[2];    // The segment to be replaced, e.g., "EXC-001" or "2205"
+        $resourcePath = $match[3];        // The rest of the URI path, e.g., "/excavation/EXC-001"
 
-        if ($currentIdSegment !== (string)$itemSetId && strpos($resourcePath, '/kos/') === false) {
-            $newUri = "<https://purl.org/megalod/{$itemSetId}{$resourcePath}>";
-            if (!isset($uriMappings[$fullUri])) { 
-                $uriMappings[$fullUri] = $newUri;
-                error_log("normalizeUris: Mapping '$fullUri' to '$newUri'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
-            }
-        } else {
+        // Skip KOS URIs and URIs that already have the correct item set ID
+        if ($currentIdSegment === (string)$itemSetId || strpos($resourcePath, '/kos/') !== false) {
             if (strpos($resourcePath, '/kos/') !== false) {
                 error_log("normalizeUris: Skipping KOS URI '$fullUri'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
             } else {
-                error_log("normalizeUris: Skipping '$fullUri' as current ID segment '{$currentIdSegment}' matches itemSetId '{$itemSetId}' or is a KOS URI.", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
+                error_log("normalizeUris: Skipping '$fullUri' as current ID segment '$currentIdSegment' matches itemSetId '$itemSetId'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
             }
+            continue;
+        }
+        
+        // Ensure we're not creating a recursive or malformed URI
+        // Check if the path already contains purl.org to avoid duplication
+        if (strpos($resourcePath, 'purl.org') !== false) {
+            error_log("normalizeUris: Skipping '$fullUri' to prevent malformed URI - path already contains 'purl.org'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
+            continue;
+        }
+        
+        $newUri = "<{$baseUrl}{$itemSetId}{$resourcePath}>";
+        if (!isset($uriMappings[$fullUri])) { 
+            $uriMappings[$fullUri] = $newUri;
+            error_log("normalizeUris: Mapping '$fullUri' to '$newUri'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
         }
     }
     
@@ -3274,7 +3376,6 @@ private function normalizeUris($ttlData, $itemSetId) {
     
     return $modifiedTtl;
 }
-
 /**
  * Generate declarations for referenced resources
  * 
@@ -4837,16 +4938,19 @@ private function sendToOmekaS($omekaData, $itemSetId = null) {
     ];
 }
 
-/**
- * Check if an item with the given identifier already exists in the specified item set
- *
- * @param string $identifier The identifier to check
- * @param int $itemSetId The item set ID to check within
- * @return bool True if an item with this identifier exists in the item set
- */
+
 private function itemExistsWithIdentifier($identifier, $itemSetId) {
     try {
         error_log("Checking for existing item with identifier '$identifier' in item set #$itemSetId", 3, OMEKA_PATH . '/logs/duplicate-identifiers.log');
+        
+        // ALWAYS ALLOW SQUARES, CONTEXTS, LOCATIONS TO BE DUPLICATED
+        // These are referenced resources that should be allowed to exist multiple times
+        if (in_array($identifier, ['A1', 'A2', 'A3', 'A4', 'B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'D1', 'D2', 'D3', 'D4']) ||
+            strpos($identifier, 'excavation-location') !== false ||
+            strpos($identifier, 'CV-') === 0) {
+            error_log("Allowing resource with common identifier: '$identifier'", 3, OMEKA_PATH . '/logs/duplicate-identifiers.log');
+            return false;
+        }
         
         // Search for items with the given identifier in the specified item set
         $searchParams = [
