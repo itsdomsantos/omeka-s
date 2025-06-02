@@ -2467,15 +2467,15 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
 
 
 
-
 private function identifyMainSubjects($rdfData, $itemSetId = null) {
     $subjects = [];
     
     error_log('=== IDENTIFYING MAIN SUBJECTS ===', 3, OMEKA_PATH . '/logs/main-subjects.log');
     error_log('Total RDF subjects: ' . count($rdfData), 3, OMEKA_PATH . '/logs/main-subjects.log');
     
-    // UPDATED patterns to match your TTL namespace
+    // UPDATED patterns to match both original and normalized URIs
     $mainSubjectTypes = [
+        // Original namespace patterns
         'https://purl.org/megalod/ms/ah/Arrowhead' => 'arrowhead',
         'https://purl.org/megalod/ms/excavation/Item' => 'item',
         'https://purl.org/megalod/ms/excavation/Excavation' => 'excavation',
@@ -2486,7 +2486,27 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         'excav:Context' => 'context',
         'ah:Arrowhead' => 'arrowhead',
         'excav:Item' => 'item',
+        'excav:StratigraphicVolumeUnit' => 'svu',
+        'excav:Square' => 'square',
     ];
+    
+    // DYNAMIC: Add normalized patterns based on itemSetId if available
+    if ($itemSetId) {
+        $normalizedPatterns = [
+            "https://purl.org/megalod/$itemSetId/ah/Arrowhead" => 'arrowhead',
+            "https://purl.org/megalod/$itemSetId/excavation/Item" => 'item', 
+            "https://purl.org/megalod/$itemSetId/excavation/Excavation" => 'excavation',
+            "https://purl.org/megalod/$itemSetId/excavation/Context" => 'context',
+            "https://purl.org/megalod/$itemSetId/excavation/StratigraphicVolumeUnit" => 'svu',
+            "https://purl.org/megalod/$itemSetId/excavation/Square" => 'square',
+        ];
+        
+        // Merge normalized patterns
+        $mainSubjectTypes = array_merge($mainSubjectTypes, $normalizedPatterns);
+        
+        error_log('Added normalized patterns for itemSetId: ' . $itemSetId, 3, OMEKA_PATH . '/logs/main-subjects.log');
+        error_log('Normalized patterns: ' . print_r($normalizedPatterns, true), 3, OMEKA_PATH . '/logs/main-subjects.log');
+    }
     
     // Define the excluded subject types to prevent creating empty objects
     $excludedTypes = [
@@ -2498,50 +2518,89 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         'excav:GPSCoordinates',
         'https://purl.org/megalod/ms/excavation/Archaeologist',
         'excav:Archaeologist',
-        // Add these to exclude referenced objects in arrowhead uploads
-        'https://purl.org/megalod/ms/excavation/Square',
-        'excav:Square',
-        'https://purl.org/megalod/ms/excavation/Context',
-        'excav:Context',
-        'https://purl.org/megalod/ms/excavation/StratigraphicVolumeUnit',
-        'excav:StratigraphicVolumeUnit',
-        // Always exclude excavation objects when in item set context
-        'excav:Excavation',
+        'https://purl.org/megalod/ms/excavation/TimeLine',
+        'https://purl.org/megalod/ms/excavation/Instant',
+        'excav:TimeLine',
+        'excav:Instant',
+        'http://dbpedia.org/ontology/District',
+        'http://dbpedia.org/ontology/Parish',
     ];
     
-    // If we are in an item set context, also exclude excavation types
+    // Add dynamic excluded types based on itemSetId
     if ($itemSetId) {
-        $excludedTypes[] = 'https://purl.org/megalod/ms/excavation/Excavation';
-        $excludedTypes[] = 'excav:Excavation';
+        $excludedTypes = array_merge($excludedTypes, [
+            "https://purl.org/megalod/$itemSetId/excavation/Location",
+            "https://purl.org/megalod/$itemSetId/excavation/GPSCoordinates", 
+            "https://purl.org/megalod/$itemSetId/excavation/Archaeologist",
+            "https://purl.org/megalod/$itemSetId/excavation/TimeLine",
+            "https://purl.org/megalod/$itemSetId/excavation/Instant",
+        ]);
     }
-
-    // First find all arrowhead/item subjects - if we're in an item set context and find any,
-    // we'll prioritize ONLY these arrowheads/items and ignore everything else
-    $arrowheadSubjects = [];
-
+    
+    // CRITICAL FIX: Determine if this is a complete excavation upload vs adding items to existing excavation
+    $hasExcavationInData = false;
+    $hasArrowheadsInData = false;
+    
+    // First pass: check what types of data we have
     foreach ($rdfData as $subject => $predicates) {
         if (isset($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
             foreach ($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
                 if ($typeObj['type'] === 'uri') {
+                    // Check for excavation
+                    if ($typeObj['value'] === 'https://purl.org/megalod/ms/excavation/Excavation' ||
+                        $typeObj['value'] === 'excav:Excavation' ||
+                        ($itemSetId && $typeObj['value'] === "https://purl.org/megalod/$itemSetId/excavation/Excavation")) {
+                        $hasExcavationInData = true;
+                    }
+                    
+                    // Check for arrowheads
+                    if ($typeObj['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' ||
+                        $typeObj['value'] === 'ah:Arrowhead' ||
+                        ($itemSetId && $typeObj['value'] === "https://purl.org/megalod/$itemSetId/ah/Arrowhead")) {
+                        $hasArrowheadsInData = true;
+                    }
+                }
+            }
+        }
+    }
+    
+    $isCompleteExcavationUpload = $hasExcavationInData && !$hasArrowheadsInData;
+    $isArrowheadOnlyUpload = $hasArrowheadsInData && !$hasExcavationInData;
+    
+    error_log("Data analysis: hasExcavation=$hasExcavationInData, hasArrowheads=$hasArrowheadsInData", 3, OMEKA_PATH . '/logs/main-subjects.log');
+    error_log("Upload type: isCompleteExcavation=$isCompleteExcavationUpload, isArrowheadOnly=$isArrowheadOnlyUpload", 3, OMEKA_PATH . '/logs/main-subjects.log');
+
+    // Find arrowhead/item subjects first
+    $arrowheadSubjects = [];
+    foreach ($rdfData as $subject => $predicates) {
+        if (isset($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
+            foreach ($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
+                if ($typeObj['type'] === 'uri') {
+                    error_log("Found type for subject $subject: " . $typeObj['value'], 3, OMEKA_PATH . '/logs/main-subjects.log');
+                    
                     // Check for arrowhead or item type
                     if ($typeObj['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' ||
                         $typeObj['value'] === 'https://purl.org/megalod/ms/excavation/Item' ||
                         $typeObj['value'] === 'ah:Arrowhead' ||
-                        $typeObj['value'] === 'excav:Item') {
+                        $typeObj['value'] === 'excav:Item' ||
+                        ($itemSetId && ($typeObj['value'] === "https://purl.org/megalod/$itemSetId/ah/Arrowhead" ||
+                                       $typeObj['value'] === "https://purl.org/megalod/$itemSetId/excavation/Item"))) {
                         
                         $arrowheadSubjects[$subject] = ($typeObj['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' || 
-                                                      $typeObj['value'] === 'ah:Arrowhead') 
+                                                      $typeObj['value'] === 'ah:Arrowhead' ||
+                                                      ($itemSetId && $typeObj['value'] === "https://purl.org/megalod/$itemSetId/ah/Arrowhead")) 
                             ? 'arrowhead' : 'item';
                         
                         error_log("✓ Found arrowhead/item subject: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
                     }
                     
-                    // CRITICAL: If we're in an item set context, we need to explicitly EXCLUDE excavation subjects
-                    if ($itemSetId && 
+                    // UPDATED LOGIC: Only exclude excavation subjects if this is arrowhead-only upload to existing item set
+                    if ($itemSetId && $isArrowheadOnlyUpload &&
                         ($typeObj['value'] === 'https://purl.org/megalod/ms/excavation/Excavation' ||
-                         $typeObj['value'] === 'excav:Excavation')) {
+                         $typeObj['value'] === 'excav:Excavation' ||
+                         $typeObj['value'] === "https://purl.org/megalod/$itemSetId/excavation/Excavation")) {
                         
-                        error_log("⚠ EXCLUDING excavation subject in item set context: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                        error_log("⚠ EXCLUDING excavation subject in arrowhead-only upload to item set: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
                         $subjects[$subject] = 'excluded';
                     }
                 }
@@ -2549,15 +2608,13 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         }
     }
 
-    // If we're in an item set context and found arrowheads/items, ONLY return those
-    if ($itemSetId && !empty($arrowheadSubjects)) {
-        error_log('Found ' . count($arrowheadSubjects) . ' arrowhead/item subjects in item set ' . $itemSetId . 
-                  ' - IGNORING all other subjects to prevent duplicate creation', 3, OMEKA_PATH . '/logs/main-subjects.log');
+    // If this is arrowhead-only upload to existing item set, ONLY return arrowheads
+    if ($itemSetId && $isArrowheadOnlyUpload && !empty($arrowheadSubjects)) {
+        error_log('Arrowhead-only upload detected - returning only ' . count($arrowheadSubjects) . ' arrowhead subjects', 3, OMEKA_PATH . '/logs/main-subjects.log');
         return $arrowheadSubjects;
     }
 
-    // If no arrowheads found or not in an item set context, proceed with normal subject identification
-    // First pass: find all properly typed subjects
+    // For complete excavation uploads OR initial excavation creation, process all valid subjects
     foreach ($rdfData as $subject => $predicates) {
         // Skip subjects that were already marked as excluded
         if (isset($subjects[$subject]) && $subjects[$subject] === 'excluded') {
@@ -2578,21 +2635,14 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
                     $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/TypometryValue' &&
                     $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/Weight' &&
                     $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/Coordinates' &&
-                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/TimeLine' &&
-                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/Instant' &&
-                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/Location' &&
-                    $typeObj['value'] !== 'https://purl.org/megalod/ms/excavation/GPSCoordinates' &&
-                    $typeObj['value'] !== 'excav:Location' &&
-                    $typeObj['value'] !== 'excav:GPSCoordinates' &&
                     !in_array($typeObj['value'], $excludedTypes) &&  // Check against the excluded types
                     isset($mainSubjectTypes[$typeObj['value']])) {
                     
-                    // ADDITIONAL CHECK: If we're in an item set context, don't create duplicate contexts,
-                    // squares, or other supporting objects - only create new arrowheads/items
-                    if ($itemSetId) {
+                    // UPDATED LOGIC: Only skip context/square/svu creation if this is arrowhead-only upload
+                    if ($itemSetId && $isArrowheadOnlyUpload) {
                         $subjectType = $mainSubjectTypes[$typeObj['value']];
                         if (in_array($subjectType, ['context', 'svu', 'square', 'excavation'])) {
-                            error_log("  ⚠ Skipping subject type '$subjectType' in item set context to prevent duplicates", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                            error_log("  ⚠ Skipping subject type '$subjectType' in arrowhead-only upload", 3, OMEKA_PATH . '/logs/main-subjects.log');
                             continue;
                         }
                     }
@@ -2633,24 +2683,25 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
                 if (strpos($subject, '/location/') !== false || 
                     strpos($subject, '/gps/') !== false ||
                     strpos($subject, '/Timeline/') !== false ||
-                    strpos($subject, '/archaeologist/') !== false ||
-                    // Also exclude common supporting entities when in item set context
-                    ($itemSetId && (
-                        strpos($subject, '/square/') !== false ||
-                        strpos($subject, '/context/') !== false ||
-                        strpos($subject, '/svu/') !== false
-                    ))) {
+                    strpos($subject, '/archaeologist/') !== false) {
                     $isAuxiliary = true;
                     error_log("Skipping auxiliary entity with identifier: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
                 }
                 
-                // CRITICAL: Explicitly check if this is an excavation subject in an item set context
-                if ($itemSetId) {
+                // UPDATED: Only skip excavation/context/svu/square in arrowhead-only uploads
+                if ($itemSetId && $isArrowheadOnlyUpload) {
+                    if (strpos($subject, '/square/') !== false ||
+                        strpos($subject, '/context/') !== false ||
+                        strpos($subject, '/svu/') !== false) {
+                        $isAuxiliary = true;
+                        error_log("Skipping supporting entity in arrowhead-only upload: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                    }
+                    
                     // Check if this is an excavation URI
                     foreach ($predicates['http://purl.org/dc/terms/identifier'] as $idObj) {
                         if ($idObj['type'] === 'literal' && strpos($idObj['value'], 'EXC-') === 0) {
                             $isAuxiliary = true;
-                            error_log("Skipping excavation entity with identifier {$idObj['value']} in itemset context: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                            error_log("Skipping excavation entity with identifier {$idObj['value']} in arrowhead-only upload: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
                             break;
                         }
                     }
@@ -2669,14 +2720,14 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         return $type !== 'excluded';
     });
     
-    // If we're in an item set context (adding to existing excavation), prioritize items over excavations
-    if ($itemSetId && !empty($subjects)) {
+    // If we're in an arrowhead-only upload context, prioritize items over other types
+    if ($itemSetId && $isArrowheadOnlyUpload && !empty($subjects)) {
         $itemSubjects = array_filter($subjects, function($type) {
             return in_array($type, ['arrowhead', 'item']);
         });
         
         if (!empty($itemSubjects)) {
-            error_log('Found ' . count($itemSubjects) . ' item subjects for item set ' . $itemSetId, 3, OMEKA_PATH . '/logs/main-subjects.log');
+            error_log('Found ' . count($itemSubjects) . ' item subjects for arrowhead-only upload to item set ' . $itemSetId, 3, OMEKA_PATH . '/logs/main-subjects.log');
             return $itemSubjects;
         }
     }
@@ -2685,7 +2736,6 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
     
     return $subjects;
 }
-
 /**
  * Extract the identifier from a subject
  */
@@ -4042,10 +4092,11 @@ private function generateLocationTtl($locationUri, $gpsUri, $excavationData)
 }
 
 /**
- * Updated processExcavationData method to handle new structure
+ * Enhanced processExcavationData method to extract all excavation information
  */
 private function processExcavationData($rdfData, $subject, &$itemData) {
-    error_log('Processing excavation data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/processing.log');
+    error_log('=== PROCESSING EXCAVATION DATA ===', 3, OMEKA_PATH . '/logs/excavation-processing.log');
+    error_log('Processing excavation data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/excavation-processing.log');
     
     // Extract location information
     if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
@@ -4060,17 +4111,17 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                         if ($nameObj['type'] === 'literal') {
                             $locationName = $nameObj['value'];
                             
-                            // Update description to use the actual location name
-                            if (!isset($itemData['dcterms:description'])) {
-                                $itemData['dcterms:description'] = [];
+                            if (!isset($itemData['Location Name'])) {
+                                $itemData['Location Name'] = [];
                             }
                             
-                            $itemData['dcterms:description'][] = [
+                            $itemData['Location Name'][] = [
                                 'type' => 'literal',
-                                'property_id' => 4,
-                                '@value' => "Archaeological excavation at $locationName"
+                                'property_id' => 7, // Using a generic property ID, adjust as needed
+                                '@value' => $locationName
                             ];
-                            error_log("Added description with location name: $locationName", 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                            
+                            error_log("Added location name: $locationName", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         }
                     }
                 }
@@ -4080,6 +4131,7 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                     foreach ($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates'] as $gpsObj) {
                         if ($gpsObj['type'] === 'uri' && isset($rdfData[$gpsObj['value']])) {
                             $gpsUri = $gpsObj['value'];
+                            error_log('Processing GPS URI: ' . $gpsUri, 3, OMEKA_PATH . '/logs/excavation-processing.log');
                             
                             $lat = null;
                             $long = null;
@@ -4088,6 +4140,7 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                                 foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'] as $latObj) {
                                     if ($latObj['type'] === 'literal') {
                                         $lat = $latObj['value'];
+                                        error_log("Found latitude: $lat", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                                     }
                                 }
                             }
@@ -4096,20 +4149,46 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                                 foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'] as $longObj) {
                                     if ($longObj['type'] === 'literal') {
                                         $long = $longObj['value'];
+                                        error_log("Found longitude: $long", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                                     }
                                 }
                             }
                             
-                            if ($lat && $long) {
+                            // Add individual GPS coordinates
+                            if ($lat !== null) {
+                                if (!isset($itemData['GPS Latitude'])) {
+                                    $itemData['GPS Latitude'] = [];
+                                }
+                                $itemData['GPS Latitude'][] = [
+                                    'type' => 'literal',
+                                    'property_id' => 257, // GPS Latitude property ID
+                                    '@value' => $lat
+                                ];
+                            }
+                            
+                            if ($long !== null) {
+                                if (!isset($itemData['GPS Longitude'])) {
+                                    $itemData['GPS Longitude'] = [];
+                                }
+                                $itemData['GPS Longitude'][] = [
+                                    'type' => 'literal',
+                                    'property_id' => 259, // GPS Longitude property ID
+                                    '@value' => $long
+                                ];
+                            }
+                            
+                            // Add combined GPS coordinates
+                            if ($lat !== null && $long !== null) {
                                 if (!isset($itemData['GPS Coordinates'])) {
                                     $itemData['GPS Coordinates'] = [];
                                 }
-                                
                                 $itemData['GPS Coordinates'][] = [
                                     'type' => 'literal',
-                                    'property_id' => 7664,
+                                    'property_id' => 7664, // GPS Coordinates property ID
                                     '@value' => "Latitude: $lat, Longitude: $long"
                                 ];
+                                
+                                error_log("Added GPS coordinates: Lat=$lat, Long=$long", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                             }
                         }
                     }
@@ -4152,51 +4231,192 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
         }
     }
     
-    // Process archaeologist
+    // Process archaeologist - ENHANCED with all details
     if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'])) {
         foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'] as $archaeologistObj) {
             if ($archaeologistObj['type'] === 'uri' && isset($rdfData[$archaeologistObj['value']])) {
                 $archaeologistUri = $archaeologistObj['value'];
+                error_log('Processing archaeologist URI: ' . $archaeologistUri, 3, OMEKA_PATH . '/logs/excavation-processing.log');
                 
                 // Extract archaeologist data
                 $archaeologistData = $this->extractArchaeologistData($rdfData, $archaeologistUri);
                 
                 if ($archaeologistData) {
+                    // Add archaeologist name
+                    if ($archaeologistData['name']) {
+                        if (!isset($itemData['Archaeologist Name'])) {
+                            $itemData['Archaeologist Name'] = [];
+                        }
+                        
+                        $itemData['Archaeologist Name'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7665, // Person in charge property ID
+                            '@value' => $archaeologistData['name']
+                        ];
+                        
+                        error_log("Added archaeologist name: " . $archaeologistData['name'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                    }
+                    
+                    // Add ORCID if available
+                    if ($archaeologistData['orcid']) {
+                        if (!isset($itemData['Archaeologist ORCID'])) {
+                            $itemData['Archaeologist ORCID'] = [];
+                        }
+                        
+                        $itemData['Archaeologist ORCID'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7, // Generic property ID
+                            '@value' => $archaeologistData['orcid']
+                        ];
+                        
+                        error_log("Added archaeologist ORCID: " . $archaeologistData['orcid'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                    }
+                    
+                    // Add email if available
+                    if ($archaeologistData['email']) {
+                        if (!isset($itemData['Archaeologist Email'])) {
+                            $itemData['Archaeologist Email'] = [];
+                        }
+                        
+                        $itemData['Archaeologist Email'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7, // Generic property ID
+                            '@value' => $archaeologistData['email']
+                        ];
+                        
+                        error_log("Added archaeologist email: " . $archaeologistData['email'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                    }
+                    
+                    // Keep the original combined field for backward compatibility
                     if (!isset($itemData['Person in Charge'])) {
                         $itemData['Person in Charge'] = [];
+                    }
+                    
+                    $personInfo = $archaeologistData['name'] ?: $archaeologistData['orcid'];
+                    if ($archaeologistData['name'] && $archaeologistData['orcid']) {
+                        $personInfo = $archaeologistData['name'] . ' (ORCID: ' . $archaeologistData['orcid'] . ')';
                     }
                     
                     $itemData['Person in Charge'][] = [
                         'type' => 'literal',
                         'property_id' => 7665,
-                        '@value' => $archaeologistData['name'] ?: $archaeologistData['orcid']
+                        '@value' => $personInfo
                     ];
                 }
             }
         }
     }
     
-    // Process contexts
+    // Process contexts - ENHANCED to show context relationships
+    $contextList = [];
     if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'])) {
         foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'] as $contextObj) {
             if ($contextObj['type'] === 'uri') {
                 $contextId = $this->extractResourceIdentifier($rdfData, $contextObj['value']);
                 if ($contextId) {
-                    if (!isset($itemData['Excavation - hasContext'])) {
-                        $itemData['Excavation - hasContext'] = [];
-                    }
+                    $contextList[] = $contextId;
                     
-                    $itemData['Excavation - hasContext'][] = [
-                        'type' => 'literal',
-                        'property_id' => 7666,
-                        '@value' => $contextId
-                    ];
+                    // Try to get context description if available
+                    if (isset($rdfData[$contextObj['value']])) {
+                        $contextDesc = $this->extractContextDescription($rdfData, $contextObj['value']);
+                        if ($contextDesc) {
+                            $contextList[count($contextList) - 1] = "$contextId: $contextDesc";
+                        }
+                    }
                 }
             }
+        }
+        
+        if (!empty($contextList)) {
+            if (!isset($itemData['Excavation Contexts'])) {
+                $itemData['Excavation Contexts'] = [];
+            }
+            
+            $itemData['Excavation Contexts'][] = [
+                'type' => 'literal',
+                'property_id' => 7666,
+                '@value' => implode(' | ', $contextList)
+            ];
+            
+            error_log("Added contexts: " . implode(', ', $contextList), 3, OMEKA_PATH . '/logs/excavation-processing.log');
+        }
+    }
+    
+    // Process squares - ENHANCED to show square details
+    $squareList = [];
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSquare'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSquare'] as $squareObj) {
+            if ($squareObj['type'] === 'uri') {
+                $squareId = $this->extractResourceIdentifier($rdfData, $squareObj['value']);
+                if ($squareId) {
+                    $squareList[] = $squareId;
+                    
+                    // Try to get square coordinates if available
+                    if (isset($rdfData[$squareObj['value']])) {
+                        $squareCoords = $this->extractSquareCoordinates($rdfData, $squareObj['value']);
+                        if ($squareCoords) {
+                            $squareList[count($squareList) - 1] = "$squareId ($squareCoords)";
+                        }
+                    }
+                }
+            }
+        }
+        
+        if (!empty($squareList)) {
+            if (!isset($itemData['Excavation Squares'])) {
+                $itemData['Excavation Squares'] = [];
+            }
+            
+            $itemData['Excavation Squares'][] = [
+                'type' => 'literal',
+                'property_id' => 7, // Generic property ID
+                '@value' => implode(' | ', $squareList)
+            ];
+            
+            error_log("Added squares: " . implode(', ', $squareList), 3, OMEKA_PATH . '/logs/excavation-processing.log');
         }
     }
     
     error_log('Finished processing excavation data', 3, OMEKA_PATH . '/logs/excavation-processing.log');
+}
+
+/**
+ * Helper method to extract context description
+ */
+private function extractContextDescription($rdfData, $contextUri) {
+    if (isset($rdfData[$contextUri]['http://purl.org/dc/terms/description'])) {
+        foreach ($rdfData[$contextUri]['http://purl.org/dc/terms/description'] as $descObj) {
+            if ($descObj['type'] === 'literal') {
+                return $descObj['value'];
+            }
+        }
+    }
+    return null;
+}
+
+/**
+ * Helper method to extract square coordinates
+ */
+private function extractSquareCoordinates($rdfData, $squareUri) {
+    $coords = [];
+    
+    if (isset($rdfData[$squareUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'])) {
+        foreach ($rdfData[$squareUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'] as $latObj) {
+            if ($latObj['type'] === 'literal') {
+                $coords[] = 'Lat: ' . $latObj['value'];
+            }
+        }
+    }
+    
+    if (isset($rdfData[$squareUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'])) {
+        foreach ($rdfData[$squareUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'] as $longObj) {
+            if ($longObj['type'] === 'literal') {
+                $coords[] = 'Long: ' . $longObj['value'];
+            }
+        }
+    }
+    
+    return !empty($coords) ? implode(', ', $coords) : null;
 }
 
 /**
