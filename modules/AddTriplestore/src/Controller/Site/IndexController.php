@@ -778,7 +778,7 @@ private function createExcavationItemSetData($excavationIdentifier, $excavationD
         $itemSetData['dcterms:creator'] = [
             [
                 'type' => 'literal',
-                'property_id' => 15,
+                'property_id' => 7665,
                 '@value' => $excavationData['archaeologist']['name']
             ]
         ];
@@ -4092,11 +4092,14 @@ private function generateLocationTtl($locationUri, $gpsUri, $excavationData)
 }
 
 /**
- * Enhanced processExcavationData method to extract all excavation information
+ * Enhanced processExcavationData method with correct URI patterns
  */
 private function processExcavationData($rdfData, $subject, &$itemData) {
     error_log('=== PROCESSING EXCAVATION DATA ===', 3, OMEKA_PATH . '/logs/excavation-processing.log');
     error_log('Processing excavation data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/excavation-processing.log');
+    
+    // Get the current item set context to build correct URIs
+    $currentItemSetId = $this->getCurrentItemSetContext();
     
     // Extract location information
     if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
@@ -4117,7 +4120,7 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                             
                             $itemData['Location Name'][] = [
                                 'type' => 'literal',
-                                'property_id' => 7, // Using a generic property ID, adjust as needed
+                                'property_id' => 1811, 
                                 '@value' => $locationName
                             ];
                             
@@ -4126,79 +4129,71 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                     }
                 }
                 
-                // Process GPS coordinates
-                if (isset($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates'])) {
-                    foreach ($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates'] as $gpsObj) {
-                        if ($gpsObj['type'] === 'uri' && isset($rdfData[$gpsObj['value']])) {
-                            $gpsUri = $gpsObj['value'];
-                            error_log('Processing GPS URI: ' . $gpsUri, 3, OMEKA_PATH . '/logs/excavation-processing.log');
-                            
-                            $lat = null;
-                            $long = null;
-                            
-                            if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'])) {
-                                foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'] as $latObj) {
-                                    if ($latObj['type'] === 'literal') {
-                                        $lat = $latObj['value'];
-                                        error_log("Found latitude: $lat", 3, OMEKA_PATH . '/logs/excavation-processing.log');
-                                    }
-                                }
-                            }
-                            
-                            if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'])) {
-                                foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'] as $longObj) {
-                                    if ($longObj['type'] === 'literal') {
-                                        $long = $longObj['value'];
-                                        error_log("Found longitude: $long", 3, OMEKA_PATH . '/logs/excavation-processing.log');
-                                    }
-                                }
-                            }
-                            
-                            // Add individual GPS coordinates
-                            if ($lat !== null) {
-                                if (!isset($itemData['GPS Latitude'])) {
-                                    $itemData['GPS Latitude'] = [];
-                                }
-                                $itemData['GPS Latitude'][] = [
-                                    'type' => 'literal',
-                                    'property_id' => 257, // GPS Latitude property ID
-                                    '@value' => $lat
-                                ];
-                            }
-                            
-                            if ($long !== null) {
-                                if (!isset($itemData['GPS Longitude'])) {
-                                    $itemData['GPS Longitude'] = [];
-                                }
-                                $itemData['GPS Longitude'][] = [
-                                    'type' => 'literal',
-                                    'property_id' => 259, // GPS Longitude property ID
-                                    '@value' => $long
-                                ];
-                            }
-                            
-                            // Add combined GPS coordinates
-                            if ($lat !== null && $long !== null) {
-                                if (!isset($itemData['GPS Coordinates'])) {
-                                    $itemData['GPS Coordinates'] = [];
-                                }
-                                $itemData['GPS Coordinates'][] = [
-                                    'type' => 'literal',
-                                    'property_id' => 7664, // GPS Coordinates property ID
-                                    '@value' => "Latitude: $lat, Longitude: $long"
-                                ];
-                                
-                                error_log("Added GPS coordinates: Lat=$lat, Long=$long", 3, OMEKA_PATH . '/logs/excavation-processing.log');
-                            }
+                // IMPORTANT: GPS coordinates are directly on the location object, not in a separate GPS object
+                // Check for GPS coordinates directly on the location
+                $lat = null;
+                $long = null;
+                
+                if (isset($rdfData[$locationUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'])) {
+                    foreach ($rdfData[$locationUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'] as $latObj) {
+                        if ($latObj['type'] === 'literal') {
+                            $lat = $latObj['value'];
+                            error_log("Found latitude directly on location: $lat", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         }
                     }
                 }
                 
-                // Process location properties with correct mappings
+                if (isset($rdfData[$locationUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'])) {
+                    foreach ($rdfData[$locationUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'] as $longObj) {
+                        if ($longObj['type'] === 'literal') {
+                            $long = $longObj['value'];
+                            error_log("Found longitude directly on location: $long", 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                        }
+                    }
+                }
+                
+                // Add individual GPS coordinates
+                if ($lat !== null) {
+                    if (!isset($itemData['GPS Latitude'])) {
+                        $itemData['GPS Latitude'] = [];
+                    }
+                    $itemData['GPS Latitude'][] = [
+                        'type' => 'literal',
+                        'property_id' => 257, // GPS Latitude property ID
+                        '@value' => $lat
+                    ];
+                }
+                
+                if ($long !== null) {
+                    if (!isset($itemData['GPS Longitude'])) {
+                        $itemData['GPS Longitude'] = [];
+                    }
+                    $itemData['GPS Longitude'][] = [
+                        'type' => 'literal',
+                        'property_id' => 259, // GPS Longitude property ID
+                        '@value' => $long
+                    ];
+                }
+                
+                // Add combined GPS coordinates
+                if ($lat !== null && $long !== null) {
+                    if (!isset($itemData['GPS Coordinates'])) {
+                        $itemData['GPS Coordinates'] = [];
+                    }
+                    $itemData['GPS Coordinates'][] = [
+                        'type' => 'literal',
+                        'property_id' => 7664, // GPS Coordinates property ID
+                        '@value' => "Latitude: $lat, Longitude: $long"
+                    ];
+                    
+                    error_log("Added GPS coordinates: Lat=$lat, Long=$long", 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                }
+                
+                // FIXED: Process location properties with CORRECT lowercase URIs
                 $locationProperties = [
-                    'http://dbpedia.org/ontology/District' => ['District', 1555],
-                    'http://dbpedia.org/ontology/Parish' => ['Parish', 1681], 
-                    'http://dbpedia.org/ontology/Country' => ['Country', 1402]
+                    'http://dbpedia.org/ontology/district' => ['District', 1555],  // lowercase 'district'
+                    'http://dbpedia.org/ontology/parish' => ['Parish', 1681],      // lowercase 'parish'
+                    'http://dbpedia.org/ontology/Country' => ['Country', 1402]     // uppercase 'Country'
                 ];
                 
                 foreach ($locationProperties as $propertyUri => $propertyInfo) {
@@ -4206,11 +4201,36 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                         $propertyLabel = $propertyInfo[0];
                         $propertyId = $propertyInfo[1];
                         
+                        error_log("Processing location property: $propertyUri", 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                        
                         foreach ($rdfData[$locationUri][$propertyUri] as $propObj) {
                             if ($propObj['type'] === 'uri') {
-                                // Extract name from DBpedia URI
+                                // Extract name from URI - handle both DBpedia and normalized URIs
                                 $parts = explode('/', $propObj['value']);
                                 $value = str_replace('_', ' ', end($parts));
+                                
+                                // For normalized URIs, try to get a more readable name
+                                if (isset($rdfData[$propObj['value']])) {
+                                    // If it's a district/parish with a name property, use that
+                                    $referencedEntity = $rdfData[$propObj['value']];
+                                    // Check for various name properties
+                                    $nameProperties = [
+                                        'http://www.w3.org/2000/01/rdf-schema#label',
+                                        'http://dbpedia.org/ontology/name',
+                                        'http://purl.org/dc/terms/title'
+                                    ];
+                                    
+                                    foreach ($nameProperties as $nameProp) {
+                                        if (isset($referencedEntity[$nameProp])) {
+                                            foreach ($referencedEntity[$nameProp] as $nameObj) {
+                                                if ($nameObj['type'] === 'literal') {
+                                                    $value = $nameObj['value'];
+                                                    break 2;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                                 
                                 if (!isset($itemData[$propertyLabel])) {
                                     $itemData[$propertyLabel] = [];
@@ -4225,156 +4245,244 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                                 error_log("Added $propertyLabel: $value", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                             }
                         }
+                    } else {
+                        error_log("Property $propertyUri not found in location $locationUri", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                     }
                 }
             }
         }
     }
     
-    // Process archaeologist - ENHANCED with all details
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasPersonInCharge'] as $archaeologistObj) {
-            if ($archaeologistObj['type'] === 'uri' && isset($rdfData[$archaeologistObj['value']])) {
-                $archaeologistUri = $archaeologistObj['value'];
-                error_log('Processing archaeologist URI: ' . $archaeologistUri, 3, OMEKA_PATH . '/logs/excavation-processing.log');
-                
-                // Extract archaeologist data
-                $archaeologistData = $this->extractArchaeologistData($rdfData, $archaeologistUri);
-                
-                if ($archaeologistData) {
-                    // Add archaeologist name
-                    if ($archaeologistData['name']) {
-                        if (!isset($itemData['Archaeologist Name'])) {
-                            $itemData['Archaeologist Name'] = [];
+    // FIXED: Process archaeologist with CORRECT normalized URIs
+    // Try both original and normalized property URIs
+    $archaeologistPropertyUris = [
+        'https://purl.org/megalod/ms/excavation/hasPersonInCharge'
+    ];
+    
+    // Add normalized URI if we have the item set context
+    if ($currentItemSetId) {
+        $archaeologistPropertyUris[] = "https://purl.org/megalod/$currentItemSetId/excavation/hasPersonInCharge";
+    }
+    
+    foreach ($archaeologistPropertyUris as $archaeologistPropertyUri) {
+        if (isset($rdfData[$subject][$archaeologistPropertyUri])) {
+            error_log("Found archaeologist property: $archaeologistPropertyUri", 3, OMEKA_PATH . '/logs/excavation-processing.log');
+            
+            foreach ($rdfData[$subject][$archaeologistPropertyUri] as $archaeologistObj) {
+                if ($archaeologistObj['type'] === 'uri' && isset($rdfData[$archaeologistObj['value']])) {
+                    $archaeologistUri = $archaeologistObj['value'];
+                    error_log('Processing archaeologist URI: ' . $archaeologistUri, 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                    
+                    // Extract archaeologist data
+                    $archaeologistData = $this->extractArchaeologistData($rdfData, $archaeologistUri);
+                    
+                    if ($archaeologistData) {
+                        // Add archaeologist name
+                        if ($archaeologistData['name']) {
+                            if (!isset($itemData['Archaeologist Name'])) {
+                                $itemData['Archaeologist Name'] = [];
+                            }
+                            
+                            $itemData['Archaeologist Name'][] = [
+                                'type' => 'literal',
+                                'property_id' => 7665, // Person in charge property ID
+                                '@value' => $archaeologistData['name']
+                            ];
+                            
+                            error_log("Added archaeologist name: " . $archaeologistData['name'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         }
                         
-                        $itemData['Archaeologist Name'][] = [
-                            'type' => 'literal',
-                            'property_id' => 7665, // Person in charge property ID
-                            '@value' => $archaeologistData['name']
-                        ];
-                        
-                        error_log("Added archaeologist name: " . $archaeologistData['name'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
-                    }
-                    
-                    // Add ORCID if available
-                    if ($archaeologistData['orcid']) {
-                        if (!isset($itemData['Archaeologist ORCID'])) {
-                            $itemData['Archaeologist ORCID'] = [];
+                        // Add ORCID if available
+                        if ($archaeologistData['orcid']) {
+                            if (!isset($itemData['Archaeologist ORCID'])) {
+                                $itemData['Archaeologist ORCID'] = [];
+                            }
+                            
+                            $itemData['Archaeologist ORCID'][] = [
+                                'type' => 'literal',
+                                'property_id' => 176, // Generic property ID
+                                '@value' => $archaeologistData['orcid']
+                            ];
+                            
+                            error_log("Added archaeologist ORCID: " . $archaeologistData['orcid'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         }
                         
-                        $itemData['Archaeologist ORCID'][] = [
-                            'type' => 'literal',
-                            'property_id' => 7, // Generic property ID
-                            '@value' => $archaeologistData['orcid']
-                        ];
-                        
-                        error_log("Added archaeologist ORCID: " . $archaeologistData['orcid'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
-                    }
-                    
-                    // Add email if available
-                    if ($archaeologistData['email']) {
-                        if (!isset($itemData['Archaeologist Email'])) {
-                            $itemData['Archaeologist Email'] = [];
+                        // Add email if available
+                        if ($archaeologistData['email']) {
+                            if (!isset($itemData['Archaeologist Email'])) {
+                                $itemData['Archaeologist Email'] = [];
+                            }
+                            
+                            $itemData['Archaeologist Email'][] = [
+                                'type' => 'literal',
+                                'property_id' => 123, // Generic property ID
+                                '@value' => $archaeologistData['email']
+                            ];
+                            
+                            error_log("Added archaeologist email: " . $archaeologistData['email'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         }
                         
-                        $itemData['Archaeologist Email'][] = [
-                            'type' => 'literal',
-                            'property_id' => 7, // Generic property ID
-                            '@value' => $archaeologistData['email']
-                        ];
+                        // Keep the original combined field for backward compatibility
+                        if (!isset($itemData['Person in Charge'])) {
+                            $itemData['Person in Charge'] = [];
+                        }
                         
-                        error_log("Added archaeologist email: " . $archaeologistData['email'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                        $personInfo = $archaeologistData['name'] ?: $archaeologistData['orcid'];
+                        if ($archaeologistData['name'] && $archaeologistData['orcid']) {
+                            $personInfo = $archaeologistData['name'] . ' (ORCID: ' . $archaeologistData['orcid'] . ')';
+                        }
+                        
+                        $itemData['Person in Charge'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7665,
+                            '@value' => $personInfo
+                        ];
                     }
-                    
-                    // Keep the original combined field for backward compatibility
-                    if (!isset($itemData['Person in Charge'])) {
-                        $itemData['Person in Charge'] = [];
-                    }
-                    
-                    $personInfo = $archaeologistData['name'] ?: $archaeologistData['orcid'];
-                    if ($archaeologistData['name'] && $archaeologistData['orcid']) {
-                        $personInfo = $archaeologistData['name'] . ' (ORCID: ' . $archaeologistData['orcid'] . ')';
-                    }
-                    
-                    $itemData['Person in Charge'][] = [
-                        'type' => 'literal',
-                        'property_id' => 7665,
-                        '@value' => $personInfo
-                    ];
                 }
             }
+            break; // Found the property, no need to check others
         }
     }
     
-    // Process contexts - ENHANCED to show context relationships
+    // FIXED: Process contexts with CORRECT normalized URIs
     $contextList = [];
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasContext'] as $contextObj) {
-            if ($contextObj['type'] === 'uri') {
-                $contextId = $this->extractResourceIdentifier($rdfData, $contextObj['value']);
-                if ($contextId) {
-                    $contextList[] = $contextId;
-                    
-                    // Try to get context description if available
-                    if (isset($rdfData[$contextObj['value']])) {
-                        $contextDesc = $this->extractContextDescription($rdfData, $contextObj['value']);
-                        if ($contextDesc) {
-                            $contextList[count($contextList) - 1] = "$contextId: $contextDesc";
+    $contextPropertyUris = [
+        'https://purl.org/megalod/ms/excavation/hasContext'
+    ];
+    
+    if ($currentItemSetId) {
+        $contextPropertyUris[] = "https://purl.org/megalod/$currentItemSetId/excavation/hasContext";
+    }
+    
+    foreach ($contextPropertyUris as $contextPropertyUri) {
+        if (isset($rdfData[$subject][$contextPropertyUri])) {
+            error_log("Found context property: $contextPropertyUri", 3, OMEKA_PATH . '/logs/excavation-processing.log');
+            
+            foreach ($rdfData[$subject][$contextPropertyUri] as $contextObj) {
+                if ($contextObj['type'] === 'uri') {
+                    $contextId = $this->extractResourceIdentifier($rdfData, $contextObj['value']);
+                    if ($contextId) {
+                        $contextList[] = $contextId;
+                        
+                        // Try to get context description if available
+                        if (isset($rdfData[$contextObj['value']])) {
+                            $contextDesc = $this->extractContextDescription($rdfData, $contextObj['value']);
+                            if ($contextDesc) {
+                                $contextList[count($contextList) - 1] = "$contextId: $contextDesc";
+                            }
                         }
                     }
                 }
             }
-        }
-        
-        if (!empty($contextList)) {
-            if (!isset($itemData['Excavation Contexts'])) {
-                $itemData['Excavation Contexts'] = [];
-            }
-            
-            $itemData['Excavation Contexts'][] = [
-                'type' => 'literal',
-                'property_id' => 7666,
-                '@value' => implode(' | ', $contextList)
-            ];
-            
-            error_log("Added contexts: " . implode(', ', $contextList), 3, OMEKA_PATH . '/logs/excavation-processing.log');
+            break;
         }
     }
     
-    // Process squares - ENHANCED to show square details
-    $squareList = [];
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSquare'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSquare'] as $squareObj) {
-            if ($squareObj['type'] === 'uri') {
-                $squareId = $this->extractResourceIdentifier($rdfData, $squareObj['value']);
-                if ($squareId) {
-                    $squareList[] = $squareId;
-                    
-                    // Try to get square coordinates if available
-                    if (isset($rdfData[$squareObj['value']])) {
-                        $squareCoords = $this->extractSquareCoordinates($rdfData, $squareObj['value']);
-                        if ($squareCoords) {
-                            $squareList[count($squareList) - 1] = "$squareId ($squareCoords)";
+    if (!empty($contextList)) {
+        if (!isset($itemData['Excavation Contexts'])) {
+            $itemData['Excavation Contexts'] = [];
+        }
+        
+        $itemData['Excavation Contexts'][] = [
+            'type' => 'literal',
+            'property_id' => 7666,
+            '@value' => implode(' | ', $contextList)
+        ];
+        
+        error_log("Added contexts: " . implode(', ', $contextList), 3, OMEKA_PATH . '/logs/excavation-processing.log');
+    }
+
+    // process svu data
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'])) {
+        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'] as $svuObj) {
+            if ($svuObj['type'] === 'uri' && isset($rdfData[$svuObj['value']])) {
+                $svuUri = $svuObj['value'];
+                error_log('Processing SVU URI: ' . $svuUri, 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                
+                // Extract SVU data
+                $svuData = $this->extractSvuData($rdfData, $svuUri);
+                
+                if ($svuData) {
+                    // Add SVU name
+                    if ($svuData['name']) {
+                        if (!isset($itemData['SVU Name'])) {
+                            $itemData['SVU Name'] = [];
                         }
+                        
+                        $itemData['SVU Name'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7667, // SVU Name property ID
+                            '@value' => $svuData['name']
+                        ];
+                        
+                        error_log("Added SVU name: " . $svuData['name'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
+                    }
+                    
+                    // Add SVU description
+                    if ($svuData['description']) {
+                        if (!isset($itemData['SVU Description'])) {
+                            $itemData['SVU Description'] = [];
+                        }
+                        
+                        $itemData['SVU Description'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7669, // SVU Description property ID
+                            '@value' => $svuData['description']
+                        ];
+                        
+                        error_log("Added SVU description: " . $svuData['description'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
                     }
                 }
             }
         }
-        
-        if (!empty($squareList)) {
-            if (!isset($itemData['Excavation Squares'])) {
-                $itemData['Excavation Squares'] = [];
+    }
+    
+    // FIXED: Process squares with CORRECT normalized URIs
+    $squareList = [];
+    $squarePropertyUris = [
+        'https://purl.org/megalod/ms/excavation/hasSquare'
+    ];
+    
+    if ($currentItemSetId) {
+        $squarePropertyUris[] = "https://purl.org/megalod/$currentItemSetId/excavation/hasSquare";
+    }
+    
+    foreach ($squarePropertyUris as $squarePropertyUri) {
+        if (isset($rdfData[$subject][$squarePropertyUri])) {
+            error_log("Found square property: $squarePropertyUri", 3, OMEKA_PATH . '/logs/excavation-processing.log');
+            
+            foreach ($rdfData[$subject][$squarePropertyUri] as $squareObj) {
+                if ($squareObj['type'] === 'uri') {
+                    $squareId = $this->extractResourceIdentifier($rdfData, $squareObj['value']);
+                    if ($squareId) {
+                        $squareList[] = $squareId;
+                        
+                        // Try to get square coordinates if available
+                        if (isset($rdfData[$squareObj['value']])) {
+                            $squareCoords = $this->extractSquareCoordinates($rdfData, $squareObj['value']);
+                            if ($squareCoords) {
+                                $squareList[count($squareList) - 1] = "$squareId ($squareCoords)";
+                            }
+                        }
+                    }
+                }
             }
-            
-            $itemData['Excavation Squares'][] = [
-                'type' => 'literal',
-                'property_id' => 7, // Generic property ID
-                '@value' => implode(' | ', $squareList)
-            ];
-            
-            error_log("Added squares: " . implode(', ', $squareList), 3, OMEKA_PATH . '/logs/excavation-processing.log');
+            break;
         }
+    }
+    
+    if (!empty($squareList)) {
+        if (!isset($itemData['Excavation Squares'])) {
+            $itemData['Excavation Squares'] = [];
+        }
+        
+        $itemData['Excavation Squares'][] = [
+            'type' => 'literal',
+            'property_id' => 7668,
+            '@value' => implode(' | ', $squareList)
+        ];
+        
+        error_log("Added squares: " . implode(', ', $squareList), 3, OMEKA_PATH . '/logs/excavation-processing.log');
     }
     
     error_log('Finished processing excavation data', 3, OMEKA_PATH . '/logs/excavation-processing.log');
@@ -4590,16 +4698,25 @@ private function extractLocationName($rdfData, $locationUri) {
     return null;
 }
 
+
+
 /**
- * Process context specific data
+ * Fixed processSVUData method to properly extract description and timeline
  */
-private function processContextData($rdfData, $subject, &$itemData) {
-    // Basic properties - direct mapping
+private function processSVUData($rdfData, $subject, &$itemData) {
+    error_log('=== PROCESSING SVU DATA ===', 3, OMEKA_PATH . '/logs/svu-processing.log');
+    error_log('Processing SVU data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/svu-processing.log');
+    
+    // Get the current item set context to build correct URIs
+    $currentItemSetId = $this->getCurrentItemSetContext();
+    
+    // Basic properties - FIXED: direct mapping for literal values
     $propertyMap = [
-        'http://purl.org/dc/terms/identifier' => ['Context ID', 10],
+        'http://purl.org/dc/terms/identifier' => ['SVU ID', 10],
+        'http://purl.org/dc/terms/description' => ['Description', 4],
     ];
     
-    // Extract basic properties
+    // Extract basic properties correctly
     foreach ($propertyMap as $predicate => $mapping) {
         if (isset($rdfData[$subject][$predicate])) {
             $term = $mapping[0];
@@ -4616,249 +4733,158 @@ private function processContextData($rdfData, $subject, &$itemData) {
                         'property_id' => $propertyId,
                         '@value' => $object['value']
                     ];
+                    
+                    error_log("Added $term: " . $object['value'], 3, OMEKA_PATH . '/logs/svu-processing.log');
                 }
             }
+        } else {
+            error_log("Property $predicate not found for subject $subject", 3, OMEKA_PATH . '/logs/svu-processing.log');
         }
     }
     
-    // NEW: Process SVU relationships with resource linking
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'] as $svuObj) {
-            if ($svuObj['type'] === 'uri') {
-                $svuId = $this->extractResourceIdentifier($rdfData, $svuObj['value']);
-                if ($svuId) {
-                    // Find the actual Omeka item with this identifier
-                    $linkedItem = $this->findItemByIdentifier($svuId);
-                    if ($linkedItem) {
-                        if (!isset($itemData['Stratigraphic Units'])) {
-                            $itemData['Stratigraphic Units'] = [];
-                        }
-                        
-                        $itemData['Stratigraphic Units'][] = [
-                            'type' => 'resource',
-                            'property_id' => 7667, // Use the appropriate property ID for SVU
-                            'value_resource_id' => $linkedItem->id(),
-                            'o:label' => $svuId
-                        ];
-                    } else {
-                        // Fallback to literal if no linked item found
-                        if (!isset($itemData['Stratigraphic Units'])) {
-                            $itemData['Stratigraphic Units'] = [];
-                        }
-                        
-                        $itemData['Stratigraphic Units'][] = [
-                            'type' => 'literal',
-                            'property_id' => 7667,
-                            '@value' => $svuId
-                        ];
-                    }
-                }
-            }
-        }
-    }
-    
-    // Check for description
-    if (isset($rdfData[$subject]['http://purl.org/dc/terms/description'])) {
-        foreach ($rdfData[$subject]['http://purl.org/dc/terms/description'] as $descObj) {
-            if ($descObj['type'] === 'literal') {
-                if (!isset($itemData['Description'])) {
-                    $itemData['Description'] = [];
-                }
-                
-                $itemData['Description'][] = [
-                    'type' => 'literal',
-                    'property_id' => 4, // Description property ID
-                    '@value' => $descObj['value']
-                ];
-            }
-        }
-    }
-    
-    // Extract SVU summaries for better context understanding (keep as additional literal info)
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'])) {
-        $svuSummaries = [];
-        
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'] as $svuObj) {
-            if ($svuObj['type'] === 'uri' && isset($rdfData[$svuObj['value']])) {
-                $svuUri = $svuObj['value'];
-                $svuId = $this->extractSVUIdentifier($rdfData, $svuUri);
-                $svuDesc = $this->extractSVUDescription($rdfData, $svuUri);
-                
-                if ($svuId && $svuDesc) {
-                    $svuSummaries[] = "$svuId: $svuDesc";
-                }
-            }
-        }
-        
-        if (!empty($svuSummaries)) {
-            if (!isset($itemData['Stratigraphic Unit Summaries'])) {
-                $itemData['Stratigraphic Unit Summaries'] = [];
-            }
-            
-            $itemData['Stratigraphic Unit Summaries'][] = [
-                'type' => 'literal',
-                'property_id' => 19, 
-                '@value' => implode(" | ", $svuSummaries)
-            ];
-        }
-    }
-}
-
-/**
- * Process SVU (Stratigraphic Volume Unit) specific data
- */
-private function processSVUData($rdfData, $subject, &$itemData) {
-    // Basic properties - direct mapping
-    $propertyMap = [
-        'http://purl.org/dc/terms/identifier' => ['SVU ID', 10],
-        'http://purl.org/dc/terms/description' => ['Description', 4],
-        'https://purl.org/megalod/ms/excavation/hasTimeline' => ['Timeline', 7669]
+    // FIXED: Extract timeline details with both original and normalized URIs
+    $timelinePropertyUris = [
+        'https://purl.org/megalod/ms/excavation/hasTimeline'
     ];
     
-    // Extract basic properties
-    foreach ($propertyMap as $predicate => $mapping) {
-        if (isset($rdfData[$subject][$predicate])) {
-            $term = $mapping[0];
-            $propertyId = $mapping[1];
+    // Add normalized URI if we have the item set context
+    if ($currentItemSetId) {
+        $timelinePropertyUris[] = "https://purl.org/megalod/$currentItemSetId/excavation/hasTimeline";
+    }
+    
+    foreach ($timelinePropertyUris as $timelinePropertyUri) {
+        if (isset($rdfData[$subject][$timelinePropertyUri])) {
+            error_log("Found timeline property: $timelinePropertyUri", 3, OMEKA_PATH . '/logs/svu-processing.log');
             
-            foreach ($rdfData[$subject][$predicate] as $measObj) {
-                if ($measObj['type'] === 'uri' && isset($rdfData[$measObj['value']])) {
-                    $measUri = $measObj['value'];
+            foreach ($rdfData[$subject][$timelinePropertyUri] as $timelineObj) {
+                if ($timelineObj['type'] === 'uri' && isset($rdfData[$timelineObj['value']])) {
+                    $timelineUri = $timelineObj['value'];
+                    error_log("Processing timeline URI: $timelineUri", 3, OMEKA_PATH . '/logs/svu-processing.log');
                     
-                    // Extract value and unit
-                    $value = $this->extractMeasurementValue($rdfData, $measUri);
-                    $unit = $this->extractMeasurementUnit($rdfData, $measUri);
+                    // Extract beginning and end points
+                    $beginningYear = null;
+                    $beginningBC = null;
+                    $endYear = null;
+                    $endBC = null;
                     
-                    if ($value !== null) {
-                        $displayValue = $value;
-                        if ($unit) {
-                            $displayValue .= " " . $unit;
+                    // Extract beginning
+                    if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'])) {
+                        foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'] as $beginObj) {
+                            if ($beginObj['type'] === 'uri' && isset($rdfData[$beginObj['value']])) {
+                                $beginUri = $beginObj['value'];
+                                error_log("Processing beginning URI: $beginUri", 3, OMEKA_PATH . '/logs/svu-processing.log');
+                                
+                                // Extract year
+                                if (isset($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
+                                    foreach ($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
+                                        if ($yearObj['type'] === 'literal') {
+                                            $beginningYear = abs((int)$yearObj['value']); // Remove negative sign for BC dates
+                                            error_log("Found beginning year: $beginningYear", 3, OMEKA_PATH . '/logs/svu-processing.log');
+                                        }
+                                    }
+                                }
+                                
+                                // Extract BC/AD with both original and normalized URIs
+                                $bcadPropertyUris = [
+                                    'https://purl.org/megalod/ms/excavation/bcad'
+                                ];
+                                if ($currentItemSetId) {
+                                    $bcadPropertyUris[] = "https://purl.org/megalod/$currentItemSetId/excavation/bcad";
+                                }
+                                
+                                foreach ($bcadPropertyUris as $bcadPropertyUri) {
+                                    if (isset($rdfData[$beginUri][$bcadPropertyUri])) {
+                                        foreach ($rdfData[$beginUri][$bcadPropertyUri] as $bcObj) {
+                                            if ($bcObj['type'] === 'uri') {
+                                                $parts = explode('/', $bcObj['value']);
+                                                $bcacValue = end($parts);
+                                                $beginningBC = ($bcacValue === 'BC');
+                                                error_log("Found beginning BC/AD: $bcacValue", 3, OMEKA_PATH . '/logs/svu-processing.log');
+                                                break 2;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Extract end (similar process)
+                    if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'])) {
+                        foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'] as $endObj) {
+                            if ($endObj['type'] === 'uri' && isset($rdfData[$endObj['value']])) {
+                                $endUri = $endObj['value'];
+                                error_log("Processing end URI: $endUri", 3, OMEKA_PATH . '/logs/svu-processing.log');
+                                
+                                // Extract year
+                                if (isset($rdfData[$endUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
+                                    foreach ($rdfData[$endUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
+                                        if ($yearObj['type'] === 'literal') {
+                                            $endYear = abs((int)$yearObj['value']); // Remove negative sign for BC dates
+                                            error_log("Found end year: $endYear", 3, OMEKA_PATH . '/logs/svu-processing.log');
+                                        }
+                                    }
+                                }
+                                
+                                // Extract BC/AD
+                                $bcadPropertyUris = [
+                                    'https://purl.org/megalod/ms/excavation/bcad'
+                                ];
+                                if ($currentItemSetId) {
+                                    $bcadPropertyUris[] = "https://purl.org/megalod/$currentItemSetId/excavation/bcad";
+                                }
+                                
+                                foreach ($bcadPropertyUris as $bcadPropertyUri) {
+                                    if (isset($rdfData[$endUri][$bcadPropertyUri])) {
+                                        foreach ($rdfData[$endUri][$bcadPropertyUri] as $bcObj) {
+                                            if ($bcObj['type'] === 'uri') {
+                                                $parts = explode('/', $bcObj['value']);
+                                                $bcacValue = end($parts);
+                                                $endBC = ($bcacValue === 'BC');
+                                                error_log("Found end BC/AD: $bcacValue", 3, OMEKA_PATH . '/logs/svu-processing.log');
+                                                break 2;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    
+                    
+                    // Add combined timeline range
+                    if ($beginningYear && $endYear) {
+                        if (!isset($itemData['Chronological Period'])) {
+                            $itemData['Chronological Period'] = [];
                         }
                         
-                        if (!isset($itemData[$term])) {
-                            $itemData[$term] = [];
-                        }
+                        $beginText = $beginningYear . ($beginningBC ? ' BC' : ' AD');
+                        $endText = $endYear . ($endBC ? ' BC' : ' AD');
+                        $timelineRange = "$beginText - $endText";
                         
-                        $itemData[$term][] = [
+                        $itemData['Chronological Period'][] = [
                             'type' => 'literal',
-                            'property_id' => $propertyId,
-                            '@value' => $displayValue
+                            'property_id' => 7669, // Timeline property ID
+                            '@value' => $timelineRange
                         ];
                         
-                        error_log("Added measurement: $term = $displayValue", 3, OMEKA_PATH . '/logs/measurements.log');
+                        error_log("Added chronological period: $timelineRange", 3, OMEKA_PATH . '/logs/svu-processing.log');
                     }
                 }
             }
+            break; // Found the timeline property, no need to check others
+        } else {
+            error_log("Timeline property $timelinePropertyUri not found", 3, OMEKA_PATH . '/logs/svu-processing.log');
         }
     }
     
-    // Extract timeline details
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'] as $timelineObj) {
-            if ($timelineObj['type'] === 'uri' && isset($rdfData[$timelineObj['value']])) {
-                $timelineUri = $timelineObj['value'];
-                
-                // Extract beginning and end points
-                $beginningYear = null;
-                $beginningBC = null;
-                $endYear = null;
-                $endBC = null;
-                
-                // Extract beginning
-                if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'])) {
-                    foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'] as $beginObj) {
-                        if ($beginObj['type'] === 'uri' && isset($rdfData[$beginObj['value']])) {
-                            $beginUri = $beginObj['value'];
-                            
-                            // Extract year
-                            if (isset($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
-                                foreach ($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
-                                    if ($yearObj['type'] === 'literal') {
-                                        $beginningYear = $yearObj['value'];
-                                    }
-                                }
-                            }
-                            
-                            // Extract BC/AC
-                            if (isset($rdfData[$beginUri]['https://purl.org/megalod/ms/excavation/bcad'])) {
-                                foreach ($rdfData[$beginUri]['https://purl.org/megalod/ms/excavation/bcad'] as $bcObj) {
-                                    if ($bcObj['type'] === 'uri') {
-                                        $parts = explode('/', $bcObj['value']);
-                                        $bcacValue = end($parts);
-                                        $beginningBC = ($bcacValue === 'BC');
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Extract end
-                if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'])) {
-                    foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'] as $endObj) {
-                        if ($endObj['type'] === 'uri' && isset($rdfData[$endObj['value']])) {
-                            $endUri = $endObj['value'];
-                            
-                            // Extract year
-                            if (isset($rdfData[$endUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
-                                foreach ($rdfData[$endUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
-                                    if ($yearObj['type'] === 'literal') {
-                                        $endYear = $yearObj['value'];
-                                    }
-                                }
-                            }
-                            
-                            // Extract BC/AC
-                            if (isset($rdfData[$endUri]['https://purl.org/megalod/ms/excavation/bcad'])) {
-                                foreach ($rdfData[$endUri]['https://purl.org/megalod/ms/excavation/bcad'] as $bcObj) {
-                                    if ($bcObj['type'] === 'uri') {
-                                        $parts = explode('/', $bcObj['value']);
-                                        $bcacValue = end($parts);
-                                        $endBC = ($bcacValue === 'BC');
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-                
-                // Add beginning and end as separate properties
-                if ($beginningYear) {
-                    if (!isset($itemData['Beginning'])) {
-                        $itemData['Beginning'] = [];
-                    }
-                    
-                    $beginText = $beginningYear;
-                    if ($beginningBC !== null) {
-                        $beginText .= ' ' . ($beginningBC ? 'BC' : 'AC');
-                    }
-                    
-                    $itemData['Beginning'][] = [
-                        'type' => 'literal',
-                        'property_id' => 7, // Use appropriate property ID
-                        '@value' => $beginText
-                    ];
-                }
-                
-                if ($endYear) {
-                    if (!isset($itemData['End'])) {
-                        $itemData['End'] = [];
-                    }
-                    
-                    $endText = $endYear;
-                    if ($endBC !== null) {
-                        $endText .= ' ' . ($endBC ? 'BC' : 'AC');
-                    }
-                    
-                    $itemData['End'][] = [
-                        'type' => 'literal',
-                        'property_id' => 7, // Use appropriate property ID
-                        '@value' => $endText
-                    ];
-                }
-            }
-        }
+    // Debug: Log all available properties for this SVU
+    if (isset($rdfData[$subject])) {
+        error_log("Available properties for SVU $subject: " . implode(', ', array_keys($rdfData[$subject])), 3, OMEKA_PATH . '/logs/svu-processing.log');
     }
+    
+    error_log('Finished processing SVU data', 3, OMEKA_PATH . '/logs/svu-processing.log');
 }
 
 /**
@@ -4890,13 +4916,173 @@ private function extractSVUDescription($rdfData, $svuUri) {
 }
 
 /**
- * Extract timeline range as a formatted string
+ * Enhanced processContextData method to properly show linked SVUs
+ */
+private function processContextData($rdfData, $subject, &$itemData) {
+    error_log('=== PROCESSING CONTEXT DATA ===', 3, OMEKA_PATH . '/logs/context-processing.log');
+    error_log('Processing context data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/context-processing.log');
+    
+    // Get the current item set context to build correct URIs
+    $currentItemSetId = $this->getCurrentItemSetContext();
+    
+    // Basic properties - direct mapping
+    $propertyMap = [
+        'http://purl.org/dc/terms/identifier' => ['Context ID', 10],
+        'http://purl.org/dc/terms/description' => ['Context Description', 4],
+    ];
+    
+    // Extract basic properties
+    foreach ($propertyMap as $predicate => $mapping) {
+        if (isset($rdfData[$subject][$predicate])) {
+            $term = $mapping[0];
+            $propertyId = $mapping[1];
+            
+            if (!isset($itemData[$term])) {
+                $itemData[$term] = [];
+            }
+            
+            foreach ($rdfData[$subject][$predicate] as $object) {
+                if ($object['type'] === 'literal') {
+                    $itemData[$term][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $object['value']
+                    ];
+                    
+                    error_log("Added $term: " . $object['value'], 3, OMEKA_PATH . '/logs/context-processing.log');
+                }
+            }
+        }
+    }
+    
+    // ENHANCED: Process SVU relationships with both original and normalized URIs
+    $svuPropertyUris = [
+        'https://purl.org/megalod/ms/excavation/hasSVU'
+    ];
+    
+    // Add normalized URI if we have the item set context
+    if ($currentItemSetId) {
+        $svuPropertyUris[] = "https://purl.org/megalod/$currentItemSetId/excavation/hasSVU";
+    }
+    
+    $linkedSVUs = [];
+    $svuDetails = [];
+    
+    foreach ($svuPropertyUris as $svuPropertyUri) {
+        if (isset($rdfData[$subject][$svuPropertyUri])) {
+            error_log("Found SVU property: $svuPropertyUri", 3, OMEKA_PATH . '/logs/context-processing.log');
+            
+            foreach ($rdfData[$subject][$svuPropertyUri] as $svuObj) {
+                if ($svuObj['type'] === 'uri') {
+                    $svuUri = $svuObj['value'];
+                    $svuId = $this->extractResourceIdentifier($rdfData, $svuUri);
+                    
+                    if ($svuId) {
+                        $linkedSVUs[] = $svuId;
+                        
+                        // Extract additional SVU details if available
+                        if (isset($rdfData[$svuUri])) {
+                            $svuDescription = null;
+                            $svuTimeline = null;
+                            
+                            // Get SVU description
+                            if (isset($rdfData[$svuUri]['http://purl.org/dc/terms/description'])) {
+                                foreach ($rdfData[$svuUri]['http://purl.org/dc/terms/description'] as $descObj) {
+                                    if ($descObj['type'] === 'literal') {
+                                        $svuDescription = $descObj['value'];
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            // Get timeline information
+                            $timelinePropertyUris = [
+                                'https://purl.org/megalod/ms/excavation/hasTimeline'
+                            ];
+                            if ($currentItemSetId) {
+                                $timelinePropertyUris[] = "https://purl.org/megalod/$currentItemSetId/excavation/hasTimeline";
+                            }
+                            
+                            foreach ($timelinePropertyUris as $timelinePropertyUri) {
+                                if (isset($rdfData[$svuUri][$timelinePropertyUri])) {
+                                    foreach ($rdfData[$svuUri][$timelinePropertyUri] as $timelineObj) {
+                                        if ($timelineObj['type'] === 'uri' && isset($rdfData[$timelineObj['value']])) {
+                                            $timelineRange = $this->extractTimelineRange($rdfData, $timelineObj['value']);
+                                            if ($timelineRange) {
+                                                $svuTimeline = $timelineRange;
+                                                break 2;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            
+                            // Build detailed SVU info
+                            $svuDetail = $svuId;
+                            if ($svuDescription) {
+                                $svuDetail .= ": $svuDescription";
+                            }
+                            if ($svuTimeline) {
+                                $svuDetail .= " ($svuTimeline)";
+                            }
+                            
+                            $svuDetails[] = $svuDetail;
+                            
+                            error_log("Processed SVU: $svuDetail", 3, OMEKA_PATH . '/logs/context-processing.log');
+                        } else {
+                            $svuDetails[] = $svuId;
+                            error_log("Added basic SVU: $svuId", 3, OMEKA_PATH . '/logs/context-processing.log');
+                        }
+                    }
+                }
+            }
+            break; // Found the property, no need to check others
+        }
+    }
+    
+    // Add SVU information to context
+    if (!empty($linkedSVUs)) {
+        // Simple list of SVU IDs
+        if (!isset($itemData['Linked Stratigraphic Units'])) {
+            $itemData['Linked Stratigraphic Units'] = [];
+        }
+        
+        $itemData['Linked Stratigraphic Units'][] = [
+            'type' => 'literal',
+            'property_id' => 7667, // SVU property ID
+            '@value' => implode(', ', $linkedSVUs)
+        ];
+        
+        error_log("Added SVUs to context: " . implode(', ', $linkedSVUs), 3, OMEKA_PATH . '/logs/context-processing.log');
+    } else {
+        error_log("No SVUs found for context: $subject", 3, OMEKA_PATH . '/logs/context-processing.log');
+        
+        // Debug: Log available properties
+        if (isset($rdfData[$subject])) {
+            error_log("Available properties for context: " . implode(', ', array_keys($rdfData[$subject])), 3, OMEKA_PATH . '/logs/context-processing.log');
+        }
+    }
+    
+    error_log('Finished processing context data', 3, OMEKA_PATH . '/logs/context-processing.log');
+}
+
+/**
+ * Enhanced extractTimelineRange method with better BC/AD handling
  */
 private function extractTimelineRange($rdfData, $timelineUri) {
+    if (!isset($rdfData[$timelineUri])) {
+        return null;
+    }
+    
+    error_log("Extracting timeline range from: $timelineUri", 3, OMEKA_PATH . '/logs/timeline-debug.log');
+    
     $beginningYear = null;
     $beginningBC = null;
     $endYear = null;
     $endBC = null;
+    
+    // Get current item set context for normalized URIs
+    $currentItemSetId = $this->getCurrentItemSetContext();
     
     // Extract beginning
     if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasBeginning'])) {
@@ -4908,18 +5094,28 @@ private function extractTimelineRange($rdfData, $timelineUri) {
                 if (isset($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
                     foreach ($rdfData[$beginUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
                         if ($yearObj['type'] === 'literal') {
-                            $beginningYear = $yearObj['value'];
+                            $beginningYear = abs((int)$yearObj['value']); // Remove negative sign
                         }
                     }
                 }
                 
-                // Extract BC/AC
-                if (isset($rdfData[$beginUri]['https://purl.org/megalod/ms/excavation/bcad'])) {
-                    foreach ($rdfData[$beginUri]['https://purl.org/megalod/ms/excavation/bcad'] as $bcObj) {
-                        if ($bcObj['type'] === 'uri') {
-                            $parts = explode('/', $bcObj['value']);
-                            $bcacValue = end($parts);
-                            $beginningBC = ($bcacValue === 'BC');
+                // Extract BC/AD with normalized URIs
+                $bcadPropertyUris = [
+                    'https://purl.org/megalod/ms/excavation/bcad'
+                ];
+                if ($currentItemSetId) {
+                    $bcadPropertyUris[] = "https://purl.org/megalod/$currentItemSetId/excavation/bcad";
+                }
+                
+                foreach ($bcadPropertyUris as $bcadPropertyUri) {
+                    if (isset($rdfData[$beginUri][$bcadPropertyUri])) {
+                        foreach ($rdfData[$beginUri][$bcadPropertyUri] as $bcObj) {
+                            if ($bcObj['type'] === 'uri') {
+                                $parts = explode('/', $bcObj['value']);
+                                $bcacValue = end($parts);
+                                $beginningBC = ($bcacValue === 'BC');
+                                break 2;
+                            }
                         }
                     }
                 }
@@ -4927,7 +5123,7 @@ private function extractTimelineRange($rdfData, $timelineUri) {
         }
     }
     
-    // Extract end
+    // Extract end (similar process)
     if (isset($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'])) {
         foreach ($rdfData[$timelineUri]['http://www.w3.org/2006/time#hasEnd'] as $endObj) {
             if ($endObj['type'] === 'uri' && isset($rdfData[$endObj['value']])) {
@@ -4937,18 +5133,28 @@ private function extractTimelineRange($rdfData, $timelineUri) {
                 if (isset($rdfData[$endUri]['http://www.w3.org/2006/time#inXSDgYear'])) {
                     foreach ($rdfData[$endUri]['http://www.w3.org/2006/time#inXSDgYear'] as $yearObj) {
                         if ($yearObj['type'] === 'literal') {
-                            $endYear = $yearObj['value'];
+                            $endYear = abs((int)$yearObj['value']); // Remove negative sign
                         }
                     }
                 }
                 
-                // Extract BC/AC
-                if (isset($rdfData[$endUri]['https://purl.org/megalod/ms/excavation/bcad'])) {
-                    foreach ($rdfData[$endUri]['https://purl.org/megalod/ms/excavation/bcad'] as $bcObj) {
-                        if ($bcObj['type'] === 'uri') {
-                            $parts = explode('/', $bcObj['value']);
-                            $bcacValue = end($parts);
-                            $endBC = ($bcacValue === 'BC');
+                // Extract BC/AD
+                $bcadPropertyUris = [
+                    'https://purl.org/megalod/ms/excavation/bcad'
+                ];
+                if ($currentItemSetId) {
+                    $bcadPropertyUris[] = "https://purl.org/megalod/$currentItemSetId/excavation/bcad";
+                }
+                
+                foreach ($bcadPropertyUris as $bcadPropertyUri) {
+                    if (isset($rdfData[$endUri][$bcadPropertyUri])) {
+                        foreach ($rdfData[$endUri][$bcadPropertyUri] as $bcObj) {
+                            if ($bcObj['type'] === 'uri') {
+                                $parts = explode('/', $bcObj['value']);
+                                $bcacValue = end($parts);
+                                $endBC = ($bcacValue === 'BC');
+                                break 2;
+                            }
                         }
                     }
                 }
@@ -4958,30 +5164,14 @@ private function extractTimelineRange($rdfData, $timelineUri) {
     
     // Format timeline range
     if ($beginningYear && $endYear) {
-        $beginText = $beginningYear;
-        if ($beginningBC !== null) {
-            $beginText .= ' ' . ($beginningBC ? 'BC' : 'AC');
-        }
-        
-        $endText = $endYear;
-        if ($endBC !== null) {
-            $endText .= ' ' . ($endBC ? 'BC' : 'AC');
-        }
-        
-        return "$beginText to $endText";
+        $beginText = $beginningYear . ($beginningBC ? ' BC' : ' AD');
+        $endText = $endYear . ($endBC ? ' BC' : ' AD');
+        return "$beginText - $endText";
     } else if ($beginningYear) {
-        $beginText = $beginningYear;
-        if ($beginningBC !== null) {
-            $beginText .= ' ' . ($beginningBC ? 'BC' : 'AC');
-        }
-        
+        $beginText = $beginningYear . ($beginningBC ? ' BC' : ' AD');
         return "From $beginText";
     } else if ($endYear) {
-        $endText = $endYear;
-        if ($endBC !== null) {
-            $endText .= ' ' . ($endBC ? 'BC' : 'AC');
-        }
-        
+        $endText = $endYear . ($endBC ? ' BC' : ' AD');
         return "Until $endText";
     }
     
