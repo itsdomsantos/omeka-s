@@ -900,6 +900,8 @@ private function generateSquareTtl($squareUri, $square)
     
     return $ttl;
 }
+
+
 private function generateEncounterTtl($encounterUri, $encounter, $excavationUri, $itemUri)
 {
     $ttl = "<$encounterUri> a excav:EncounterEvent;\n";
@@ -914,6 +916,11 @@ private function generateEncounterTtl($encounterUri, $encounter, $excavationUri,
     // Add link to the location if available
     if (isset($encounter['location_uri']) && $encounter['location_uri']) {
         $ttl .= "    excav:foundInLocation <" . $encounter['location_uri'] . ">;\n";
+    }
+    
+    // Add link to selected context if available
+    if (!empty($encounter['context_uri'])) {
+        $ttl .= "    excav:foundInContext <" . $encounter['context_uri'] . ">;\n";
     }
     
     // Add link to the encountered object (arrowhead)
@@ -988,12 +995,11 @@ private function createExcavationItemSetData($excavationIdentifier, $excavationD
 
 
 
-/**
- * ENHANCED: processArchaeologicalContextSelections without resource declarations
- */
+
 private function processArchaeologicalContextSelections($formData, $itemSetId, $baseUri)
 {
     $linkedResources = [];
+    $declarations = []; // Store resource declarations if needed
     
     error_log('=== PROCESSING CONTEXT SELECTIONS ===', 3, OMEKA_PATH . '/logs/context-debug.log');
     
@@ -1049,9 +1055,9 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
     
     error_log('Final linked resources: ' . print_r($linkedResources, true), 3, OMEKA_PATH . '/logs/context-debug.log');
     
-    // Return only the references - NO declarations
     return [
-        'references' => $linkedResources
+        'references' => $linkedResources, 
+        'declarations' => $declarations
     ];
 }
 
@@ -1093,24 +1099,32 @@ private function processArrowheadFormData($formData, $itemSetId)
     $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
     error_log("Arrowhead URI: $excavationUri", 3, OMEKA_PATH . '/logs/form.log');
 
-    // If location information is available
-    if (!empty($formData['location']) || !empty($baseLocation)) {
-        $locationUri = !empty($formData['location']) ? $formData['location'] : "$baseUri/location/excavation-location";
-        $ttl .= "    excav:foundInLocation <$locationUri>;\n";
-    }
+    // FIXED: Create a consistent location URI based on the same base URI pattern
+    $locationUri = "$baseUri/location/excavation-location";
+    $ttl .= "    excav:foundInLocation <$locationUri>;\n";
+    error_log("Added consistent location URI: $locationUri", 3, OMEKA_PATH . '/logs/form-debug.log');
     
-    // Add references to existing resources
+   // Add references to existing resources
     foreach ($linkedResources as $property => $resourceUri) {
         $ttl .= "    $property <$resourceUri>;\n";
         error_log("Added reference: $property -> $resourceUri", 3, OMEKA_PATH . '/logs/form-debug.log');
     }
-    
+
+    // CRITICAL FIX: Directly add context reference when present
+    if (!empty($formData['selected_context'])) {
+        $realContextId = $this->getRealIdentifierFromOmekaItem($formData['selected_context']);
+        if ($realContextId) {
+            $contextUri = "$baseUri/context/$realContextId";
+            $ttl .= "    excav:foundInContext <$contextUri>;\n";
+            error_log("FIXED: Added direct context reference to arrowhead: $contextUri", 3, OMEKA_PATH . '/logs/form-debug.log');
+            
+            // Store for encounter event
+            $encounter['context_uri'] = $contextUri;
+        }
+    }
 
     // link to the encounter event
-    //  link to the encounter event using CIDOC-CRM property
     $ttl .= "    crmsci:O19i_was_object_encountered_through <$encounterUri>;\n";
-    
-   
     
     // Add annotation if provided
     if (!empty($formData['arrowhead_annotation'])) {
@@ -1380,20 +1394,16 @@ private function processArrowheadFormData($formData, $itemSetId)
 $ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
 $ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal;\n";
 $ttl .= "    crmsci:O19_encountered_object <$arrowheadUri>;\n";
-$ttl .= "    excav:foundInExcavation <$excavationUri>;\n"; // Make sure there's a semicolon here
+$ttl .= "    excav:foundInExcavation <$excavationUri>;\n"; 
 
-error_log("Encounter event linked to excavation: $excavationUri", 3, OMEKA_PATH . '/logs/form.log');
-
-
-    // Add the same resource references to encounter event
-    // Add the same resource references to encounter event
-    foreach ($linkedResources as $property => $resourceUri) {
-        if ($property === 'excav:foundInContext') {
-            $ttl .= "    excav:foundInContext <$resourceUri>;\n";
-        } elseif ($property === 'excav:foundInSVU') {
-            $ttl .= "    excav:foundInSVU <$resourceUri>;\n";
-        }
-    } 
+// Add the same resource references to encounter event
+foreach ($linkedResources as $property => $resourceUri) {
+    // Add both foundInContext and foundInSVU references to the encounter event
+    if ($property === 'excav:foundInContext' || $property === 'excav:foundInSVU') {
+        $ttl .= "    $property <$resourceUri>;\n";
+        error_log("Added $property to encounter event: $resourceUri", 3, OMEKA_PATH . '/logs/form-debug.log');
+    }
+}
     
     $ttl .= "    .\n\n";
     
