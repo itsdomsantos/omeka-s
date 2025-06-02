@@ -901,7 +901,7 @@ private function processArrowheadFormData($formData, $itemSetId)
     $arrowheadUri = "$baseUri/item/$arrowheadId";
     $morphologyUri = "$baseUri/morphology/$arrowheadId";
     $chippingUri = "$baseUri/chipping/$arrowheadId";
-    $excavationUri = "https://purl.org/megalod/$itemSetId";
+    $excavationUri = "$baseUri";
     $encounterUri = "$baseUri/encounter/$arrowheadId";
     
     // Build TTL data
@@ -2443,6 +2443,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
                 $this->processArrowheadData($rdfData, $subject, $itemData);
                 break;
             case 'excavation':
+                error_log('Processing excavation data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/abcd.log');
                 $this->processExcavationData($rdfData, $subject, $itemData);
                 break;
             case 'context':

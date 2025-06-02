@@ -1,0 +1,295 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
+@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+# ========================================================================================
+# COMPLETE MEGALOD EXCAVATION EXAMPLE - ALTO DO CASTELINHO SITE
+# ========================================================================================
+
+# =========== MAIN EXCAVATION ===========
+
+<https://megalod.example.org/excavation/alto-castelinho-2024> a excav:Excavation ;
+    dct:identifier "ALC-2024" ;
+    dul:hasLocation <https://megalod.example.org/location/alto-castelinho> ;
+    excav:hasPersonInCharge <https://megalod.example.org/archaeologist/maria-santos> ;
+    excav:hasSquare <https://megalod.example.org/square/A1>, 
+                    <https://megalod.example.org/square/A2> ;
+    excav:hasContext <https://megalod.example.org/context/ctx-001> .
+
+# =========== LOCATION ===========
+
+<https://megalod.example.org/location/alto-castelinho> a excav:Location ;
+    dbo:informationName "Alto do Castelinho Archaeological Site" ;
+    dbo:district <https://megalod.example.org/district/porto> ;
+    dbo:parish <https://megalod.example.org/parish/penafiel> ;
+    dbo:Country <http://dbpedia.org/resource/Portugal> ;
+    excav:hasGPSCoordinates <https://megalod.example.org/gps/alto-castelinho> .
+
+<https://megalod.example.org/gps/alto-castelinho> a excav:GPSCoordinates ;
+    geo:lat "41.2081"^^xsd:decimal ;
+    geo:long "-8.6150"^^xsd:decimal .
+
+<https://megalod.example.org/district/porto> a dbo:District .
+<https://megalod.example.org/parish/penafiel> a dbo:Parish .
+
+# =========== ARCHAEOLOGIST ===========
+
+<https://megalod.example.org/archaeologist/maria-santos> a excav:Archaeologist ;
+    foaf:account <https://orcid.org/0000-0002-1234-5678> ;
+    foaf:name "Dr. Maria Santos" ;
+    foaf:mbox <mailto:maria.santos@univ.pt> .
+
+# =========== SQUARES ===========
+
+<https://megalod.example.org/square/A1> a excav:Square ;
+    dct:identifier "A1" ;
+    geo:lat "100.50"^^xsd:decimal ;
+    geo:long "50.25"^^xsd:decimal .
+
+<https://megalod.example.org/square/A2> a excav:Square ;
+    dct:identifier "A2" ;
+    geo:lat "101.50"^^xsd:decimal ;
+    geo:long "51.25"^^xsd:decimal .
+
+# =========== CONTEXT ===========
+
+<https://megalod.example.org/context/ctx-001> a excav:Context ;
+    dct:identifier "CTX-001" ;
+    excav:hasSVU <https://megalod.example.org/svu/layer-02> .
+
+# =========== STRATIGRAPHIC VOLUME UNIT ===========
+
+<https://megalod.example.org/svu/layer-02> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "Layer-02" ;
+    dct:description "Bronze Age occupation layer with lithic remains" ;
+    excav:hasTimeline <https://megalod.example.org/timeline/bronze-age> .
+
+# =========== TIMELINE ===========
+
+<https://megalod.example.org/timeline/bronze-age> a excav:TimeLine ;
+    time:hasBeginning <https://megalod.example.org/instant/1500bc> ;
+    time:hasEnd <https://megalod.example.org/instant/1200bc> .
+
+<https://megalod.example.org/instant/1500bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-1500"^^xsd:gYear .
+
+<https://megalod.example.org/instant/1200bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-1200"^^xsd:gYear .
+
+# =========== ENCOUNTER EVENT ===========
+
+<https://megalod.example.org/encounter/enc-001> a excav:EncounterEvent ;
+    dct:date "2024-07-15" ;
+    crmsci:O19_encountered_object <https://megalod.example.org/item/arrowhead-001> ;
+    excav:foundInSVU <https://megalod.example.org/svu/layer-02> ;
+    excav:foundInContext <https://megalod.example.org/context/ctx-001> ;
+    excav:foundInExcavation <https://megalod.example.org/excavation/alto-castelinho-2024> .
+
+# =========== ARROWHEAD ITEM ===========
+
+<https://megalod.example.org/item/arrowhead-001> a ah:Arrowhead, excav:Item ;
+    dct:identifier "ALC-2024-AH-001" ;
+    edm:Webresource <https://megalod.example.org/images/arrowhead-001.jpg>,
+                    <https://megalod.example.org/3d/arrowhead-001.obj> ;
+    dbo:Annotation "Well-preserved triangular arrowhead with bifacial chipping. Found near hearth structure." ;
+    crm:E3_Condition_State true ; # Complete
+    crm:E57_Material <http://vocab.getty.edu/aat/300011443> ; # Flint
+    excav:hasCoordinatesInSquare <https://megalod.example.org/coordinates/ah-001-coords> ;
+    schema:height <https://megalod.example.org/typometry/ah-001-height> ;
+    schema:width <https://megalod.example.org/typometry/ah-001-width> ;
+    schema:depth <https://megalod.example.org/typometry/ah-001-thickness> ;
+    schema:weight <https://megalod.example.org/weight/ah-001-weight> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Medium> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin> ;
+    dul:hasLocation <https://megalod.example.org/location/alto-castelinho> ;
+    excav:foundInSquare <https://megalod.example.org/square/A1> ;
+    crmsci:O19i_was_object_encountered_through <https://megalod.example.org/encounter/enc-001> ;
+    excav:foundInLocation <https://megalod.example.org/location/alto-castelinho> ;
+    # Arrowhead specific properties
+    ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
+    crm:E55_Type true ; # Elongate = True
+    ah:variant <https://purl.org/megalod/kos/ah-variant/flat> ;
+    ah:hasMorphology <https://megalod.example.org/morphology/ah-001-morph> ;
+    ah:hasBodyLength <https://megalod.example.org/typometry/ah-001-body-length> ;
+    ah:hasBaseLength <https://megalod.example.org/typometry/ah-001-base-length> ;
+    ah:hasChipping <https://megalod.example.org/chipping/ah-001-chip> .
+
+# =========== COORDINATES ===========
+
+<https://megalod.example.org/coordinates/ah-001-coords> a excav:Coordinates ;
+    geo:longitude <https://megalod.example.org/typometry/ah-001-x> ;
+    geo:latitude <https://megalod.example.org/typometry/ah-001-y> ;
+    schema:depth <https://megalod.example.org/typometry/ah-001-depth> .
+
+# =========== TYPOMETRY VALUES ===========
+
+<https://megalod.example.org/typometry/ah-001-height> a excav:TypometryValue ;
+    schema:value "32.5"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/MMT> . # millimeter
+
+<https://megalod.example.org/typometry/ah-001-width> a excav:TypometryValue ;
+    schema:value "18.2"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/MMT> .
+
+<https://megalod.example.org/typometry/ah-001-thickness> a excav:TypometryValue ;
+    schema:value "4.1"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/MMT> .
+
+<https://megalod.example.org/typometry/ah-001-body-length> a excav:TypometryValue ;
+    schema:value "25.8"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/MMT> .
+
+<https://megalod.example.org/typometry/ah-001-base-length> a excav:TypometryValue ;
+    schema:value "15.3"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/MMT> .
+
+<https://megalod.example.org/typometry/ah-001-x> a excav:TypometryValue ;
+    schema:value "125.30"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/CMNT> . # centimeter
+
+<https://megalod.example.org/typometry/ah-001-y> a excav:TypometryValue ;
+    schema:value "87.45"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/CMNT> .
+
+<https://megalod.example.org/typometry/ah-001-depth> a excav:TypometryValue ;
+    schema:value "45.2"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/CMNT> .
+
+# =========== WEIGHT ===========
+
+<https://megalod.example.org/weight/ah-001-weight> a excav:Weight ;
+    schema:value "3.75"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/GRM> . # gram
+
+# =========== MORPHOLOGY ===========
+
+<https://megalod.example.org/morphology/ah-001-morph> a ah:Morphology ;
+    ah:point true ; # Sharp tip
+    ah:body true ; # Symmetrical body
+    ah:base <https://purl.org/megalod/kos/ah-base/straight> .
+
+# =========== CHIPPING ===========
+
+<https://megalod.example.org/chipping/ah-001-chip> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/parallel> ;
+    ah:chippingAmplitude false ; # Deep chipping
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/bifacial> ;
+    ah:chippingOrientation true ; # Lateral orientation
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/continuous> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/median> ;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/distal> ;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/straight> .
+
+# ========================================================================================
+# ADDITIONAL ITEM - SECOND ARROWHEAD
+# ========================================================================================
+
+# =========== SECOND ENCOUNTER EVENT ===========
+
+<https://megalod.example.org/encounter/enc-002> a excav:EncounterEvent ;
+    dct:date "2024-07-16" ;
+    crmsci:O19_encountered_object <https://megalod.example.org/item/arrowhead-002> ;
+    excav:foundInSVU <https://megalod.example.org/svu/layer-02> ;
+    excav:foundInContext <https://megalod.example.org/context/ctx-001> ;
+    excav:foundInExcavation <https://megalod.example.org/excavation/alto-castelinho-2024> .
+
+# =========== SECOND ARROWHEAD - BROKEN EXAMPLE ===========
+
+<https://megalod.example.org/item/arrowhead-002> a ah:Arrowhead, excav:Item ;
+    dct:identifier "ALC-2024-AH-002" ;
+    edm:Webresource <https://megalod.example.org/images/arrowhead-002.jpg> ;
+    dbo:Annotation "Fragmentary stemmed arrowhead, tip broken. Shows evidence of use-wear." ;
+    crm:E3_Condition_State false ; # Broken
+    crm:E57_Material <http://vocab.getty.edu/aat/300011443> ; # Flint
+    excav:hasCoordinatesInSquare <https://megalod.example.org/coordinates/ah-002-coords> ;
+    schema:height <https://megalod.example.org/typometry/ah-002-height> ;
+    schema:width <https://megalod.example.org/typometry/ah-002-width> ;
+    schema:depth <https://megalod.example.org/typometry/ah-002-thickness> ;
+    schema:weight <https://megalod.example.org/weight/ah-002-weight> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Medium> ;
+    dul:hasLocation <https://megalod.example.org/location/alto-castelinho> ;
+    excav:foundInSquare <https://megalod.example.org/square/A2> ;
+    crmsci:O19i_was_object_encountered_through <https://megalod.example.org/encounter/enc-002> ;
+    excav:foundInLocation <https://megalod.example.org/location/alto-castelinho> ;
+    # Arrowhead specific properties
+    ah:shape <https://purl.org/megalod/kos/ah-shape/stemmed> ;
+    crm:E55_Type true ; # Elongate = True
+    ah:variant <https://purl.org/megalod/kos/ah-variant/raised> ;
+    ah:hasMorphology <https://megalod.example.org/morphology/ah-002-morph> ;
+    ah:hasBodyLength <https://megalod.example.org/typometry/ah-002-body-length> ;
+    ah:hasBaseLength <https://megalod.example.org/typometry/ah-002-base-length> ;
+    ah:hasChipping <https://megalod.example.org/chipping/ah-002-chip> .
+
+# =========== SECOND ARROWHEAD MEASUREMENTS ===========
+
+<https://megalod.example.org/coordinates/ah-002-coords> a excav:Coordinates ;
+    geo:longitude <https://megalod.example.org/typometry/ah-002-x> ;
+    geo:latitude <https://megalod.example.org/typometry/ah-002-y> ;
+    schema:depth <https://megalod.example.org/typometry/ah-002-depth> .
+
+<https://megalod.example.org/typometry/ah-002-height> a excav:TypometryValue ;
+    schema:value "28.1"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/MMT> .
+
+<https://megalod.example.org/typometry/ah-002-width> a excav:TypometryValue ;
+    schema:value "15.7"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/MMT> .
+
+<https://megalod.example.org/typometry/ah-002-thickness> a excav:TypometryValue ;
+    schema:value "5.8"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/MMT> .
+
+<https://megalod.example.org/typometry/ah-002-body-length> a excav:TypometryValue ;
+    schema:value "18.4"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/MMT> .
+
+<https://megalod.example.org/typometry/ah-002-base-length> a excav:TypometryValue ;
+    schema:value "8.2"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/MMT> .
+
+<https://megalod.example.org/typometry/ah-002-x> a excav:TypometryValue ;
+    schema:value "178.92"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/CMNT> .
+
+<https://megalod.example.org/typometry/ah-002-y> a excav:TypometryValue ;
+    schema:value "134.67"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/CMNT> .
+
+<https://megalod.example.org/typometry/ah-002-depth> a excav:TypometryValue ;
+    schema:value "52.8"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/CMNT> .
+
+<https://megalod.example.org/weight/ah-002-weight> a excav:Weight ;
+    schema:value "2.93"^^xsd:decimal ;
+    schema:UnitCode <https://unece.org/trade/uncefact/unlocode/GRM> .
+
+<https://megalod.example.org/morphology/ah-002-morph> a ah:Morphology ;
+    ah:point false ; # Fractured tip
+    ah:body false ; # Non-symmetrical body
+    ah:base <https://purl.org/megalod/kos/ah-base/stemmed> .
+
+<https://megalod.example.org/chipping/ah-002-chip> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/sub-parallel> ;
+    ah:chippingAmplitude true ; # Marginal chipping
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/direct> ;
+    ah:chippingOrientation false ; # Transverse orientation
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/denticulated> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/median> ;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex> .

@@ -1,0 +1,256 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
+@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+
+# ========================================================================================
+# ITEM DATA - ARTIFACTS FOUND AT ALTO DO CASTELINHO
+# ========================================================================================
+
+# =========== ITEMS ===========
+
+<https://megalod.example.org/item/arrowhead-001> a excav:Item, ah:Arrowhead ;
+    dct:identifier "AH-001"^^xsd:literal;
+    edm:Webresource <https://example.com/images/arrowhead-001.jpg> ;
+    dbo:Annotation "Small flint arrowhead with signs of retouching"^^xsd:literal;
+    crm:E3_Condition_State true ;
+    crm:E57_Material <https://megalod.example.org/material/flint> ;
+    excav:hasCoordinatesInSquare <https://megalod.example.org/coordinates/ah-001> ;
+    schema:height <https://megalod.example.org/typometry/ah-001-height> ;
+    schema:width <https://megalod.example.org/typometry/ah-001-width> ;
+    schema:depth <https://megalod.example.org/typometry/ah-001-depth> ;
+    schema:weight <https://megalod.example.org/weight/ah-001> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin> ;
+    dul:hasLocation <https://megalod.example.org/location/alto-castelinho> ;
+    crmsci:O19i_was_object_encountered_through <https://megalod.example.org/encounter/enc-001> ;
+    excav:foundInLocation <https://megalod.example.org/location/alto-castelinho> ;
+    excav:foundInSquare <https://megalod.example.org/square/A1> ;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
+    crm:E55_Type true ;
+    ah:variant <https://purl.org/megalod/kos/ah-variant/flat> ;
+    ah:hasMorphology <https://megalod.example.org/Morphology/ah-001> ;
+    ah:hasBodyLength <https://megalod.example.org/BodyLength/ah-001> ;
+    ah:hasBaseLength <https://megalod.example.org/BaseLength/ah-001> ;
+    ah:hasChipping <https://megalod.example.org/Chipping/ah-001> .
+
+<https://megalod.example.org/item/arrowhead-002> a excav:Item, ah:Arrowhead ;
+    dct:identifier "AH-002"^^xsd:literal;
+    edm:Webresource <https://example.com/images/arrowhead-002.jpg> ;
+    dbo:Annotation "Broken arrowhead tip"^^xsd:literal;
+    crm:E3_Condition_State false ;
+    crm:E57_Material <https://megalod.example.org/material/flint> ;
+    excav:hasCoordinatesInSquare <https://megalod.example.org/coordinates/ah-002> ;
+    schema:height <https://megalod.example.org/typometry/ah-002-height> ;
+    schema:width <https://megalod.example.org/typometry/ah-002-width> ;
+    schema:depth <https://megalod.example.org/typometry/ah-002-depth> ;
+    schema:weight <https://megalod.example.org/weight/ah-002> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin> ;
+    dul:hasLocation <https://megalod.example.org/location/alto-castelinho> ;
+    crmsci:O19i_was_object_encountered_through <https://megalod.example.org/encounter/enc-002> ;
+    excav:foundInLocation <https://megalod.example.org/location/alto-castelinho> ;
+    excav:foundInSquare <https://megalod.example.org/square/A2> ;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
+    crm:E55_Type true ;
+    ah:variant <https://purl.org/megalod/kos/ah-variant/flat> ;
+    ah:hasMorphology <https://megalod.example.org/Morphology/ah-002> ;
+    ah:hasBodyLength <https://megalod.example.org/BodyLength/ah-002> ;
+    ah:hasBaseLength <https://megalod.example.org/BaseLength/ah-002> ;
+    ah:hasChipping <https://megalod.example.org/Chipping/ah-002> .
+
+<https://megalod.example.org/item/arrowhead-003> a excav:Item, ah:Arrowhead ;
+    dct:identifier "AH-003"^^xsd:literal;
+    edm:Webresource <https://example.com/images/arrowhead-003.jpg> ;
+    dbo:Annotation "Large, stemmed arrowhead with bifacial retouch"^^xsd:literal;
+    crm:E3_Condition_State true ;
+    crm:E57_Material <https://megalod.example.org/material/flint> ;
+    excav:hasCoordinatesInSquare <https://megalod.example.org/coordinates/ah-003> ;
+    schema:height <https://megalod.example.org/typometry/ah-003-height> ;
+    schema:width <https://megalod.example.org/typometry/ah-003-width> ;
+    schema:depth <https://megalod.example.org/typometry/ah-003-depth> ;
+    schema:weight <https://megalod.example.org/weight/ah-003> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Medium> ;
+    dul:hasLocation <https://megalod.example.org/location/alto-castelinho> ;
+    crmsci:O19i_was_object_encountered_through <https://megalod.example.org/encounter/enc-003> ;
+    excav:foundInLocation <https://megalod.example.org/location/alto-castelinho> ;
+    excav:foundInSquare <https://megalod.example.org/square/B1> ;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/stemmed> ;
+    crm:E55_Type true ;
+    ah:variant <https://purl.org/megalod/kos/ah-variant/raised> ;
+    ah:hasMorphology <https://megalod.example.org/Morphology/ah-003> ;
+    ah:hasBodyLength <https://megalod.example.org/BodyLength/ah-003> ;
+    ah:hasBaseLength <https://megalod.example.org/BaseLength/ah-003> ;
+    ah:hasChipping <https://megalod.example.org/Chipping/ah-003> .
+
+# =========== COORDINATES ===========
+
+<https://megalod.example.org/coordinates/ah-001> a excav:Coordinates ;
+    geo:longitude <https://megalod.example.org/typometry/ah-001-x> ;
+    geo:latitude <https://megalod.example.org/typometry/ah-001-y> ;
+    schema:depth <https://megalod.example.org/typometry/ah-001-z> .
+
+<https://megalod.example.org/coordinates/ah-002> a excav:Coordinates ;
+    geo:longitude <https://megalod.example.org/typometry/ah-002-x> ;
+    geo:latitude <https://megalod.example.org/typometry/ah-002-y> ;
+    schema:depth <https://megalod.example.org/typometry/ah-002-z> .
+
+<https://megalod.example.org/coordinates/ah-003> a excav:Coordinates ;
+    geo:longitude <https://megalod.example.org/typometry/ah-003-x> ;
+    geo:latitude <https://megalod.example.org/typometry/ah-003-y> ;
+    schema:depth <https://megalod.example.org/typometry/ah-003-z> .
+
+# =========== TYPOMETRY VALUES ===========
+
+<https://megalod.example.org/typometry/ah-001-height> a excav:TypometryValue ;
+    schema:value "3.2"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .  # centimeters
+
+<https://megalod.example.org/typometry/ah-001-width> a excav:TypometryValue ;
+    schema:value "1.8"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-001-depth> a excav:TypometryValue ;
+    schema:value "0.5"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-002-height> a excav:TypometryValue ;
+    schema:value "2.5"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-002-width> a excav:TypometryValue ;
+    schema:value "1.5"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-002-depth> a excav:TypometryValue ;
+    schema:value "0.4"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-003-height> a excav:TypometryValue ;
+    schema:value "5.1"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-003-width> a excav:TypometryValue ;
+    schema:value "2.8"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-003-depth> a excav:TypometryValue ;
+    schema:value "0.7"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+# =========== COORDINATES IN SQUARE ===========
+
+<https://megalod.example.org/typometry/ah-001-x> a excav:TypometryValue ;
+    schema:value "25.1"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-001-y> a excav:TypometryValue ;
+    schema:value "10.4"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-001-z> a excav:TypometryValue ;
+    schema:value "1.2"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-002-x> a excav:TypometryValue ;
+    schema:value "75.8"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-002-y> a excav:TypometryValue ;
+    schema:value "32.6"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-002-z> a excav:TypometryValue ;
+    schema:value "2.1"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-003-x> a excav:TypometryValue ;
+    schema:value "15.3"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-003-y> a excav:TypometryValue ;
+    schema:value "88.9"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://megalod.example.org/typometry/ah-003-z> a excav:TypometryValue ;
+    schema:value "0.9"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+# =========== WEIGHTS ===========
+
+<https://megalod.example.org/weight/ah-001> a excav:Weight ;
+    schema:value "12.5"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/GRM> .  # grams
+
+<https://megalod.example.org/weight/ah-002> a excav:Weight ;
+    schema:value "8.7"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/GRM> .
+
+<https://megalod.example.org/weight/ah-003> a excav:Weight ;
+    schema:value "21.4"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/GRM> .
+
+# =========== MORPHOLOGY ===========
+
+<https://megalod.example.org/Morphology/ah-001> a ah:Morphology ;
+    ah:point true ;
+    ah:body true ;
+    ah:base <https://purl.org/megalod/kos/ah-base/straight> .
+
+<https://megalod.example.org/Morphology/ah-002> a ah:Morphology ;
+    ah:point false ;
+    ah:body true ;
+    ah:base <https://purl.org/megalod/kos/ah-base/straight> .
+
+<https://megalod.example.org/Morphology/ah-003> a ah:Morphology ;
+    ah:point true ;
+    ah:body true ;
+    ah:base <https://purl.org/megalod/kos/ah-base/stemmed> .
+
+# =========== CHIPPING ===========
+
+<https://megalod.example.org/Chipping/ah-001> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/plane> ;
+    ah:chippingAmplitude true ;
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/direct> ;
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/continuous> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/distal> , <https://purl.org/megalod/kos/ah-chippingLocation/median> ;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/distal> ;
+    ah:chippingOrientation true ;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/straight> .
+
+<https://megalod.example.org/Chipping/ah-002> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/plane> ;
+    ah:chippingAmplitude true ;
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/direct> ;
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/continuous> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/distal> ;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/distal> ;
+    ah:chippingOrientation true ;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/straight> .
+
+<https://megalod.example.org/Chipping/ah-003> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/parallel> ;
+    ah:chippingAmplitude false ;
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/bifacial> ;
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/composite> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/distal> , <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/distal> , <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
+    ah:chippingOrientation false ;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex> .

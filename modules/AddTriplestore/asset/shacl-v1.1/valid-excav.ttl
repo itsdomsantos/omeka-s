@@ -1,0 +1,135 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
+@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+# ========================================================================================
+# EXCAVATION DATA - ALTO DO CASTELINHO ARCHAEOLOGICAL SITE
+# ========================================================================================
+
+# =========== MAIN EXCAVATION ===========
+
+<https://purl.org/megalod/excavation/alto-castelinho-2024> a excav:Excavation ;
+    dct:identifier "ALC-2024"^^xsd:literal;
+    dul:hasLocation <https://purl.org/megalod/location/alto-castelinho> ;
+    excav:hasPersonInCharge <https://purl.org/megalod/archaeologist/maria-santos> ;
+    excav:hasSquare <https://purl.org/megalod/square/A1>, 
+                    <https://purl.org/megalod/square/A2>,
+                    <https://purl.org/megalod/square/B1> ;
+    excav:hasContext <https://purl.org/megalod/context/ctx-001>,
+                     <https://purl.org/megalod/context/ctx-002> .
+
+# =========== LOCATION ===========
+
+<https://purl.org/megalod/location/alto-castelinho> a excav:Location ;
+    dbo:informationName "Alto do Castelinho Archaeological Site"^^xsd:literal;
+    dbo:district <https://purl.org/megalod/district/porto> ;
+    dbo:parish <https://purl.org/megalod/parish/penafiel> ;
+    dbo:Country <http://dbpedia.org/resource/Portugal> ;
+    excav:hasGPSCoordinates <https://purl.org/megalod/gps/alto-castelinho> .
+
+<https://purl.org/megalod/gps/alto-castelinho> a excav:GPSCoordinates ;
+    geo:lat "41.2081"^^xsd:decimal ;
+    geo:long "-8.6150"^^xsd:decimal .
+
+<https://purl.org/megalod/district/porto> a dbo:District .
+<https://purl.org/megalod/parish/penafiel> a dbo:Parish .
+
+# =========== ARCHAEOLOGIST ===========
+
+<https://purl.org/megalod/archaeologist/maria-santos> a excav:Archaeologist ;
+    foaf:account <https://orcid.org/0000-0002-1234-5678> ;
+    foaf:name "Dr. Maria Santos"^^xsd:literal;
+    foaf:mbox <mailto:maria.santos@univ.pt>,
+              <mailto:m.santos@archaeology.pt> .
+
+# =========== EXCAVATION SQUARES ===========
+
+<https://purl.org/megalod/square/A1> a excav:Square ;
+    dct:identifier "A1"^^xsd:literal;
+    geo:lat "100.50"^^xsd:decimal ;
+    geo:long "50.25"^^xsd:decimal .
+
+<https://purl.org/megalod/square/A2> a excav:Square ;
+    dct:identifier "A2"^^xsd:literal;
+    geo:lat "101.50"^^xsd:decimal ;
+    geo:long "51.25"^^xsd:decimal .
+
+<https://purl.org/megalod/square/B1> a excav:Square ;
+    dct:identifier "B1"^^xsd:literal;
+    geo:lat "102.00"^^xsd:decimal ;
+    geo:long "52.75"^^xsd:decimal .
+
+# =========== CONTEXTS ===========
+
+<https://purl.org/megalod/context/ctx-001> a excav:Context ;
+    dct:identifier "CTX-001"^^xsd:literal;
+    excav:hasSVU <https://purl.org/megalod/svu/layer-02>,
+                 <https://purl.org/megalod/svu/layer-03> .
+
+<https://purl.org/megalod/context/ctx-002> a excav:Context ;
+    dct:identifier "CTX-002"^^xsd:literal;
+    excav:hasSVU <https://purl.org/megalod/svu/layer-04> .
+
+# =========== STRATIGRAPHIC VOLUME UNITS ===========
+
+<https://purl.org/megalod/svu/layer-02> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "Layer-02"^^xsd:literal;
+    dct:description "Bronze Age occupation layer with lithic remains and hearth structures"^^xsd:literal;
+    excav:hasTimeline <https://purl.org/megalod/timeline/bronze-age> .
+
+<https://purl.org/megalod/svu/layer-03> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "Layer-03"^^xsd:literal;
+    dct:description "Late Bronze Age refuse pit with ceramic and lithic material"^^xsd:literal;
+    excav:hasTimeline <https://purl.org/megalod/timeline/late-bronze-age> .
+
+<https://purl.org/megalod/svu/layer-04> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "Layer-04"^^xsd:literal;
+    dct:description "Early Bronze Age workshop area with debitage and tools"^^xsd:literal;
+    excav:hasTimeline <https://purl.org/megalod/timeline/early-bronze-age> .
+
+# =========== TIMELINES ===========
+
+<https://purl.org/megalod/timeline/bronze-age> a excav:TimeLine ;
+    time:hasBeginning <https://purl.org/megalod/instant/1500bc> ;
+    time:hasEnd <https://purl.org/megalod/instant/1200bc> .
+
+<https://purl.org/megalod/timeline/late-bronze-age> a excav:TimeLine ;
+    time:hasBeginning <https://purl.org/megalod/instant/1200bc> ;
+    time:hasEnd <https://purl.org/megalod/instant/1000bc> .
+
+<https://purl.org/megalod/timeline/early-bronze-age> a excav:TimeLine ;
+    time:hasBeginning <https://purl.org/megalod/instant/1800bc> ;
+    time:hasEnd <https://purl.org/megalod/instant/1500bc> .
+
+# =========== TIME INSTANTS ===========
+
+<https://purl.org/megalod/instant/1800bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-1800"^^xsd:gYear .
+
+<https://purl.org/megalod/instant/1500bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-1500"^^xsd:gYear .
+
+<https://purl.org/megalod/instant/1200bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-1200"^^xsd:gYear .
+
+<https://purl.org/megalod/instant/1000bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-1000"^^xsd:gYear .

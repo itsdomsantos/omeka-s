@@ -224,7 +224,7 @@
         sh:maxCount 1 ;
         sh:in (
             <https://purl.org/megalod/kos/MegaLOD-BCAD/BC>
-            <https://purl.org/megalod/kos/MegaLOD-BCAD/AC>
+            <https://purl.org/megalod/kos/MegaLOD-BCAD/AD>
         ) ;
     ] ;
     sh:property [
@@ -272,10 +272,9 @@
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
-    # With a clearer relationship name:
     sh:property [
-        sh:path crmsci:O19i_was_encounter_for ;
-        sh:name "Was encounter for Item" ;
+        sh:path crmsci:O19_encountered_object ;
+        sh:name "The finding" ;
         sh:class excav:Item ;
         sh:minCount 0 ;
     ] ;
@@ -404,13 +403,6 @@
         sh:maxCount 1 ;
     ] ;
     sh:property [
-        sh:path excav:foundInSquare ;
-        sh:name "The Item was found in the Square" ;
-        sh:class excav:Square ;
-        sh:minCount 0 ;
-        sh:maxCount 1 ;
-    ] ;
-    sh:property [
         sh:path crmsci:O19i_was_object_encountered_through ;
         sh:name "Item was encountered in Event" ;
         sh:class excav:EncounterEvent ;
@@ -425,7 +417,16 @@
         sh:minCount 0 ;
         sh:maxCount 1 ;
         sh:description "Links an Item to the Location where it was found" ;
+    ] ;
+    sh:property [
+        sh:path excav:foundInSquare ;
+        sh:name "The Item was found in the Square" ;
+        sh:class excav:Square ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
     ] .
+
+    
 
 # =========== Coordinates Shape ===========
 
@@ -561,13 +562,6 @@
         sh:class ah:Chipping ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
-    ] ;
-    sh:property [
-        sh:path crmsci:O19i_was_object_encountered_through ;
-        sh:name "Arrowhead was encountered in Event (CIDOC-CRM)" ;
-        sh:class excav:EncounterEvent ;
-        sh:minCount 0 ;
-        sh:maxCount 1 ;
     ] .
 
 # =========== Morphology Shape ===========
@@ -639,13 +633,6 @@
         ) ;
     ] ;
     sh:property [
-        sh:path ah:chippingOrientation ;
-        sh:name "Chipping-orientation (Lateral=True, Transverse=False)" ;
-        sh:datatype xsd:boolean ;
-        sh:minCount 0 ;
-        sh:maxCount 1 ;
-    ] ;
-    sh:property [
         sh:path ah:chippingDelineation ;
         sh:name "Chipping-delineation" ;
         sh:nodeKind sh:IRI ;
@@ -680,6 +667,13 @@
             <https://purl.org/megalod/kos/ah-chippingLocation/median>
             <https://purl.org/megalod/kos/ah-chippingLocation/proximal>
         ) ;
+    ] ;
+    sh:property [
+        sh:path ah:chippingOrientation ;
+        sh:name "Chipping-orientation (Lateral=True, Transverse=False)" ;
+        sh:datatype xsd:boolean ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path ah:chippingShape ;
