@@ -489,8 +489,138 @@ private function generateContextTtl($contextUri, $context, $allEntities, $baseUr
     return $ttl;
 }
 
+
+
+
 /**
- * Generate SVU TTL with proper timeline handling
+ * FIXED: Generate clean location TTL without duplicate URI declarations
+ */
+private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationData)
+{
+    $ttl = "";
+    
+    // MAIN LOCATION ENTITY - clean single type
+    $ttl .= "<$locationUri> a excav:Location ;\n";
+    
+    // Use site_name as the informationName
+    if (!empty($excavationData['site_name'])) {
+        $ttl .= "    dbo:informationName \"" . $excavationData['site_name'] . "\"^^xsd:literal ;\n";
+    }
+    
+    // Add district/parish with lowercase property names and normalized URIs
+    $baseUri = dirname(dirname($locationUri)); // Get base URI from location URI
+    
+    if (!empty($excavationData['district'])) {
+        $districtSlug = $this->createUrlSlug($excavationData['district']);
+        $districtUri = "$baseUri/$districtSlug";
+        $ttl .= "    dbo:district <$districtUri> ;\n";
+    }
+    
+    if (!empty($excavationData['parish'])) {
+        $parishSlug = $this->createUrlSlug($excavationData['parish']);
+        $parishUri = "$baseUri/$parishSlug";
+        $ttl .= "    dbo:parish <$parishUri> ;\n";
+    }
+    
+    // Country as DBpedia resource (uppercase 'Country')
+    if (!empty($excavationData['country'])) {
+        $countrySlug = str_replace(' ', '_', $excavationData['country']);
+        $countryUri = "http://dbpedia.org/resource/" . $countrySlug;
+        $ttl .= "    dbo:Country <$countryUri> ;\n";
+    }
+    
+    // FIXED: Reference to separate GPS coordinates object
+    $ttl .= "    excav:hasGPSCoordinates <$gpsUri> .\n\n";
+    
+    // SEPARATE GPS COORDINATES OBJECT - clean structure
+    $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
+    
+    if (!empty($excavationData['latitude'])) {
+        $ttl .= "    geo:lat \"" . $excavationData['latitude'] . "\"^^xsd:decimal ;\n";
+    }
+    
+    if (!empty($excavationData['longitude'])) {
+        $ttl .= "    geo:long \"" . $excavationData['longitude'] . "\"^^xsd:decimal .\n\n";
+    } else {
+        $ttl .= "    .\n\n";
+    }
+    
+    // Add simple entity declarations for district/parish
+    if (!empty($excavationData['district'])) {
+        $districtSlug = $this->createUrlSlug($excavationData['district']);
+        $districtUri = "$baseUri/$districtSlug";
+        $ttl .= "<$districtUri> a dbo:District .\n";
+    }
+    
+    if (!empty($excavationData['parish'])) {
+        $parishSlug = $this->createUrlSlug($excavationData['parish']);
+        $parishUri = "$baseUri/$parishSlug";
+        $ttl .= "<$parishUri> a dbo:Parish .\n";
+    }
+    
+    $ttl .= "\n";
+    
+    return $ttl;
+}
+
+/**
+ * FIXED: Disable automatic resource declarations in normalizeUris
+ */
+private function normalizeUris($ttlData, $itemSetId) {
+    // Use a more precise pattern that avoids double matches
+    $pattern = '/<(https:\/\/purl\.org\/megalod\/)([^\/]+)(\/[^>]+)>/';
+    
+    $uriMappings = [];
+    
+    preg_match_all($pattern, $ttlData, $matches, PREG_SET_ORDER);
+    
+    error_log("normalizeUris: Found " . count($matches) . " potential URIs to normalize for itemSetId: $itemSetId", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
+
+    foreach ($matches as $match) {
+        $fullUri = $match[0];             // The complete matched URI
+        $baseUrl = $match[1];             // Base URL part: "https://purl.org/megalod/"
+        $currentIdSegment = $match[2];    // The segment to be replaced, e.g., "EXC-001" or "2205"
+        $resourcePath = $match[3];        // The rest of the URI path, e.g., "/excavation/EXC-001"
+
+        // Skip KOS URIs and URIs that already have the correct item set ID
+        if ($currentIdSegment === (string)$itemSetId || strpos($resourcePath, '/kos/') !== false) {
+            if (strpos($resourcePath, '/kos/') !== false) {
+                error_log("normalizeUris: Skipping KOS URI '$fullUri'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
+            } else {
+                error_log("normalizeUris: Skipping '$fullUri' as current ID segment '$currentIdSegment' matches itemSetId '$itemSetId'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
+            }
+            continue;
+        }
+        
+        // Ensure we're not creating a recursive or malformed URI
+        if (strpos($resourcePath, 'purl.org') !== false) {
+            error_log("normalizeUris: Skipping '$fullUri' to prevent malformed URI - path already contains 'purl.org'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
+            continue;
+        }
+        
+        $newUri = "<{$baseUrl}{$itemSetId}{$resourcePath}>";
+        if (!isset($uriMappings[$fullUri])) { 
+            $uriMappings[$fullUri] = $newUri;
+            error_log("normalizeUris: Mapping '$fullUri' to '$newUri'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
+        }
+    }
+    
+    $modifiedTtl = $ttlData;
+    if (!empty($uriMappings)) {
+        $modifiedTtl = strtr($ttlData, $uriMappings);
+        error_log('normalizeUris: TTL modified with new URIs for itemSetId ' . $itemSetId . '. URI changes made: ' . count($uriMappings), 3, OMEKA_PATH . '/logs/ttl-modification.log');
+    } else {
+        error_log('normalizeUris: No URI modifications needed or made for itemSetId ' . $itemSetId, 3, OMEKA_PATH . '/logs/ttl-modification.log');
+    }
+    
+    // CRITICAL FIX: Do NOT append resource declarations - they cause duplicates and wrong types
+    // The original TTL already has proper declarations, we don't need to add more
+    
+    return $modifiedTtl;
+}
+
+/**
+ * FIXED: Updated SVU TTL generation to use correct timeline URI structure
  */
 private function generateSvuTtl($svuUri, $svu)
 {
@@ -501,64 +631,23 @@ private function generateSvuTtl($svuUri, $svu)
         $ttl .= "    dct:description \"" . $svu['svu_description'] . "\"^^xsd:literal ;\n";
     }
     
-    // Add timeline if year data is provided
+    // Add timeline if year data is provided - use consistent URI structure
     if (!empty($svu['svu_lower_year']) || !empty($svu['svu_upper_year'])) {
-        $timelineUri = $svuUri . "/timeline";
+        // Extract base URI from SVU URI to build timeline URI
+        $baseUri = dirname(dirname($svuUri)); // Get the base URI (e.g., https://purl.org/megalod/2422)
+        $svuSlug = basename($svuUri); // Get just the SVU identifier part
+        $timelineUri = "$baseUri/timeline/$svuSlug";
+        
         $ttl .= "    excav:hasTimeline <$timelineUri> ;\n";
-        $ttl .= "    .\n\n";
-        
-        // Add timeline details
-        $ttl .= "<$timelineUri> a excav:TimeLine ;\n";
-        
-        if (!empty($svu['svu_lower_year'])) {
-            $beginInstantUri = $timelineUri . "/beginning";
-            $ttl .= "    time:hasBeginning <$beginInstantUri> ;\n";
-        }
-        
-        if (!empty($svu['svu_upper_year'])) {
-            $endInstantUri = $timelineUri . "/end";
-            $ttl .= "    time:hasEnd <$endInstantUri> ;\n";
-        }
-        
-        $ttl .= "    .\n\n";
-        
-        // Add instant details
-        if (!empty($svu['svu_lower_year'])) {
-            $ttl .= "<$beginInstantUri> a excav:Instant ;\n";
-            $yearFormatted = str_pad($svu['svu_lower_year'], 4, '0', STR_PAD_LEFT);
-            $ttl .= "    time:inXSDgYear \"" . $yearFormatted . "\"^^xsd:gYear ;\n";            
-            // Default to AC if not specified, since BC checkbox wasn't checked in the form
-            if (isset($svu['svu_lower_bc']) && $svu['svu_lower_bc'] === true) {
-                $ttl .= "    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;\n";
-            } else {
-                $ttl .= "    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/AC> ;\n";
-            }
-            
-            $ttl .= "    .\n\n";
-        }
-        
-        if (!empty($svu['svu_upper_year'])) {
-            $ttl .= "<$endInstantUri> a excav:Instant ;\n";
-            $yearFormatted = str_pad($svu['svu_upper_year'], 4, '0', STR_PAD_LEFT);
-            $ttl .= "    time:inXSDgYear \"" . $yearFormatted . "\"^^xsd:gYear ;\n";            
-            // Default to AC if not specified, since BC checkbox wasn't checked in the form
-            if (isset($svu['svu_upper_bc']) && $svu['svu_upper_bc'] === true) {
-                $ttl .= "    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;\n";
-            } else {
-                $ttl .= "    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/AC> ;\n";
-            }
-            
-            $ttl .= "    .\n\n";
-        }
-    } else {
-        $ttl .= "    .\n\n";
     }
+    
+    $ttl .= "    .\n\n";
     
     return $ttl;
 }
 
 /**
- * Fixed processExcavationFormData method to generate consistent TTL structure
+ * UPDATED: Process excavation form data without generating duplicate declarations
  */
 private function processExcavationFormData($excavationData, $excavationIdentifier)
 {
@@ -572,17 +661,24 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
     $siteName = $excavationData['site_name'] ?? 'unknown';
     $siteSlug = $this->createUrlSlug($siteName);
     $locationUri = "$baseUri/location/$siteSlug";
-    $gpsUri = "$baseUri/gps/$siteSlug";
+    $gpsUri = "$baseUri/gps/$siteSlug"; // SEPARATE GPS URI
     
     // Build TTL data
     $ttl = $this->getTtlPrefixes();
+    
+    // MAIN EXCAVATION SECTION
+    $ttl .= "# ========================================================================================\n";
+    $ttl .= "# EXCAVATION DATA - " . strtoupper($excavationData['site_name'] ?? 'ARCHAEOLOGICAL SITE') . "\n";
+    $ttl .= "# ========================================================================================\n\n";
+    
+    $ttl .= "# =========== MAIN EXCAVATION ===========\n\n";
     
     // Add excavation
     $ttl .= "<$excavationUri> a excav:Excavation ;\n";
     $ttl .= "    dct:identifier \"$excavationIdentifier\"^^xsd:literal ;\n";
     $ttl .= "    dul:hasLocation <$locationUri> ;\n";
     
-    // Add archaeologist reference and create archaeologist entity
+    // Add archaeologist reference
     if (!empty($excavationData['archaeologist']['name'])) {
         $archaeologistUri = $this->processArchaeologistForTtl($excavationData['archaeologist'], $baseUri);
         if ($archaeologistUri) {
@@ -590,55 +686,47 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
         }
     }
     
-    // Add contexts and other entities
-    if (!empty($excavationData['entities']['contexts'])) {
-        foreach ($excavationData['entities']['contexts'] as $index => $context) {
-            $contextSlug = $this->createUrlSlug($context['context_id']);
-            $contextUri = "$baseUri/context/$contextSlug";
-            $ttl .= "    excav:hasContext <$contextUri> ;\n";
-        }
-    }
-    
     // Add squares
     if (!empty($excavationData['entities']['squares'])) {
+        $squareUris = [];
         foreach ($excavationData['entities']['squares'] as $square) {
             $squareSlug = $this->createUrlSlug($square['square_id']);
             $squareUri = "$baseUri/square/$squareSlug";
-            $ttl .= "    excav:hasSquare <$squareUri> ;\n";
+            $squareUris[] = "<$squareUri>";
         }
+        $ttl .= "    excav:hasSquare " . implode(",\n                    ", $squareUris) . " ;\n";
     }
     
-    $ttl .= "    .\n\n";
+    // Add contexts
+    if (!empty($excavationData['entities']['contexts'])) {
+        $contextUris = [];
+        foreach ($excavationData['entities']['contexts'] as $context) {
+            $contextSlug = $this->createUrlSlug($context['context_id']);
+            $contextUri = "$baseUri/context/$contextSlug";
+            $contextUris[] = "<$contextUri>";
+        }
+        $ttl .= "    excav:hasContext " . implode(",\n                     ", $contextUris) . " .\n\n";
+    } else {
+        $ttl .= "    .\n\n";
+    }
     
-    // ENHANCED: Add location with improved structure to match file uploads
+    // LOCATION SECTION
+    $ttl .= "# =========== LOCATION ===========\n\n";
     $ttl .= $this->generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationData);
     
-    // Add archaeologist entity if it's a new one
+    // Continue with other sections...
+    // (ARCHAEOLOGIST, SQUARES, CONTEXTS, SVUS, TIMELINES sections remain the same)
+    
+    // ARCHAEOLOGIST SECTION
     if (!empty($excavationData['archaeologist']['name']) && !$excavationData['archaeologist']['existing']) {
+        $ttl .= "# =========== ARCHAEOLOGIST ===========\n\n";
         $archaeologistUri = $this->processArchaeologistForTtl($excavationData['archaeologist'], $baseUri);
         $ttl .= $this->generateArchaeologistTtl($archaeologistUri, $excavationData['archaeologist']);
     }
     
-    // Add contexts with improved URIs
-    if (!empty($excavationData['entities']['contexts'])) {
-        foreach ($excavationData['entities']['contexts'] as $index => $context) {
-            $contextSlug = $this->createUrlSlug($context['context_id']);
-            $contextUri = "$baseUri/context/$contextSlug";
-            $ttl .= $this->generateContextTtl($contextUri, $context, $excavationData['entities'], $baseUri);
-        }
-    }
-    
-    // Add SVUs with improved URIs
-    if (!empty($excavationData['entities']['svus'])) {
-        foreach ($excavationData['entities']['svus'] as $svu) {
-            $svuSlug = $this->createUrlSlug($svu['svu_id']);
-            $svuUri = "$baseUri/svu/$svuSlug";
-            $ttl .= $this->generateSvuTtl($svuUri, $svu);
-        }
-    }
-    
-    // Add squares with improved URIs
+    // SQUARES SECTION
     if (!empty($excavationData['entities']['squares'])) {
+        $ttl .= "# =========== EXCAVATION SQUARES ===========\n\n";
         foreach ($excavationData['entities']['squares'] as $square) {
             $squareSlug = $this->createUrlSlug($square['square_id']);
             $squareUri = "$baseUri/square/$squareSlug";
@@ -646,99 +734,119 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
         }
     }
     
-    // Add encounter events with improved URIs
-    if (!empty($excavationData['entities']['encounters'])) {
-        foreach ($excavationData['entities']['encounters'] as $index => $encounter) {
-            $encounterUri = "$baseUri/encounter/encounter-" . ($index + 1);
-            $ttl .= $this->generateEncounterTtl($encounterUri, $encounter, $excavationUri, $itemUri = null);
+    // CONTEXTS SECTION
+    if (!empty($excavationData['entities']['contexts'])) {
+        $ttl .= "# =========== CONTEXTS ===========\n\n";
+        foreach ($excavationData['entities']['contexts'] as $context) {
+            $contextSlug = $this->createUrlSlug($context['context_id']);
+            $contextUri = "$baseUri/context/$contextSlug";
+            $ttl .= $this->generateContextTtl($contextUri, $context, $excavationData['entities'], $baseUri);
         }
     }
     
-    error_log('Generated TTL for excavation: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-ttl.log');
+    // SVUS SECTION
+    if (!empty($excavationData['entities']['svus'])) {
+        $ttl .= "# =========== STRATIGRAPHIC VOLUME UNITS ===========\n\n";
+        foreach ($excavationData['entities']['svus'] as $svu) {
+            $svuSlug = $this->createUrlSlug($svu['svu_id']);
+            $svuUri = "$baseUri/svu/$svuSlug";
+            $ttl .= $this->generateSvuTtl($svuUri, $svu);
+        }
+    }
+    
+    // Generate timeline and instant sections if we have SVUs with dates
+    $this->generateTimelineAndInstantSections($ttl, $excavationData, $baseUri);
+    
+    error_log('Generated clean TTL for excavation: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-ttl.log');
     
     return $ttl;
 }
 
+
+
+
 /**
- * ENHANCED: Generate location TTL with structure matching file uploads
+ * NEW: Generate timeline and instant sections like file uploads
  */
-private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationData)
-{
-    // Initialize the TTL string for the main location entity
-    $ttl = "<$locationUri> a excav:Location ;\n";
-    
-    // IMPORTANT: Also add GPSCoordinates type to match file structure
-    $ttl .= "    a excav:GPSCoordinates ;\n";
-    
-    // Use site_name as the informationName (Name of the Location from form)
-    if (!empty($excavationData['site_name'])) {
-        $ttl .= "    dbo:informationName \"" . $excavationData['site_name'] . "\"^^xsd:literal ;\n";
+private function generateTimelineAndInstantSections(&$ttl, $excavationData, $baseUri) {
+    if (empty($excavationData['entities']['svus'])) {
+        return;
     }
     
-    // CRITICAL: Add GPS coordinates directly on the location object (like file uploads)
-    if (!empty($excavationData['latitude'])) {
-        $ttl .= "    geo:lat \"" . $excavationData['latitude'] . "\"^^xsd:decimal ;\n";
+    $timelineUris = [];
+    $instantUris = [];
+    
+    // Collect all timeline URIs first
+    foreach ($excavationData['entities']['svus'] as $svu) {
+        if (!empty($svu['svu_lower_year']) || !empty($svu['svu_upper_year'])) {
+            $svuSlug = $this->createUrlSlug($svu['svu_id']);
+            $timelineUri = "$baseUri/timeline/$svuSlug";
+            $timelineUris[] = [
+                'uri' => $timelineUri,
+                'svu' => $svu
+            ];
+        }
     }
     
-    if (!empty($excavationData['longitude'])) {
-        $ttl .= "    geo:long \"" . $excavationData['longitude'] . "\"^^xsd:decimal ;\n";
-    }
-    
-    // ENHANCED: Add district/parish with proper URIs and separate entity declarations
-    $entityDeclarations = "";
-    
-    // Add District as a normalized URI with proper entity declaration
-    if (!empty($excavationData['district'])) {
-        $districtSlug = $this->createUrlSlug($excavationData['district']);
-        // Extract base URI from location URI
-        $baseUri = dirname(dirname($locationUri)); // Get base URI
-        $districtUri = "$baseUri/" . strtolower($districtSlug);
-        $ttl .= "    dbo:district <$districtUri> ;\n";
+    if (!empty($timelineUris)) {
+        $ttl .= "# =========== TIMELINES ===========\n\n";
         
-        // Add district entity declaration
-        $entityDeclarations .= "<$districtUri> a dbo:District ;\n";
-        $entityDeclarations .= "    rdfs:label \"" . $excavationData['district'] . "\"^^xsd:literal ;\n";
-        $entityDeclarations .= "    .\n\n";
-    }
-    
-    // Add Parish as a normalized URI with proper entity declaration  
-    if (!empty($excavationData['parish'])) {
-        $parishSlug = $this->createUrlSlug($excavationData['parish']);
-        $baseUri = dirname(dirname($locationUri)); // Get base URI
-        $parishUri = "$baseUri/" . strtolower($parishSlug);
-        $ttl .= "    dbo:parish <$parishUri> ;\n";
+        foreach ($timelineUris as $timelineData) {
+            $timeline = $timelineData['uri'];
+            $svu = $timelineData['svu'];
+            
+            $ttl .= "<$timeline> a excav:TimeLine ;\n";
+            
+            if (!empty($svu['svu_lower_year'])) {
+                $beginInstantUri = "$timeline/beginning";
+                $ttl .= "    time:hasBeginning <$beginInstantUri> ;\n";
+                $instantUris[] = [
+                    'uri' => $beginInstantUri,
+                    'year' => $svu['svu_lower_year'],
+                    'bc' => !empty($svu['svu_lower_bc'])
+                ];
+            }
+            
+            if (!empty($svu['svu_upper_year'])) {
+                $endInstantUri = "$timeline/end";
+                $ttl .= "    time:hasEnd <$endInstantUri> .\n\n";
+                $instantUris[] = [
+                    'uri' => $endInstantUri,
+                    'year' => $svu['svu_upper_year'],
+                    'bc' => !empty($svu['svu_upper_bc'])
+                ];
+            } else {
+                $ttl .= "    .\n\n";
+            }
+        }
         
-        // Add parish entity declaration
-        $entityDeclarations .= "<$parishUri> a dbo:Parish ;\n";
-        $entityDeclarations .= "    rdfs:label \"" . $excavationData['parish'] . "\"^^xsd:literal ;\n";
-        $entityDeclarations .= "    .\n\n";
+        if (!empty($instantUris)) {
+            $ttl .= "# =========== TIME INSTANTS ===========\n\n";
+            
+            foreach ($instantUris as $instantData) {
+                $instantUri = $instantData['uri'];
+                $year = $instantData['year'];
+                $isBC = $instantData['bc'];
+                
+                $ttl .= "<$instantUri> a excav:Instant ;\n";
+                $ttl .= "    excav:bcad <$baseUri/MegaLOD-BCAD/" . ($isBC ? 'BC' : 'AC') . "> ;\n";
+                
+                // Format year properly for xsd:gYear
+                $yearValue = abs((int)$year);
+                $yearFormatted = str_pad($yearValue, 4, '0', STR_PAD_LEFT);
+                
+                // Add negative sign for BC years in xsd:gYear format
+                if ($isBC) {
+                    $yearFormatted = "-" . $yearFormatted;
+                }
+                
+                $ttl .= "    time:inXSDgYear \"$yearFormatted\"^^xsd:gYear .\n\n";
+            }
+        }
     }
-    
-    // Add Country as DBpedia resource (like file uploads)
-    if (!empty($excavationData['country'])) {
-        $countrySlug = str_replace(' ', '_', $excavationData['country']);
-        $countryUri = "http://dbpedia.org/resource/" . $countrySlug;
-        $ttl .= "    dbo:Country <$countryUri> ;\n";
-        
-        // Add country declaration
-        $entityDeclarations .= "<$countryUri> a dbo:Country ;\n";
-        $entityDeclarations .= "    rdfs:label \"" . $excavationData['country'] . "\"^^xsd:literal ;\n";
-        $entityDeclarations .= "    .\n\n";
-    }
-    
-    // IMPORTANT: Add self-reference to GPS coordinates (like file uploads)
-    if (!empty($excavationData['latitude']) || !empty($excavationData['longitude'])) {
-        $ttl .= "    excav:hasGPSCoordinates <$locationUri> ;\n";
-    }
-    
-    // Close the location entity
-    $ttl .= "    .\n\n";
-    
-    // Add the entity declarations
-    $ttl .= $entityDeclarations;
-    
-    return $ttl;
 }
+
+
 
 /**
  * ENHANCED: Generate archaeologist TTL with proper URI structure
@@ -3466,66 +3574,6 @@ private function formatChippingValue($valueObj, $dataType) {
 
 
 
-private function normalizeUris($ttlData, $itemSetId) {
-    // Use a more precise pattern that avoids double matches
-    $pattern = '/<(https:\/\/purl\.org\/megalod\/)([^\/]+)(\/[^>]+)>/';
-    
-    $uriMappings = [];
-    
-    preg_match_all($pattern, $ttlData, $matches, PREG_SET_ORDER);
-    
-    error_log("normalizeUris: Found " . count($matches) . " potential URIs to normalize for itemSetId: $itemSetId", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
-
-    foreach ($matches as $match) {
-        $fullUri = $match[0];             // The complete matched URI
-        $baseUrl = $match[1];             // Base URL part: "https://purl.org/megalod/"
-        $currentIdSegment = $match[2];    // The segment to be replaced, e.g., "EXC-001" or "2205"
-        $resourcePath = $match[3];        // The rest of the URI path, e.g., "/excavation/EXC-001"
-
-        // Skip KOS URIs and URIs that already have the correct item set ID
-        if ($currentIdSegment === (string)$itemSetId || strpos($resourcePath, '/kos/') !== false) {
-            if (strpos($resourcePath, '/kos/') !== false) {
-                error_log("normalizeUris: Skipping KOS URI '$fullUri'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
-            } else {
-                error_log("normalizeUris: Skipping '$fullUri' as current ID segment '$currentIdSegment' matches itemSetId '$itemSetId'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
-            }
-            continue;
-        }
-        
-        // Ensure we're not creating a recursive or malformed URI
-        // Check if the path already contains purl.org to avoid duplication
-        if (strpos($resourcePath, 'purl.org') !== false) {
-            error_log("normalizeUris: Skipping '$fullUri' to prevent malformed URI - path already contains 'purl.org'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
-            continue;
-        }
-        
-        $newUri = "<{$baseUrl}{$itemSetId}{$resourcePath}>";
-        if (!isset($uriMappings[$fullUri])) { 
-            $uriMappings[$fullUri] = $newUri;
-            error_log("normalizeUris: Mapping '$fullUri' to '$newUri'", 3, OMEKA_PATH . '/logs/uri-normalize-details.log');
-        }
-    }
-    
-    $modifiedTtl = $ttlData;
-    if (!empty($uriMappings)) {
-        $modifiedTtl = strtr($ttlData, $uriMappings);
-        error_log('normalizeUris: TTL modified with new URIs for itemSetId ' . $itemSetId . '. URI changes made: ' . count($uriMappings), 3, OMEKA_PATH . '/logs/ttl-modification.log');
-    } else {
-        error_log('normalizeUris: No URI modifications needed or made for itemSetId ' . $itemSetId, 3, OMEKA_PATH . '/logs/ttl-modification.log');
-    }
-    
-    // Generate and append resource declarations if there were any URI mappings.
-    // These declarations are based on the *new* URIs.
-    if (!empty($uriMappings)) {
-        $declarations = $this->generateResourceDeclarations($uriMappings, $itemSetId);
-        if (!empty($declarations)) {
-            $modifiedTtl .= "\n" . $declarations;
-            error_log('normalizeUris: Appended resource declarations for itemSetId ' . $itemSetId, 3, OMEKA_PATH . '/logs/ttl-modification.log');
-        }
-    }
-    
-    return $modifiedTtl;
-}
 /**
  * Generate declarations for referenced resources
  * 
