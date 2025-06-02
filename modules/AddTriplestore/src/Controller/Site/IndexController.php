@@ -989,12 +989,11 @@ private function createExcavationItemSetData($excavationIdentifier, $excavationD
 
 
 /**
- * ENHANCED: processArchaeologicalContextSelections with resource declarations
+ * ENHANCED: processArchaeologicalContextSelections without resource declarations
  */
 private function processArchaeologicalContextSelections($formData, $itemSetId, $baseUri)
 {
     $linkedResources = [];
-    $resourceDeclarations = []; // NEW: Store resource declarations
     
     error_log('=== PROCESSING CONTEXT SELECTIONS ===', 3, OMEKA_PATH . '/logs/context-debug.log');
     
@@ -1009,13 +1008,6 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
             // Create URI using the real identifier
             $squareUri = "$baseUri/square/$realSquareId";
             $linkedResources['excav:foundInSquare'] = $squareUri;
-            
-            // Add resource declaration to ensure it exists with correct type
-            $resourceDeclarations[] = [
-                'uri' => $squareUri,
-                'type' => 'excav:Square',
-                'identifier' => $realSquareId
-            ];
             
             error_log("Linked to square: $squareUri (real ID: $realSquareId)", 3, OMEKA_PATH . '/logs/context-debug.log');
         } else {
@@ -1033,13 +1025,6 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
             $contextUri = "$baseUri/context/$realContextId";
             $linkedResources['excav:foundInContext'] = $contextUri;
             
-            // Add resource declaration
-            $resourceDeclarations[] = [
-                'uri' => $contextUri,
-                'type' => 'excav:Context',
-                'identifier' => $realContextId
-            ];
-            
             error_log("Linked to context: $contextUri (real ID: $realContextId)", 3, OMEKA_PATH . '/logs/context-debug.log');
         } else {
             error_log("Could not get real identifier for context item $contextItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
@@ -1056,13 +1041,6 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
             $svuUri = "$baseUri/svu/$realSvuId";
             $linkedResources['excav:foundInSVU'] = $svuUri;
             
-            // Add resource declaration
-            $resourceDeclarations[] = [
-                'uri' => $svuUri,
-                'type' => 'excav:StratigraphicVolumeUnit',
-                'identifier' => $realSvuId
-            ];
-            
             error_log("Linked to SVU: $svuUri (real ID: $realSvuId)", 3, OMEKA_PATH . '/logs/context-debug.log');
         } else {
             error_log("Could not get real identifier for SVU item $svuItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
@@ -1070,11 +1048,10 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
     }
     
     error_log('Final linked resources: ' . print_r($linkedResources, true), 3, OMEKA_PATH . '/logs/context-debug.log');
-    error_log('Resource declarations needed: ' . print_r($resourceDeclarations, true), 3, OMEKA_PATH . '/logs/context-debug.log');
     
+    // Return only the references - NO declarations
     return [
-        'references' => $linkedResources,
-        'declarations' => $resourceDeclarations
+        'references' => $linkedResources
     ];
 }
 
@@ -1105,10 +1082,6 @@ private function processArrowheadFormData($formData, $itemSetId)
     // Build TTL data
     $ttl = $this->getTtlPrefixes();
     
-    // Add excavation reference
-    $ttl .= "<$excavationUri> a excav:Excavation;\n";
-    $ttl .= "    dct:identifier \"EXC-$itemSetId\"^^xsd:literal;\n";
-    $ttl .= "    .\n\n";
     
     // ENHANCED: Process selected archaeological context resources
     $contextResult = $this->processArchaeologicalContextSelections($formData, $itemSetId, $baseUri);
@@ -2950,364 +2923,235 @@ private function extractIdentifier($rdfData, $subject) {
 
 
 
-/*
-||||||||||| PROCESS ARROWHEAD DATA |||||||||||
 
-<?php
-/**
- * Process arrowhead specific data with complete value extraction
- */
 private function processArrowheadData($rdfData, $subject, &$itemData) {
-    error_log('=== DEBUGGING PROPERTY MAPPING ===', 3, OMEKA_PATH . '/logs/property-debug.log');
+    // Log all available properties for debugging
+    $availableProperties = isset($rdfData[$subject]) ? array_keys($rdfData[$subject]) : [];
+    error_log('Available properties for arrowhead: ' . print_r($availableProperties, true), 3, OMEKA_PATH . '/logs/arrowhead-properties.log');
 
-    error_log('Processing arrowhead data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/arrowhead-processing.log');
-    
-    // Get the current item set context for this processing
+    // Current item set context
     $currentItemSetId = $this->getCurrentItemSetContext();
-    error_log("Current item set context: " . ($currentItemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/arrowhead-processing.log');
     
-    $excavationUri = "https://purl.org/megalod/$itemSetId";
-
-    // Basic properties - direct mapping
-    $propertyMap = [
-        'https://purl.org/megalod/ms/ah/shape' => ['ArrowHead - shape', 7651],
-        'https://purl.org/megalod/ms/ah/variant' => ['ArrowHead - Variant', 7652],
-        'http://www.cidoc-crm.org/cidoc-crm/P45_consists_of' => ['is composed of', 478],
-        'http://www.cidoc-crm.org/cidoc-crm/E57_Material' => ['is composed of', 480],
-        'https://purl.org/megalod/ms/excavation/elongationIndex' => ['Elongation Index', 7676],
-        'https://purl.org/megalod/ms/excavation/thicknessIndex' => ['Thickness Index', 7677],
+    // CRITICAL ADDITION: Add direct properties for morphology, chipping, and coordinates
+    $criticalProperties = [
+        'ah:point' => ['Point Definition', 7653],
+        'ah:body' => ['Body Symmetry', 7654], 
+        'ah:base' => ['Base Type', 7655],
+        'ah:chippingMode' => ['Chipping Mode', 7656],
+        'ah:chippingAmplitude' => ['Chipping Amplitude', 7657],
+        'ah:chippingDirection' => ['Chipping Direction', 7658],
+        'ah:chippingOrientation' => ['Chipping Orientation', 7659],
+        'ah:chippingDelineation' => ['Chipping Delineation', 7660],
+        'ah:chippingShape' => ['Chipping Shape', 7661]
     ];
-
-    // Enhanced resource link mapping WITH ITEM SET CONTEXT
-
-// In the processArrowheadData method, update the resourceLinkMap:
-    $resourceLinkMap = [
-        'https://purl.org/megalod/ms/excavation/foundInSquare' => ['The Square', 7668],
-        'https://purl.org/megalod/ms/excavation/foundInContext' => ['The Encounter Event - an item found in a specific Context', 7672], 
-        'https://purl.org/megalod/ms/excavation/foundInSVU' => ['Encounter Event - an item found in a specific Stratigraphic Unit', 7671],
-        'https://purl.org/megalod/ms/excavation/foundInExcavation' => ['The Encounter Event - an item found in an Excavation', 7673],
-        'https://purl.org/megalod/ms/excavation/foundInLocation' => ['Item found in a Location', 7680], // Add this line
-        'crmsci:O19i_was_object_encountered_through' => ['Item was encountered in Event', 375],
-    ];
-
-    $gpsPropertyMap = [
-        'http://www.w3.org/2003/01/geo/wgs84_pos#lat' => ['GPS Latitude', 257],
-        'http://www.w3.org/2003/01/geo/wgs84_pos#long' => ['GPS Longitude', 259],
-    ];
-
-    // Process GPS properties
-    foreach ($gpsPropertyMap as $predicate => $mapping) {
-        if (isset($rdfData[$subject][$predicate])) {
-            $term = $mapping[0];
-            $propertyId = $mapping[1];
-            
-            if (!isset($itemData[$term])) {
-                $itemData[$term] = [];
-            }
-            
-            foreach ($rdfData[$subject][$predicate] as $object) {
-                if ($object['type'] === 'literal') {
-                    $itemData[$term][] = [
-                        'type' => 'literal',
-                        'property_id' => $propertyId,
-                        '@value' => $object['value']
-                    ];
-                }
-            }
-        }
-    }
-
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/foundInLocation'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/foundInLocation'] as $locObj) {
-            if ($locObj['type'] === 'uri') {
-                $locationUri = $locObj['value'];
-                $locationId = $this->extractResourceIdentifier($rdfData, $locationUri);
-                
-                // Try to find the location item in Omeka
-                $locationItem = $this->findItemByIdentifier($locationId, $currentItemSetId);
-                
-                if ($locationItem) {
-                    if (!isset($itemData['Item found in a Location'])) {
-                        $itemData['Item found in a Location'] = [];
-                    }
-                    
-                    $itemData['Item found in a Location'][] = [
-                        'type' => 'resource',
-                        'property_id' => 7680, // The new property ID for foundInLocation
-                        'value_resource_id' => $locationItem->id(),
-                        'o:label' => "Location: " . $locationId
-                    ];
-                    
-                    error_log("✓ Successfully linked to location: '$locationId' -> Item ID: " . $locationItem->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
-                } else {
-                    // Extract location name if available in the RDF data
-                    $locationName = null;
-                    if (isset($rdfData[$locationUri])) {
-                        // Try to get a readable label from the location
-                        $locationName = $this->extractLocationName($rdfData, $locationUri);
-                    }
-                    
-                    if (!isset($itemData['Item found in a Location'])) {
-                        $itemData['Item found in a Location'] = [];
-                    }
-                    
-                    $itemData['Item found in a Location'][] = [
-                        'type' => 'literal',
-                        'property_id' => 7681,
-                        '@value' => $locationName ?: "Location: $locationId (NOT LINKED - resource not found)"
-                    ];
-                    
-                    error_log("⚠ Could not link to location: '$locationId' - storing as literal", 3, OMEKA_PATH . '/logs/resource-links.log');
-                }
-            }
-        }
-    }
-
-
-
-// In processArrowheadData, keep or add this block:
-if (isset($rdfData[$subject]['http://cidoc-crm.org/extensions/crmsci/O19i_was_object_encountered_through'])) {
-    foreach ($rdfData[$subject]['http://cidoc-crm.org/extensions/crmsci/O19i_was_object_encountered_through'] as $encounterObj) {
-        if ($encounterObj['type'] === 'uri') {
-            $encounterUri = $encounterObj['value'];
-            
-            // Extract encounter metadata directly
-            $encounterDate = null;
-            
-            if (isset($rdfData[$encounterUri])) {
-                // Get encounter date if available
-                if (isset($rdfData[$encounterUri]['http://purl.org/dc/terms/date'])) {
-                    foreach ($rdfData[$encounterUri]['http://purl.org/dc/terms/date'] as $dateObj) {
-                        if ($dateObj['type'] === 'literal') {
-                            $encounterDate = $dateObj['value'];
-                        }
-                    }
-                }
-                
-                
-            }
-            
-            // Add encounter information to arrowhead item
-            if (!isset($itemData['Encounter Date'])) {
-                $itemData['Encounter Date'] = [];
-            }
-            
-            if ($encounterDate) {
-                $itemData['Encounter Date'][] = [
-                    'type' => 'literal',
-                    'property_id' => 7, // Use appropriate property ID for encounter date
-                    '@value' => $encounterDate
-                ];
-            }
-            
-            
-        }
-    }
-}
     
-    // Process basic properties
-    foreach ($propertyMap as $predicate => $mapping) {
-        if (isset($rdfData[$subject][$predicate])) {
-            $term = $mapping[0];
-            $propertyId = $mapping[1];
-
-            error_log("Processing property: $predicate -> $term (ID: $propertyId)", 3, OMEKA_PATH . '/logs/property-debug.log');
-        error_log("RDF data for this property: " . print_r($rdfData[$subject][$predicate], true), 3, OMEKA_PATH . '/logs/property-debug.log');
-        
-            
-            if (!isset($itemData[$term])) {
-                $itemData[$term] = [];
-            }
-            
-            foreach ($rdfData[$subject][$predicate] as $object) {
-                if ($object['type'] === 'uri') {
-                    // Extract the term from the URI for controlled vocabularies
-                    if (strpos($object['value'], '/kos/') !== false) {
-                        $parts = explode('/', $object['value']);
-                        $value = end($parts);
-                        $itemData[$term][] = [
-                            'type' => 'literal',
-                            'property_id' => $propertyId,
-                            '@value' => ucfirst($value)
-                        ];
-                    } else {
-                        $itemData[$term][] = [
-                            'type' => 'uri',
-                            'property_id' => $propertyId,
-                            '@id' => $object['value'],
-                            'o:label' => $object['value']
-                        ];
-                    }
-                } else {
-                    $itemData[$term][] = [
-                        'type' => 'literal',
-                        'property_id' => $propertyId,
-                        '@value' => $object['value']
-                    ];
-                }
-            }
-        }
-        else {
-            error_log("Property not found in RDF: $predicate", 3, OMEKA_PATH . '/logs/property-debug.log');
-        }
-    }
-    
-    // ENHANCED: Process resource links with item set constraints
-    foreach ($resourceLinkMap as $predicate => $mapping) {
-        if (isset($rdfData[$subject][$predicate])) {
-            $term = $mapping[0];
-            $propertyId = $mapping[1];
-            
-            foreach ($rdfData[$subject][$predicate] as $obj) {
-                if ($obj['type'] === 'uri') {
-                    $resourceId = $this->extractResourceIdentifier($rdfData, $obj['value']);
-                    
-                    if ($resourceId) {
-                        error_log("Attempting to link to resource: '$resourceId' within item set: " . ($currentItemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/resource-links.log');
+    // Process all nested objects directly
+    foreach ($rdfData as $uri => $properties) {
+        // Look for morphology objects
+        if (isset($properties['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
+            foreach ($properties['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
+                if ($typeObj['type'] === 'uri') {
+                    // Found a morphology object
+                    if (strpos($typeObj['value'], 'Morphology') !== false) {
+                        error_log("Found morphology object: $uri", 3, OMEKA_PATH . '/logs/morphology-debug.log');
                         
-                        // CRITICAL FIX: Pass item set context to constrain search
-                        $linkedItem = $this->findItemByIdentifier($resourceId, $currentItemSetId);
-                        
-                        if ($linkedItem) {
-                            if (!isset($itemData[$term])) {
-                                $itemData[$term] = [];
-                            }
+                        // Extract all properties from the morphology object
+                        foreach ($properties as $propUri => $propValues) {
+                            $shortProp = basename($propUri);
                             
-                            $itemData[$term][] = [
-                                'type' => 'resource',
-                                'property_id' => $propertyId,
-                                'value_resource_id' => $linkedItem->id(),
-                                'o:label' => $resourceId . " (ID: " . $linkedItem->id() . ")"
-                            ];
-                            
-                            error_log("✓ Successfully linked to resource: '$resourceId' -> Item ID: " . $linkedItem->id(), 3, OMEKA_PATH . '/logs/resource-links.log');
-                        } else {
-                            // Fallback to literal value with warning
-                            if (!isset($itemData[$term])) {
-                                $itemData[$term] = [];
-                            }
-                            
-                            $itemData[$term][] = [
-                                'type' => 'literal',
-                                'property_id' => $propertyId,
-                                '@value' => $resourceId . " (NOT LINKED - resource not found in this excavation)"
-                            ];
-                            
-                            error_log("⚠ Could not link to resource: '$resourceId' - storing as literal", 3, OMEKA_PATH . '/logs/resource-links.log');
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/foundInExcavation'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/foundInExcavation'] as $obj) {
-            if ($obj['type'] === 'uri') {
-                $excavationUri = $obj['value'];
-                error_log("Found excavation reference: $excavationUri", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
-                break;
-            }
-        }
-    }
-
-// If we have an excavation URI, try to get its GPS coordinates
-    if ($excavationUri && isset($rdfData[$excavationUri])) {
-        error_log("Looking for location in excavation: $excavationUri", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
-        
-        // Find the location linked to the excavation
-        if (isset($rdfData[$excavationUri]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
-            foreach ($rdfData[$excavationUri]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'] as $locObj) {
-                if ($locObj['type'] === 'uri' && isset($rdfData[$locObj['value']])) {
-                    $locationUri = $locObj['value'];
-                    error_log("Found location URI: $locationUri", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
-                    
-                    // Find GPS coordinates linked to the location
-                    if (isset($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates'])) {
-                        foreach ($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates'] as $gpsObj) {
-                            if ($gpsObj['type'] === 'uri' && isset($rdfData[$gpsObj['value']])) {
-                                $gpsUri = $gpsObj['value'];
-                                error_log("Found GPS URI: $gpsUri", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
-                                
-                                // Extract lat/long from GPS coordinates
-                                $lat = null;
-                                $long = null;
-                                
-                                if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'])) {
-                                    foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'] as $latObj) {
-                                        if ($latObj['type'] === 'literal') {
-                                            $lat = $latObj['value'];
-                                            error_log("Found latitude: $lat", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
-                                        }
+                            foreach ($propValues as $propObj) {
+                                // Handle both literal and URI values
+                                if ($propObj['type'] === 'literal') {
+                                    // Boolean values need special handling
+                                    $displayValue = $propObj['value'];
+                                    if ($displayValue === 'true' || $displayValue === 'false') {
+                                        $displayValue = ($displayValue === 'true') ? 'True' : 'False';
                                     }
-                                }
-                                
-                                if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'])) {
-                                    foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'] as $longObj) {
-                                        if ($longObj['type'] === 'literal') {
-                                            $long = $longObj['value'];
-                                            error_log("Found longitude: $long", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
-                                        }
+                                    
+                                    // Use critical properties map or a generic label
+                                    $propKey = "ah:$shortProp";
+                                    if (isset($criticalProperties[$propKey])) {
+                                        $label = $criticalProperties[$propKey][0];
+                                        $propertyId = $criticalProperties[$propKey][1];
+                                    } else {
+                                        $label = "Arrowhead-$shortProp";
+                                        $propertyId = 7647; // Generic property ID
                                     }
-                                }
-                                
-                                // Add GPS coordinates to arrowhead
-                                if ($lat !== null) {
-                                    if (!isset($itemData['GPS Latitude'])) {
-                                        $itemData['GPS Latitude'] = [];
+                                    
+                                    if (!isset($itemData[$label])) {
+                                        $itemData[$label] = [];
                                     }
-                                    $itemData['GPS Latitude'][] = [
+                                    
+                                    $itemData[$label][] = [
                                         'type' => 'literal',
-                                        'property_id' => 257, // GPS Latitude property ID
-                                        '@value' => $lat
-                                    ];
-                                }
-                                
-                                if ($long !== null) {
-                                    if (!isset($itemData['GPS Longitude'])) {
-                                        $itemData['GPS Longitude'] = [];
-                                    }
-                                    $itemData['GPS Longitude'][] = [
-                                        'type' => 'literal',
-                                        'property_id' => 259, // GPS Longitude property ID
-                                        '@value' => $long
-                                    ];
-                                }
-                                
-                                // Also add combined GPS coordinates
-                                if ($lat !== null && $long !== null) {
-                                    if (!isset($itemData['GPS Coordinates'])) {
-                                        $itemData['GPS Coordinates'] = [];
-                                    }
-                                    $itemData['GPS Coordinates'][] = [
-                                        'type' => 'literal',
-                                        'property_id' => 7664, // GPS Coordinates property ID
-                                        '@value' => "Latitude: $lat, Longitude: $long"
+                                        'property_id' => $propertyId,
+                                        '@value' => $displayValue
                                     ];
                                     
-                                    error_log("Added GPS coordinates to arrowhead: Lat=$lat, Long=$long", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+                                    error_log("Added morphology property $shortProp: $displayValue", 3, OMEKA_PATH . '/logs/morphology-debug.log');
+                                } 
+                                // Handle URI values like base types
+                                else if ($propObj['type'] === 'uri') {
+                                    $parts = explode('/', $propObj['value']);
+                                    $value = ucfirst(end($parts));
+                                    
+                                    $propKey = "ah:$shortProp";
+                                    if (isset($criticalProperties[$propKey])) {
+                                        $label = $criticalProperties[$propKey][0];
+                                        $propertyId = $criticalProperties[$propKey][1];
+                                    } else {
+                                        $label = "Arrowhead-$shortProp";
+                                        $propertyId = 7647; // Generic property ID
+                                    }
+                                    
+                                    if (!isset($itemData[$label])) {
+                                        $itemData[$label] = [];
+                                    }
+                                    
+                                    $itemData[$label][] = [
+                                        'type' => 'literal',
+                                        'property_id' => $propertyId,
+                                        '@value' => $value
+                                    ];
+                                    
+                                    error_log("Added morphology URI property $shortProp: $value", 3, OMEKA_PATH . '/logs/morphology-debug.log');
                                 }
                             }
                         }
-                    } else {
-                        error_log("No GPS coordinates found for location", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
+                    }
+                    
+                    // Found a chipping object
+                    else if (strpos($typeObj['value'], 'Chipping') !== false) {
+                        error_log("Found chipping object: $uri", 3, OMEKA_PATH . '/logs/chipping-debug.log');
+                        
+                        // Similar processing as morphology
+                        foreach ($properties as $propUri => $propValues) {
+                            $shortProp = basename($propUri);
+                            
+                            // Special handling for location arrays
+                            if (strpos($propUri, 'chippingLocationSide') !== false || 
+                                strpos($propUri, 'chippingLocationTransversal') !== false) {
+                                
+                                $label = (strpos($propUri, 'Side') !== false) ? 
+                                    'Chipping Location Side' : 'Chipping Location Transversal';
+                                $propertyId = (strpos($propUri, 'Side') !== false) ? 7662 : 7663;
+                                
+                                if (!isset($itemData[$label])) {
+                                    $itemData[$label] = [];
+                                }
+                                
+                                foreach ($propValues as $locObj) {
+                                    if ($locObj['type'] === 'uri') {
+                                        $parts = explode('/', $locObj['value']);
+                                        $value = ucfirst(end($parts));
+                                        
+                                        $itemData[$label][] = [
+                                            'type' => 'literal',
+                                            'property_id' => $propertyId,
+                                            '@value' => $value
+                                        ];
+                                    }
+                                }
+                            } 
+                            // Process other chipping properties
+                            else {
+                                foreach ($propValues as $propObj) {
+                                    if ($propObj['type'] === 'literal') {
+                                        $displayValue = $propObj['value'];
+                                        if ($displayValue === 'true' || $displayValue === 'false') {
+                                            $displayValue = ($displayValue === 'true') ? 'Deep' : 'Marginal';
+                                        }
+                                        
+                                        $propKey = "ah:$shortProp";
+                                        if (isset($criticalProperties[$propKey])) {
+                                            $label = $criticalProperties[$propKey][0];
+                                            $propertyId = $criticalProperties[$propKey][1];
+                                        } else {
+                                            $label = "Chipping-$shortProp";
+                                            $propertyId = 7648; // Generic property ID
+                                        }
+                                        
+                                        if (!isset($itemData[$label])) {
+                                            $itemData[$label] = [];
+                                        }
+                                        
+                                        $itemData[$label][] = [
+                                            'type' => 'literal',
+                                            'property_id' => $propertyId,
+                                            '@value' => $displayValue
+                                        ];
+                                    }
+                                    else if ($propObj['type'] === 'uri') {
+                                        $parts = explode('/', $propObj['value']);
+                                        $value = ucfirst(end($parts));
+                                        
+                                        $propKey = "ah:$shortProp";
+                                        if (isset($criticalProperties[$propKey])) {
+                                            $label = $criticalProperties[$propKey][0];
+                                            $propertyId = $criticalProperties[$propKey][1];
+                                        } else {
+                                            $label = "Chipping-$shortProp";
+                                            $propertyId = 7648; // Generic property ID
+                                        }
+                                        
+                                        if (!isset($itemData[$label])) {
+                                            $itemData[$label] = [];
+                                        }
+                                        
+                                        $itemData[$label][] = [
+                                            'type' => 'literal',
+                                            'property_id' => $propertyId,
+                                            '@value' => $value
+                                        ];
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Found a coordinates object
+                    else if (strpos($typeObj['value'], 'Coordinates') !== false) {
+                        error_log("Found coordinates object: $uri", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+                        
+                        // Extract coordinate values
+                        if (isset($properties['http://schema.org/value'])) {
+                            $coords = [];
+                            $labels = ['X', 'Y', 'Z'];
+                            
+                            foreach ($properties['http://schema.org/value'] as $index => $valueObj) {
+                                if ($valueObj['type'] === 'literal' && isset($labels[$index])) {
+                                    $coords[$labels[$index]] = $valueObj['value'];
+                                }
+                            }
+                            
+                            // Create a combined coordinates display
+                            if (!empty($coords)) {
+                                $coordDisplay = [];
+                                foreach ($coords as $axis => $value) {
+                                    $coordDisplay[] = "$axis: $value";
+                                }
+                                
+                                if (!isset($itemData['Coordinates'])) {
+                                    $itemData['Coordinates'] = [];
+                                }
+                                
+                                $itemData['Coordinates'][] = [
+                                    'type' => 'literal',
+                                    'property_id' => 7674,
+                                    '@value' => implode(', ', $coordDisplay)
+                                ];
+                                
+                                error_log("Added coordinates: " . implode(', ', $coordDisplay), 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+                            }
+                        }
                     }
                 }
             }
-        } else {
-            error_log("No location found for excavation", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
         }
-    } else {
-        error_log("No valid excavation reference or excavation not found in RDF data", 3, OMEKA_PATH . '/logs/gps-coordinates.log');
     }
     
-    // Continue with existing code (measurements, morphology, etc.)
-    $this->processMeasurements($rdfData, $subject, $itemData);
-    $this->processMorphologyData($rdfData, $subject, $itemData);
-    $this->processChippingData($rdfData, $subject, $itemData);
-    $this->processCoordinatesData($rdfData, $subject, $itemData);
-}
 
+}
 private function getCurrentItemSetContext() {
     // This should return the current item set ID being processed
     // You might need to store this in a class property during processing
@@ -3364,55 +3208,133 @@ private function processMeasurements($rdfData, $subject, &$itemData) {
     }
 }
 
-/**
- * Process morphology data and extract all components
- */
+
 private function processMorphologyData($rdfData, $subject, &$itemData) {
-    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/ah/hasMorphology'])) {
-        foreach ($rdfData[$subject]['https://purl.org/megalod/ms/ah/hasMorphology'] as $morphObj) {
-            if ($morphObj['type'] === 'uri' && isset($rdfData[$morphObj['value']])) {
-                $morphUri = $morphObj['value'];
-                
-                // Extract point definition
-                if (isset($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/point'])) {
-                    $pointValue = $rdfData[$morphUri]['https://purl.org/megalod/ms/ah/point'][0]['value'];
-                    $displayValue = ($pointValue === 'true') ? 'Sharp' : 'Fractured';
+    // Try both original and normalized property URIs
+    $morphologyUris = [
+        'https://purl.org/megalod/ms/ah/hasMorphology',
+        'ah:hasMorphology'
+    ];
+    
+    // Add additional patterns with item set ID if available
+    $itemSetId = $this->getCurrentItemSetContext();
+    if ($itemSetId) {
+        $morphologyUris[] = "https://purl.org/megalod/$itemSetId/ah/hasMorphology";
+    }
+    
+    // Try all possible URI patterns
+    foreach ($morphologyUris as $morphologyUri) {
+        if (isset($rdfData[$subject][$morphologyUri])) {
+            foreach ($rdfData[$subject][$morphologyUri] as $morphObj) {
+                if ($morphObj['type'] === 'uri' && isset($rdfData[$morphObj['value']])) {
+                    $morphUri = $morphObj['value'];
                     
-                    $itemData['Point Definition'][] = [
-                        'type' => 'literal',
-                        'property_id' => 7653,
-                        '@value' => $displayValue
-                    ];
-                }
-                
-                // Extract body symmetry
-                if (isset($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/body'])) {
-                    $bodyValue = $rdfData[$morphUri]['https://purl.org/megalod/ms/ah/body'][0]['value'];
-                    $displayValue = ($bodyValue === 'true') ? 'Symmetrical' : 'Non-symmetrical';
+                    // Try multiple property name patterns for each property
+                    $this->extractMorphologyProperty($rdfData, $morphUri, 'ah:point', 'point', 'Point Definition', 7653, $itemData);
+                    $this->extractMorphologyProperty($rdfData, $morphUri, 'ah:body', 'body', 'Body Symmetry', 7654, $itemData);
+                    $this->extractMorphologyProperty($rdfData, $morphUri, 'ah:base', 'base', 'Base Type', 7655, $itemData);
                     
-                    $itemData['Body Symmetry'][] = [
-                        'type' => 'literal', 
-                        'property_id' => 7654,
-                        '@value' => $displayValue
-                    ];
-                }
-                
-                // Extract base type
-                if (isset($rdfData[$morphUri]['https://purl.org/megalod/ms/ah/base'])) {
-                    $baseUri = $rdfData[$morphUri]['https://purl.org/megalod/ms/ah/base'][0]['value'];
-                    $baseName = basename($baseUri);
-                    
-                    $itemData['Base Type'][] = [
-                        'type' => 'literal',
-                        'property_id' => 7655,
-                        '@value' => ucfirst($baseName)
-                    ];
+                    return;
                 }
             }
         }
     }
 }
 
+/**
+ * Helper to extract a specific morphology property
+ */
+private function extractMorphologyProperty($rdfData, $morphUri, $propertyName, $shortName, $label, $propertyId, &$itemData) {
+    // Try both standard and shorthand property names
+    $propertyVariants = [
+        $propertyName,
+        "https://purl.org/megalod/ms/ah/$shortName"
+    ];
+    
+    // Add item set specific variant if available
+    $itemSetId = $this->getCurrentItemSetContext();
+    if ($itemSetId) {
+        $propertyVariants[] = "https://purl.org/megalod/$itemSetId/ah/$shortName";
+    }
+    
+    foreach ($propertyVariants as $property) {
+        if (isset($rdfData[$morphUri][$property])) {
+            error_log("Found morphology property: $property in $morphUri", 3, OMEKA_PATH . '/logs/morphology-debug.log');
+            
+            if (!isset($itemData[$label])) {
+                $itemData[$label] = [];
+            }
+            
+            foreach ($rdfData[$morphUri][$property] as $propObj) {
+                if ($propObj['type'] === 'literal') {
+                    // Handle boolean values
+                    if ($propObj['value'] === 'true' || $propObj['value'] === 'false') {
+                        $displayValue = ($propObj['value'] === 'true') ? 'True' : 'False';
+                    } else {
+                        $displayValue = $propObj['value'];
+                    }
+                    
+                    $itemData[$label][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $displayValue
+                    ];
+                    
+                    error_log("Added morphology $label: $displayValue", 3, OMEKA_PATH . '/logs/morphology-debug.log');
+                } else if ($propObj['type'] === 'uri') {
+                    // For URI values like base type, extract the meaningful part
+                    $parts = explode('/', $propObj['value']);
+                    $value = ucfirst(end($parts));
+                    
+                    $itemData[$label][] = [
+                        'type' => 'literal',
+                        'property_id' => $propertyId,
+                        '@value' => $value
+                    ];
+                    
+                    error_log("Added morphology $label (from URI): $value", 3, OMEKA_PATH . '/logs/morphology-debug.log');
+                }
+            }
+            
+            return true; // Found and processed this property
+        }
+    }
+    
+    error_log("Morphology property not found: $propertyName", 3, OMEKA_PATH . '/logs/morphology-debug.log');
+    return false;
+}
+
+/**
+ * Extract SVU data from RDF
+ */
+private function extractSvuData($rdfData, $svuUri) {
+    $data = [
+        'name' => null,
+        'description' => null
+    ];
+    
+    // Extract identifier as name
+    if (isset($rdfData[$svuUri]['http://purl.org/dc/terms/identifier'])) {
+        foreach ($rdfData[$svuUri]['http://purl.org/dc/terms/identifier'] as $idObj) {
+            if ($idObj['type'] === 'literal') {
+                $data['name'] = $idObj['value'];
+                break;
+            }
+        }
+    }
+    
+    // Extract description
+    if (isset($rdfData[$svuUri]['http://purl.org/dc/terms/description'])) {
+        foreach ($rdfData[$svuUri]['http://purl.org/dc/terms/description'] as $descObj) {
+            if ($descObj['type'] === 'literal') {
+                $data['description'] = $descObj['value'];
+                break;
+            }
+        }
+    }
+    
+    return ($data['name'] || $data['description']) ? $data : null;
+}
 /**
  * Process chipping data and extract all components
  */
