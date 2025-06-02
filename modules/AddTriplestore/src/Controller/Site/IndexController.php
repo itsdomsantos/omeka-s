@@ -2435,7 +2435,7 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
         
         // Extract common properties first
         $this->extractCommonProperties($rdfData, $subject, $itemData);
-        
+        error_log('subject type: ' . $subjectType, 3, OMEKA_PATH . '/logs/subject.log');
         // Process based on subject type
         switch ($subjectType) {
             case 'arrowhead':
@@ -4045,7 +4045,7 @@ private function generateLocationTtl($locationUri, $gpsUri, $excavationData)
  * Updated processExcavationData method to handle new structure
  */
 private function processExcavationData($rdfData, $subject, &$itemData) {
-    error_log('Processing excavation data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/excavation-processing.log');
+    error_log('Processing excavation data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/processing.log');
     
     // Extract location information
     if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
