@@ -409,107 +409,7 @@ private function processArchaeologistDataFromForm($formData)
 
 
 
-/**
- * Process excavation form data and generate TTL - IMPROVED URI GENERATION
- */
-private function processExcavationFormData($excavationData, $excavationIdentifier)
-{
-    error_log('Processing excavation form data for: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-ttl.log');
-    
-    // USE THE EXCAVATION IDENTIFIER INSTEAD OF RANDOM HASH
-    $baseUri = "https://purl.org/megalod/" . $excavationIdentifier;
-    $excavationUri = "$baseUri/excavation/$excavationIdentifier";
-    
-    // Create consistent, readable URIs
-    $siteName = $excavationData['site_name'] ?? 'unknown';
-    $siteSlug = $this->createUrlSlug($siteName);
-    $locationUri = "$baseUri/location/$siteSlug";
-    $gpsUri = "$baseUri/gps/$siteSlug";
-    
-    // Build TTL data
-    $ttl = $this->getTtlPrefixes();
-    
-    // Add excavation
-    $ttl .= "<$excavationUri> a excav:Excavation ;\n";
-    $ttl .= "    dct:identifier \"$excavationIdentifier\"^^xsd:literal ;\n";
-    $ttl .= "    dul:hasLocation <$locationUri> ;\n";
-    
-    // Add archaeologist reference and create archaeologist entity
-    if (!empty($excavationData['archaeologist']['name'])) {
-        $archaeologistUri = $this->processArchaeologistForTtl($excavationData['archaeologist'], $baseUri);
-        if ($archaeologistUri) {
-            $ttl .= "    excav:hasPersonInCharge <$archaeologistUri> ;\n";
-        }
-    }
-    
-    // Add contexts and other entities
-    if (!empty($excavationData['entities']['contexts'])) {
-        foreach ($excavationData['entities']['contexts'] as $index => $context) {
-            $contextSlug = $this->createUrlSlug($context['context_id']);
-            $contextUri = "$baseUri/context/$contextSlug";
-            $ttl .= "    excav:hasContext <$contextUri> ;\n";
-        }
-    }
-    
-    // Add squares
-    if (!empty($excavationData['entities']['squares'])) {
-        foreach ($excavationData['entities']['squares'] as $square) {
-            $squareSlug = $this->createUrlSlug($square['square_id']);
-            $squareUri = "$baseUri/square/$squareSlug";
-            $ttl .= "    excav:hasSquare <$squareUri> ;\n";
-        }
-    }
-    
-    $ttl .= "    .\n\n";
-    
-    // Add location with improved URI
-    $ttl .= $this->generateLocationTtl($locationUri, $gpsUri, $excavationData);
-    
-    // Add archaeologist entity if it's a new one
-    if (!empty($excavationData['archaeologist']['name']) && !$excavationData['archaeologist']['existing']) {
-        $archaeologistUri = $this->processArchaeologistForTtl($excavationData['archaeologist'], $baseUri);
-        $ttl .= $this->generateArchaeologistTtl($archaeologistUri, $excavationData['archaeologist']);
-    }
-    
-    // Add contexts with improved URIs
-    if (!empty($excavationData['entities']['contexts'])) {
-        foreach ($excavationData['entities']['contexts'] as $index => $context) {
-            $contextSlug = $this->createUrlSlug($context['context_id']);
-            $contextUri = "$baseUri/context/$contextSlug";
-            $ttl .= $this->generateContextTtl($contextUri, $context, $excavationData['entities'], $baseUri);
-        }
-    }
-    
-    // Add SVUs with improved URIs
-    if (!empty($excavationData['entities']['svus'])) {
-        foreach ($excavationData['entities']['svus'] as $svu) {
-            $svuSlug = $this->createUrlSlug($svu['svu_id']);
-            $svuUri = "$baseUri/svu/$svuSlug";
-            $ttl .= $this->generateSvuTtl($svuUri, $svu);
-        }
-    }
-    
-    // Add squares with improved URIs
-    if (!empty($excavationData['entities']['squares'])) {
-        foreach ($excavationData['entities']['squares'] as $square) {
-            $squareSlug = $this->createUrlSlug($square['square_id']);
-            $squareUri = "$baseUri/square/$squareSlug";
-            $ttl .= $this->generateSquareTtl($squareUri, $square);
-        }
-    }
-    
-    // Add encounter events with improved URIs
-    if (!empty($excavationData['entities']['encounters'])) {
-        foreach ($excavationData['entities']['encounters'] as $index => $encounter) {
-            $encounterUri = "$baseUri/encounter/encounter-" . ($index + 1);
-            $ttl .= $this->generateEncounterTtl($encounterUri, $encounter, $excavationUri, $itemUri = null);
-        }
-    }
-    
-    error_log('Generated TTL for excavation: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-ttl.log');
-    
-    return $ttl;
-}
+
 
 /**
  * Create a proper URL slug from a string
@@ -550,31 +450,7 @@ private function processArchaeologistForTtl($archaeologistData, $baseUri)
 }
 
 
-/**
- * Generate archaeologist TTL for new archaeologists
- */
-private function generateArchaeologistTtl($archaeologistUri, $archaeologistData)
-{
-    $ttl = "<$archaeologistUri> a excav:Archaeologist ;\n";
-    
-    if (!empty($archaeologistData['name'])) {
-        $ttl .= "    foaf:name \"" . $archaeologistData['name'] . "\"^^xsd:literal ;\n";
-    }
-    
-    if (!empty($archaeologistData['orcid'])) {
-        $orcidUrl = "https://orcid.org/" . $archaeologistData['orcid'];
-        $ttl .= "    foaf:account <$orcidUrl> ;\n";
-    }
-    
-    if (!empty($archaeologistData['email'])) {
-        $emailUrl = "mailto:" . $archaeologistData['email'];
-        $ttl .= "    foaf:mbox <$emailUrl> ;\n";
-    }
-    
-    $ttl .= "    .\n\n";
-    
-    return $ttl;
-}
+
 
 /**
  * Generate context TTL with proper SVU relationships
@@ -682,13 +558,228 @@ private function generateSvuTtl($svuUri, $svu)
 }
 
 /**
- * Generate square TTL
+ * Fixed processExcavationFormData method to generate consistent TTL structure
+ */
+private function processExcavationFormData($excavationData, $excavationIdentifier)
+{
+    error_log('Processing excavation form data for: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-ttl.log');
+    
+    // USE THE EXCAVATION IDENTIFIER INSTEAD OF RANDOM HASH
+    $baseUri = "https://purl.org/megalod/" . $excavationIdentifier;
+    $excavationUri = "$baseUri/excavation/$excavationIdentifier";
+    
+    // Create consistent, readable URIs
+    $siteName = $excavationData['site_name'] ?? 'unknown';
+    $siteSlug = $this->createUrlSlug($siteName);
+    $locationUri = "$baseUri/location/$siteSlug";
+    $gpsUri = "$baseUri/gps/$siteSlug";
+    
+    // Build TTL data
+    $ttl = $this->getTtlPrefixes();
+    
+    // Add excavation
+    $ttl .= "<$excavationUri> a excav:Excavation ;\n";
+    $ttl .= "    dct:identifier \"$excavationIdentifier\"^^xsd:literal ;\n";
+    $ttl .= "    dul:hasLocation <$locationUri> ;\n";
+    
+    // Add archaeologist reference and create archaeologist entity
+    if (!empty($excavationData['archaeologist']['name'])) {
+        $archaeologistUri = $this->processArchaeologistForTtl($excavationData['archaeologist'], $baseUri);
+        if ($archaeologistUri) {
+            $ttl .= "    excav:hasPersonInCharge <$archaeologistUri> ;\n";
+        }
+    }
+    
+    // Add contexts and other entities
+    if (!empty($excavationData['entities']['contexts'])) {
+        foreach ($excavationData['entities']['contexts'] as $index => $context) {
+            $contextSlug = $this->createUrlSlug($context['context_id']);
+            $contextUri = "$baseUri/context/$contextSlug";
+            $ttl .= "    excav:hasContext <$contextUri> ;\n";
+        }
+    }
+    
+    // Add squares
+    if (!empty($excavationData['entities']['squares'])) {
+        foreach ($excavationData['entities']['squares'] as $square) {
+            $squareSlug = $this->createUrlSlug($square['square_id']);
+            $squareUri = "$baseUri/square/$squareSlug";
+            $ttl .= "    excav:hasSquare <$squareUri> ;\n";
+        }
+    }
+    
+    $ttl .= "    .\n\n";
+    
+    // ENHANCED: Add location with improved structure to match file uploads
+    $ttl .= $this->generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationData);
+    
+    // Add archaeologist entity if it's a new one
+    if (!empty($excavationData['archaeologist']['name']) && !$excavationData['archaeologist']['existing']) {
+        $archaeologistUri = $this->processArchaeologistForTtl($excavationData['archaeologist'], $baseUri);
+        $ttl .= $this->generateArchaeologistTtl($archaeologistUri, $excavationData['archaeologist']);
+    }
+    
+    // Add contexts with improved URIs
+    if (!empty($excavationData['entities']['contexts'])) {
+        foreach ($excavationData['entities']['contexts'] as $index => $context) {
+            $contextSlug = $this->createUrlSlug($context['context_id']);
+            $contextUri = "$baseUri/context/$contextSlug";
+            $ttl .= $this->generateContextTtl($contextUri, $context, $excavationData['entities'], $baseUri);
+        }
+    }
+    
+    // Add SVUs with improved URIs
+    if (!empty($excavationData['entities']['svus'])) {
+        foreach ($excavationData['entities']['svus'] as $svu) {
+            $svuSlug = $this->createUrlSlug($svu['svu_id']);
+            $svuUri = "$baseUri/svu/$svuSlug";
+            $ttl .= $this->generateSvuTtl($svuUri, $svu);
+        }
+    }
+    
+    // Add squares with improved URIs
+    if (!empty($excavationData['entities']['squares'])) {
+        foreach ($excavationData['entities']['squares'] as $square) {
+            $squareSlug = $this->createUrlSlug($square['square_id']);
+            $squareUri = "$baseUri/square/$squareSlug";
+            $ttl .= $this->generateSquareTtl($squareUri, $square);
+        }
+    }
+    
+    // Add encounter events with improved URIs
+    if (!empty($excavationData['entities']['encounters'])) {
+        foreach ($excavationData['entities']['encounters'] as $index => $encounter) {
+            $encounterUri = "$baseUri/encounter/encounter-" . ($index + 1);
+            $ttl .= $this->generateEncounterTtl($encounterUri, $encounter, $excavationUri, $itemUri = null);
+        }
+    }
+    
+    error_log('Generated TTL for excavation: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-ttl.log');
+    
+    return $ttl;
+}
+
+/**
+ * ENHANCED: Generate location TTL with structure matching file uploads
+ */
+private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationData)
+{
+    // Initialize the TTL string for the main location entity
+    $ttl = "<$locationUri> a excav:Location ;\n";
+    
+    // IMPORTANT: Also add GPSCoordinates type to match file structure
+    $ttl .= "    a excav:GPSCoordinates ;\n";
+    
+    // Use site_name as the informationName (Name of the Location from form)
+    if (!empty($excavationData['site_name'])) {
+        $ttl .= "    dbo:informationName \"" . $excavationData['site_name'] . "\"^^xsd:literal ;\n";
+    }
+    
+    // CRITICAL: Add GPS coordinates directly on the location object (like file uploads)
+    if (!empty($excavationData['latitude'])) {
+        $ttl .= "    geo:lat \"" . $excavationData['latitude'] . "\"^^xsd:decimal ;\n";
+    }
+    
+    if (!empty($excavationData['longitude'])) {
+        $ttl .= "    geo:long \"" . $excavationData['longitude'] . "\"^^xsd:decimal ;\n";
+    }
+    
+    // ENHANCED: Add district/parish with proper URIs and separate entity declarations
+    $entityDeclarations = "";
+    
+    // Add District as a normalized URI with proper entity declaration
+    if (!empty($excavationData['district'])) {
+        $districtSlug = $this->createUrlSlug($excavationData['district']);
+        // Extract base URI from location URI
+        $baseUri = dirname(dirname($locationUri)); // Get base URI
+        $districtUri = "$baseUri/" . strtolower($districtSlug);
+        $ttl .= "    dbo:district <$districtUri> ;\n";
+        
+        // Add district entity declaration
+        $entityDeclarations .= "<$districtUri> a dbo:District ;\n";
+        $entityDeclarations .= "    rdfs:label \"" . $excavationData['district'] . "\"^^xsd:literal ;\n";
+        $entityDeclarations .= "    .\n\n";
+    }
+    
+    // Add Parish as a normalized URI with proper entity declaration  
+    if (!empty($excavationData['parish'])) {
+        $parishSlug = $this->createUrlSlug($excavationData['parish']);
+        $baseUri = dirname(dirname($locationUri)); // Get base URI
+        $parishUri = "$baseUri/" . strtolower($parishSlug);
+        $ttl .= "    dbo:parish <$parishUri> ;\n";
+        
+        // Add parish entity declaration
+        $entityDeclarations .= "<$parishUri> a dbo:Parish ;\n";
+        $entityDeclarations .= "    rdfs:label \"" . $excavationData['parish'] . "\"^^xsd:literal ;\n";
+        $entityDeclarations .= "    .\n\n";
+    }
+    
+    // Add Country as DBpedia resource (like file uploads)
+    if (!empty($excavationData['country'])) {
+        $countrySlug = str_replace(' ', '_', $excavationData['country']);
+        $countryUri = "http://dbpedia.org/resource/" . $countrySlug;
+        $ttl .= "    dbo:Country <$countryUri> ;\n";
+        
+        // Add country declaration
+        $entityDeclarations .= "<$countryUri> a dbo:Country ;\n";
+        $entityDeclarations .= "    rdfs:label \"" . $excavationData['country'] . "\"^^xsd:literal ;\n";
+        $entityDeclarations .= "    .\n\n";
+    }
+    
+    // IMPORTANT: Add self-reference to GPS coordinates (like file uploads)
+    if (!empty($excavationData['latitude']) || !empty($excavationData['longitude'])) {
+        $ttl .= "    excav:hasGPSCoordinates <$locationUri> ;\n";
+    }
+    
+    // Close the location entity
+    $ttl .= "    .\n\n";
+    
+    // Add the entity declarations
+    $ttl .= $entityDeclarations;
+    
+    return $ttl;
+}
+
+/**
+ * ENHANCED: Generate archaeologist TTL with proper URI structure
+ */
+private function generateArchaeologistTtl($archaeologistUri, $archaeologistData)
+{
+    $ttl = "<$archaeologistUri> a excav:Archaeologist ;\n";
+    
+    if (!empty($archaeologistData['name'])) {
+        $ttl .= "    foaf:name \"" . $archaeologistData['name'] . "\"^^xsd:literal ;\n";
+    }
+    
+    if (!empty($archaeologistData['orcid'])) {
+        // Format ORCID as full URL (like file uploads)
+        $orcidUrl = "https://orcid.org/" . str_replace('https://orcid.org/', '', $archaeologistData['orcid']);
+        $ttl .= "    foaf:account <$orcidUrl> ;\n";
+    }
+    
+    if (!empty($archaeologistData['email'])) {
+        // Handle multiple emails if provided
+        $emails = is_array($archaeologistData['email']) ? $archaeologistData['email'] : [$archaeologistData['email']];
+        foreach ($emails as $email) {
+            $emailUrl = "mailto:" . str_replace('mailto:', '', $email);
+            $ttl .= "    foaf:mbox <$emailUrl> ;\n";
+        }
+    }
+    
+    $ttl .= "    .\n\n";
+    
+    return $ttl;
+}
+
+/**
+ * ENHANCED: Generate square TTL with proper coordinate structure
  */
 private function generateSquareTtl($squareUri, $square)
 {
     $ttl = "<$squareUri> a excav:Square ;\n";
     $ttl .= "    dct:identifier \"" . $square['square_id'] . "\"^^xsd:literal ;\n";
     
+    // Use proper coordinate field names to match file uploads
     if (!empty($square['square_east_west'])) {
         $ttl .= "    geo:lat \"" . $square['square_east_west'] . "\"^^xsd:decimal ;\n";
     }
@@ -701,7 +792,6 @@ private function generateSquareTtl($squareUri, $square)
     
     return $ttl;
 }
-
 private function generateEncounterTtl($encounterUri, $encounter, $excavationUri, $itemUri)
 {
     $ttl = "<$encounterUri> a excav:EncounterEvent;\n";
