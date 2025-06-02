@@ -711,6 +711,7 @@ private function generateEncounterTtl($encounterUri, $encounter, $excavationUri,
     }
     
     $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
+    error_log('Encounter URI: ' . $excavationUri, 3, OMEKA_PATH . '/logs/form.log');
     
     // Add link to the location if available
     if (isset($encounter['location_uri']) && $encounter['location_uri']) {
@@ -919,6 +920,7 @@ private function processArrowheadFormData($formData, $itemSetId)
     $ttl .= "<$arrowheadUri> a ah:Arrowhead, excav:Item;\n";
     $ttl .= "    dct:identifier \"$arrowheadId\"^^xsd:literal;\n";
     $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
+    error_log("Arrowhead URI: $excavationUri", 3, OMEKA_PATH . '/logs/form.log');
 
     // If location information is available
     if (!empty($formData['location']) || !empty($baseLocation)) {
@@ -1204,11 +1206,16 @@ private function processArrowheadFormData($formData, $itemSetId)
     }
     
     // Add encounter event with references to existing resources
-    $ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
-    $ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal;\n";
-    $ttl .= "    crmsci:O19_encountered_object <$arrowheadUri>;\n";
-    $ttl .= "    excav:foundInExcavation <$excavationUri>;\n"; // Make sure there's a semicolon here
+$ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
+$ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal;\n";
+$ttl .= "    crmsci:O19_encountered_object <$arrowheadUri>;\n";
+$ttl .= "    excav:foundInExcavation <$excavationUri>;\n"; // Make sure there's a semicolon here
 
+error_log("Encounter event linked to excavation: $excavationUri", 3, OMEKA_PATH . '/logs/form.log');
+    $ttl .= "    .\n\n";
+
+
+    // Add the same resource references to encounter event
     // Add the same resource references to encounter event
     foreach ($linkedResources as $property => $resourceUri) {
         if ($property === 'excav:foundInContext') {
@@ -1216,7 +1223,7 @@ private function processArrowheadFormData($formData, $itemSetId)
         } elseif ($property === 'excav:foundInSVU') {
             $ttl .= "    excav:foundInSVU <$resourceUri>;\n";
         }
-    }   
+    } 
     
     $ttl .= "    .\n\n";
     
