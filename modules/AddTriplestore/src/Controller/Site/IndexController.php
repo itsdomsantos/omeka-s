@@ -2075,6 +2075,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             // 4. Update TTL with encounter event reference
             $ttlData = $this->addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId);
             error_log('✓ Enhanced TTL with encounter event', 3, OMEKA_PATH . '/logs/encounter-validation.log');
+            error_log('Final TTL after encounter event: ' . $ttlData, 3, OMEKA_PATH . '/logs/encounter-ttl-final.log');
         }
 
 
@@ -4604,7 +4605,7 @@ private function extractArrowheadContextFromTtl($ttlData) {
         'square' => null,
         'context' => null,
         'svu' => null,
-        'date' => date('Y-m-d'), // Default to today
+        'date' => null,
         'item_identifier' => null
     ];
     
@@ -4612,6 +4613,13 @@ private function extractArrowheadContextFromTtl($ttlData) {
     if (preg_match('/dct:identifier\s+"([^"]+)"/i', $ttlData, $matches)) {
         $context['item_identifier'] = $matches[1];
     }
+
+    // Extract date
+    if (preg_match('/dct:date\s+"([^"]+)"/i', $ttlData, $matches)) {
+        $context['date'] = $matches[1];
+        error_log("Found date in TTL: {$context['date']}", 3, OMEKA_PATH . '/logs/encounter-validation.log');
+    }
+    
     
     // Extract context reference
     if (preg_match('/excav:foundInContext\s+<([^>]+)>/i', $ttlData, $matches)) {
@@ -4958,9 +4966,9 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     // 1. Add encounter reference to the arrowhead item
     $encounterTriple = "    crmsci:O19i_was_object_encountered_through <$encounterUri> ;\n";
     
-    // Find the position to insert (before the closing period of the arrowhead definition)
-    $pattern = '/(\s*)(\.[\s\n]*(?=\s*(?:<|#|$)))/';
-    $replacement = "$encounterTriple$1$2";
+    // FIXED: Insert after the dct:identifier line, not at the end
+    $pattern = '/(dct:identifier\s+"[^"]+"\^\^xsd:literal\s*;)(\s*)/';
+    $replacement = "$1\n$encounterTriple$2";
     
     $enhancedTtl = preg_replace($pattern, $replacement, $ttlData, 1);
     
@@ -4971,8 +4979,8 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     // Add date
     $encounterDefinition .= "    dct:date \"" . $arrowheadContext['date'] . "\"^^xsd:literal ;\n";
     
-    // Add encountered object (the arrowhead)
-    $encounterDefinition .= "    crmsci:O19_encountered_object <https://purl.org/megalod/$itemSetId/item/$itemIdentifier> ;\n";
+    // FIXED: Use correct arrowhead URI format (not /item/ path)
+    $encounterDefinition .= "    crmsci:O19_encountered_object <https://purl.org/megalod/$itemSetId/$itemIdentifier> ;\n";
     
     // Add excavation reference
     if ($arrowheadContext['excavation']) {
@@ -5006,7 +5014,6 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     
     return $enhancedTtl . $encounterDefinition;
 }
-
 /**
  * Generate encounter title
  */

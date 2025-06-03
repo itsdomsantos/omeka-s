@@ -29,10 +29,11 @@
     edm:Webresource <https://example.com/images/arrowhead-003.jpg> ;
     dbo:Annotation "Large, stemmed arrowhead with bifacial retouch"^^xsd:literal;
     crm:E3_Condition_State true ;
+    dct:date "2001-04-03"^^xsd:literal ;
     crm:E57_Material <https://purl.org/megalod/material/flint> ;
     excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/ah-003> ;
     excav:foundInContext <https://purl.org/megalod/context/CTX-001> ;
-    excav:foundInSVU <https://purl.org/megalod/svu/Layer-002> ;
+    excav:foundInSVU <https://purl.org/megalod/svu/Layer-02> ;
     schema:height <https://purl.org/megalod/typometry/ah-003-height> ;
     schema:width <https://purl.org/megalod/typometry/ah-003-width> ;
     schema:depth <https://purl.org/megalod/typometry/ah-003-depth> ;
@@ -59,6 +60,13 @@
 
 # =========== TYPOMETRY VALUES ===========
 
+<https://purl.org/megalod/BodyLength/ah-003> a excav:TypometryValue ;
+    schema:value "4.5"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/BaseLength/ah-003> a excav:TypometryValue ;
+    schema:value "2.0"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
 
 
 <https://purl.org/megalod/typometry/ah-003-height> a excav:TypometryValue ;
@@ -91,7 +99,7 @@
 
 # =========== WEIGHTS ===========
 
-<https://purl.org/megalod/weight/ah-001> a excav:Weight ;
+<https://purl.org/megalod/weight/ah-003> a excav:Weight ;
     schema:value "12.5"^^xsd:decimal ;
     schema:UnitCode <http://qudt.org/vocab/unit/GRM> .  # grams
 
@@ -117,4 +125,5 @@
     ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/distal> , <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
     ah:chippingOrientation false ;
     ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex> .
+
 
