@@ -734,7 +734,34 @@ private function normalizeUris($ttlData, $itemSetId) {
         },
         $modifiedTtl
     );
-    
+
+ 
+    // Main excavation URI
+$modifiedTtl = preg_replace_callback(
+    '/<https:\/\/purl\.org\/megalod\/excavation\/([^>]+)>/',
+    function($matches) use ($itemSetId, $mainIdentifier) {
+        return "<https://purl.org/megalod/$itemSetId/excavation/$mainIdentifier>";
+    },
+    $modifiedTtl
+);
+
+// Archaeologist URI
+$modifiedTtl = preg_replace_callback(
+    '/<https:\/\/purl\.org\/megalod\/archaeologist\/([^>]+)>/',
+    function($matches) use ($itemSetId) {
+        return "<https://purl.org/megalod/$itemSetId/archaeologist/{$matches[1]}>";
+    },
+    $modifiedTtl
+);
+
+// GPS URI
+$modifiedTtl = preg_replace_callback(
+    '/<https:\/\/purl\.org\/megalod\/gps\/([^>]+)>/',
+    function($matches) use ($itemSetId) {
+        return "<https://purl.org/megalod/$itemSetId/gps/{$matches[1]}>";
+    },
+    $modifiedTtl
+);
     error_log("=== URI NORMALIZATION COMPLETE ===", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     error_log("Total replacements made: $replacements", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     
@@ -6294,6 +6321,9 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
     
     // Get the current item set context to build correct URIs
     $currentItemSetId = $this->getCurrentItemSetContext();
+
+
+    
     
     // Extract location information
     if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
@@ -6452,6 +6482,86 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
     $archaeologistPropertyUris = [
         'https://purl.org/megalod/ms/excavation/hasPersonInCharge'
     ];
+    
+
+
+// In the processExcavationData method, modify the code that checks for GPS coordinates via hasGPSCoordinates:
+
+// Check for GPS coordinates via hasGPSCoordinates reference
+if (isset($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates']) ||
+    isset($rdfData[$locationUri]["https://purl.org/megalod/$currentItemSetId/excavation/hasGPSCoordinates"])) {
+    
+// Add this variation to the $gpsPropertyUris array
+$gpsPropertyUris = [
+    'https://purl.org/megalod/ms/excavation/hasGPSCoordinates',
+    "https://purl.org/megalod/$currentItemSetId/excavation/hasGPSCoordinates",
+    'excav:hasGPSCoordinates'  // Add this line to check for compact URI format
+];
+    
+    foreach ($gpsPropertyUris as $gpsPropertyUri) {
+        if (isset($rdfData[$locationUri][$gpsPropertyUri])) {
+            foreach ($rdfData[$locationUri][$gpsPropertyUri] as $gpsObj) {
+                if ($gpsObj['type'] === 'uri' && isset($rdfData[$gpsObj['value']])) {
+                    $gpsUri = $gpsObj['value'];
+                    
+                    // Extract lat/long from the GPS object
+                    if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'])) {
+                        foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'] as $latObj) {
+                            if ($latObj['type'] === 'literal') {
+                                $lat = $latObj['value'];
+                                error_log("Found GPS latitude from referenced object: $lat", 3, OMEKA_PATH . '/logs/gps-debug.log');
+                                
+                                // Add to itemData
+                                if (!isset($itemData['GPS Latitude'])) {
+                                    $itemData['GPS Latitude'] = [];
+                                }
+                                $itemData['GPS Latitude'][] = [
+                                    'type' => 'literal',
+                                    'property_id' => 257, // GPS Latitude property ID
+                                    '@value' => $lat
+                                ];
+                            }
+                        }
+                    }
+                    
+                    if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'])) {
+                        foreach ($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'] as $longObj) {
+                            if ($longObj['type'] === 'literal') {
+                                $long = $longObj['value'];
+                                error_log("Found GPS longitude from referenced object: $long", 3, OMEKA_PATH . '/logs/gps-debug.log');
+                                
+                                // Add to itemData
+                                if (!isset($itemData['GPS Longitude'])) {
+                                    $itemData['GPS Longitude'] = [];
+                                }
+                                $itemData['GPS Longitude'][] = [
+                                    'type' => 'literal',
+                                    'property_id' => 259, // GPS Longitude property ID
+                                    '@value' => $long
+                                ];
+                            }
+                        }
+                    }
+                    
+                    // If we have both lat and long, add the combined coordinates
+                    if (isset($lat) && isset($long)) {
+                        if (!isset($itemData['GPS Coordinates'])) {
+                            $itemData['GPS Coordinates'] = [];
+                        }
+                        $itemData['GPS Coordinates'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7664, // GPS Coordinates property ID
+                            '@value' => "Latitude: $lat, Longitude: $long"
+                        ];
+                        
+                        error_log("Added GPS coordinates from reference: Lat=$lat, Long=$long", 3, OMEKA_PATH . '/logs/gps-debug.log');
+                    }
+                }
+            }
+            break;
+        }
+    }
+}
     
     // Add normalized URI if we have the item set context
     if ($currentItemSetId) {

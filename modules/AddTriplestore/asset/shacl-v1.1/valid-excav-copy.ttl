@@ -1,0 +1,140 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
+@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+
+
+# ========================================================================================
+# EXCAVATION DATA - CASTRO DE SÃO LOURENÇO ARCHAEOLOGICAL SITE
+# ========================================================================================
+
+# =========== MAIN EXCAVATION ===========
+
+<https://purl.org/megalod/excavation/castro-s-lourenco-2024> a excav:Excavation ;
+    dct:identifier "CSL-2024"^^xsd:literal;
+    dul:hasLocation <https://purl.org/megalod/location/castro-s-lourenco> ;
+    excav:hasPersonInCharge <https://purl.org/megalod/archaeologist/joao-pereira> ;
+    excav:hasSquare <https://purl.org/megalod/square/CSL-1>, 
+                    <https://purl.org/megalod/square/CSL-2>,
+                    <https://purl.org/megalod/square/CSL-3> ;
+    excav:hasContext <https://purl.org/megalod/context/CSL-CTX-101>,
+                     <https://purl.org/megalod/context/CSL-CTX-102> .
+
+# =========== LOCATION ===========
+
+<https://purl.org/megalod/location/castro-s-lourenco> a excav:Location ;
+    dbo:informationName "Castro de São Lourenço"^^xsd:literal;
+    dbo:district <https://purl.org/megalod/district/braga> ;
+    dbo:parish <https://purl.org/megalod/parish/esposende> ;
+    dbo:Country <http://dbpedia.org/resource/Portugal> ;
+    excav:hasGPSCoordinates <https://purl.org/megalod/gps/castro-s-lourenco> .
+
+<https://purl.org/megalod/gps/castro-s-lourenco> a excav:GPSCoordinates ;
+    geo:lat "41.5333"^^xsd:decimal ;
+    geo:long "-8.7833"^^xsd:decimal .
+
+<https://purl.org/megalod/district/braga> a dbo:District .
+<https://purl.org/megalod/parish/esposende> a dbo:Parish .
+
+# =========== ARCHAEOLOGIST ===========
+
+<https://purl.org/megalod/archaeologist/joao-pereira> a excav:Archaeologist ;
+    foaf:account <https://orcid.org/0000-0003-4567-8910> ;
+    foaf:name "Prof. João Pereira"^^xsd:literal;
+    foaf:mbox <mailto:joao.pereira@univ.pt> .
+
+# =========== EXCAVATION SQUARES ===========
+
+<https://purl.org/megalod/square/CSL-1> a excav:Square ;
+    dct:identifier "CSL-1"^^xsd:literal;
+    geo:lat "110.25"^^xsd:decimal ;
+    geo:long "60.75"^^xsd:decimal .
+
+<https://purl.org/megalod/square/CSL-2> a excav:Square ;
+    dct:identifier "CSL-2"^^xsd:literal;
+    geo:lat "111.25"^^xsd:decimal ;
+    geo:long "61.75"^^xsd:decimal .
+
+<https://purl.org/megalod/square/CSL-3> a excav:Square ;
+    dct:identifier "CSL-3"^^xsd:literal;
+    geo:lat "112.00"^^xsd:decimal ;
+    geo:long "62.25"^^xsd:decimal .
+
+# =========== CONTEXTS ===========
+
+<https://purl.org/megalod/context/CSL-CTX-101> a excav:Context ;
+    dct:identifier "CSL-CTX-101"^^xsd:literal;
+    excav:hasSVU <https://purl.org/megalod/svu/CSL-Layer-1>,
+                 <https://purl.org/megalod/svu/CSL-Layer-2> .
+
+<https://purl.org/megalod/context/CSL-CTX-102> a excav:Context ;
+    dct:identifier "CSL-CTX-102"^^xsd:literal;
+    excav:hasSVU <https://purl.org/megalod/svu/CSL-Layer-3> .
+
+# =========== STRATIGRAPHIC VOLUME UNITS ===========
+
+<https://purl.org/megalod/svu/CSL-Layer-1> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "CSL-Layer-1"^^xsd:literal;
+    dct:description "Iron Age occupation layer with stone structures"^^xsd:literal;
+    excav:hasTimeline <https://purl.org/megalod/timeline/iron-age> .
+
+<https://purl.org/megalod/svu/CSL-Layer-2> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "CSL-Layer-2"^^xsd:literal;
+    dct:description "Roman period layer with imported ceramics"^^xsd:literal;
+    excav:hasTimeline <https://purl.org/megalod/timeline/roman-period> .
+
+<https://purl.org/megalod/svu/CSL-Layer-3> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "CSL-Layer-3"^^xsd:literal;
+    dct:description "Late Iron Age defensive structure"^^xsd:literal;
+    excav:hasTimeline <https://purl.org/megalod/timeline/late-iron-age> .
+
+# =========== TIMELINES ===========
+
+<https://purl.org/megalod/timeline/iron-age> a excav:TimeLine ;
+    time:hasBeginning <https://purl.org/megalod/instant/800bc> ;
+    time:hasEnd <https://purl.org/megalod/instant/100bc> .
+
+<https://purl.org/megalod/timeline/late-iron-age> a excav:TimeLine ;
+    time:hasBeginning <https://purl.org/megalod/instant/200bc> ;
+    time:hasEnd <https://purl.org/megalod/instant/100ad> .
+
+<https://purl.org/megalod/timeline/roman-period> a excav:TimeLine ;
+    time:hasBeginning <https://purl.org/megalod/instant/100bc> ;
+    time:hasEnd <https://purl.org/megalod/instant/400ad> .
+
+# =========== TIME INSTANTS ===========
+
+<https://purl.org/megalod/instant/800bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-0800"^^xsd:gYear .
+
+<https://purl.org/megalod/instant/200bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-0200"^^xsd:gYear .
+
+<https://purl.org/megalod/instant/100bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-0100"^^xsd:gYear .
+
+<https://purl.org/megalod/instant/100ad> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/AD> ;
+    time:inXSDgYear "0100"^^xsd:gYear .
+
+<https://purl.org/megalod/instant/400ad> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/AD> ;
+    time:inXSDgYear "0400"^^xsd:gYear .
