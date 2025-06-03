@@ -3884,45 +3884,111 @@ private function processEncounterEvent($rdfData, $encounterUri, &$itemData, $cur
         }
     }
     
-    // Extract all encountered objects - critical for showing all items found at the event
-    if (isset($rdfData[$encounterUri]['https://cidoc-crm.org/extensions/crmsci/O19_encountered_object'])) {
-        $encounteredItems = [];
+// Extract all encountered objects - FIXED: Create proper resource links
+    $encounteredObjects = [];
+    $encounteredItemUris = [];
+    
+    if (isset($rdfData[$encounterUri]['https://cidoc-crm.org/extensions/crmsci/O19_encountered_object']) || 
+        isset($rdfData[$encounterUri]['crmsci:O19_encountered_object'])) {
         
-        foreach ($rdfData[$encounterUri]['https://cidoc-crm.org/extensions/crmsci/O19_encountered_object'] as $itemObj) {
-            if ($itemObj['type'] === 'uri') {
-                $itemUri = $itemObj['value'];
-                $itemId = $this->extractIdentifierFromUri($itemUri);
-                
-                // Try to get more info about the item
-                if (isset($rdfData[$itemUri])) {
-                    if (isset($rdfData[$itemUri]['http://purl.org/dc/terms/identifier'])) {
-                        foreach ($rdfData[$itemUri]['http://purl.org/dc/terms/identifier'] as $idObj) {
-                            if ($idObj['type'] === 'literal') {
-                                $encounteredItems[] = $idObj['value'];
+        // Try different property variations
+        $propertyVariations = [
+            'https://cidoc-crm.org/extensions/crmsci/O19_encountered_object',
+            'crmsci:O19_encountered_object'
+        ];
+        
+        // Add item set-specific variant if available
+        if ($currentItemSetId) {
+            $propertyVariations[] = "https://purl.org/megalod/$currentItemSetId/crmsci/O19_encountered_object";
+        }
+        
+        // Process each property variant
+        foreach ($propertyVariations as $propertyUri) {
+            if (isset($rdfData[$encounterUri][$propertyUri])) {
+                foreach ($rdfData[$encounterUri][$propertyUri] as $itemObj) {
+                    if ($itemObj['type'] === 'uri') {
+                        $itemUri = $itemObj['value'];
+                        $encounteredItemUris[] = $itemUri;
+                        
+                        // Get more info about the item
+                        $itemId = null;
+                        $identifier = $this->extractIdentifierFromUri($itemUri);
+                        
+                        if (isset($rdfData[$itemUri]) && 
+                            isset($rdfData[$itemUri]['http://purl.org/dc/terms/identifier'])) {
+                            foreach ($rdfData[$itemUri]['http://purl.org/dc/terms/identifier'] as $idObj) {
+                                if ($idObj['type'] === 'literal') {
+                                    $identifier = $idObj['value'];
+                                }
                             }
                         }
-                    } else {
-                        $encounteredItems[] = $itemId ?: basename($itemUri);
+                        
+                        // Store both the identifier and URI for later processing
+                        $encounteredObjects[] = [
+                            'identifier' => $identifier ?: basename($itemUri),
+                            'uri' => $itemUri
+                        ];
                     }
-                } else {
-                    $encounteredItems[] = $itemId ?: basename($itemUri);
                 }
             }
         }
-        
-        if (!empty($encounteredItems)) {
-            if (!isset($itemData['Encountered Objects'])) {
-                $itemData['Encountered Objects'] = [];
-            }
-            
-            $itemData['Encountered Objects'][] = [
-                'type' => 'literal',
-                'property_id' => 7685,
-                '@value' => implode(', ', $encounteredItems)
-            ];
-            
-            error_log("Added encountered objects: " . implode(', ', $encounteredItems), 3, OMEKA_PATH . '/logs/encounter-debug.log');
+    }
+    
+    // ENHANCED: Add encountered objects as both literal list and item references
+    if (!empty($encounteredObjects)) {
+        // 1. Add text list of identifiers for backward compatibility
+        if (!isset($itemData['Encountered Objects'])) {
+            $itemData['Encountered Objects'] = [];
         }
+        
+        $identifierList = array_map(function($obj) { 
+            return $obj['identifier']; 
+        }, $encounteredObjects);
+        
+        $itemData['Encountered Objects'][] = [
+            'type' => 'literal',
+            'property_id' => 7685,
+            '@value' => implode(', ', $identifierList)
+        ];
+        
+        error_log("Added encountered objects text list: " . implode(', ', $identifierList), 3, OMEKA_PATH . '/logs/encounter-debug.log');
+        
+        // 2. NEW: Add each encountered object as an item reference
+        if (!isset($itemData['Encountered Item'])) {
+            $itemData['Encountered Item'] = [];
+        }
+        
+        // For each object URI, try to find the corresponding Omeka item
+        foreach ($encounteredObjects as $encObj) {
+            $identifier = $encObj['identifier'];
+            $uri = $encObj['uri'];
+            
+            // Try to find the item by identifier in the current item set
+            $item = $this->findItemByIdentifier($identifier, $currentItemSetId);
+            
+            if ($item) {
+                // Found the item, add as a resource reference
+                $itemData['Encountered Item'][] = [
+                    'type' => 'resource',
+                    'property_id' => 7686, // Use an appropriate property ID for item links
+                    'value_resource_id' => $item->id()
+                ];
+                
+                error_log("Added encountered item reference: Item ID " . $item->id() . " ($identifier)", 3, OMEKA_PATH . '/logs/encounter-debug.log');
+            } else {
+                // Item not found - add as URI reference for now
+                $itemData['Encountered Item'][] = [
+                    'type' => 'uri',
+                    'property_id' => 7686,
+                    '@id' => $uri,
+                    'o:label' => $identifier
+                ];
+                
+                error_log("Added encountered item as URI reference: $uri ($identifier) - item not found in Omeka", 3, OMEKA_PATH . '/logs/encounter-debug.log');
+            }
+        }
+    } else {
+        error_log("No encountered objects found for encounter event: $encounterUri", 3, OMEKA_PATH . '/logs/encounter-debug.log');
     }
     
     // Extract depth information
@@ -4035,6 +4101,50 @@ private function processEncounterEvent($rdfData, $encounterUri, &$itemData, $cur
 }
 
 
+/**
+ * Find an item by identifier with better logging and error handling
+ */
+private function findItemByIdentifierWithLogging($identifier, $itemSetId = null) {
+    error_log("Finding item with identifier: $identifier in item set: " . ($itemSetId ?: 'any'), 3, OMEKA_PATH . '/logs/encounter-item-links.log');
+    
+    try {
+        // Search by exact identifier match
+        $searchParams = [
+            'property' => [
+                [
+                    'property' => 10, // dcterms:identifier property ID
+                    'type' => 'eq',
+                    'text' => $identifier
+                ]
+            ]
+        ];
+        
+        if ($itemSetId) {
+            $searchParams['item_set_id'] = $itemSetId;
+        }
+        
+        $response = $this->api()->search('items', $searchParams);
+        $items = $response->getContent();
+        
+        if (!empty($items)) {
+            $item = $items[0];
+            error_log("✓ Found item by identifier $identifier: Item ID " . $item->id(), 3, OMEKA_PATH . '/logs/encounter-item-links.log');
+            return $item;
+        }
+        
+        // If not found and we have an item set constraint, try without it
+        if ($itemSetId) {
+            error_log("Item not found in specified item set, trying global search", 3, OMEKA_PATH . '/logs/encounter-item-links.log');
+            return $this->findItemByIdentifierWithLogging($identifier);
+        }
+        
+        error_log("✗ No item found with identifier: $identifier", 3, OMEKA_PATH . '/logs/encounter-item-links.log');
+        return null;
+    } catch (\Exception $e) {
+        error_log("Error searching for item: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/encounter-item-links.log');
+        return null;
+    }
+}
 
 
 /**
