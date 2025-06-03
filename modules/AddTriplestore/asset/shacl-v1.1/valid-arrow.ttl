@@ -252,10 +252,3 @@
     ah:chippingOrientation false ;
     ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex> .
 
-
-// create the encounter event for AH-003
-<https://purl.org/megalod/encounter/AH-003> a excav:EncounterEvent ;
-    dct:date "2025-05-30"^^xsd:literal ;
-    crmsci:O19_encountered_object <https://purl.org/megalod/item/arrowhead-003> ;
-    excav:foundInExcavation <https://purl.org/megalod/example/excavation/TestExcavation> ;
-    excav:foundInContext <https://purl.org/megalod/example/context/CV-001> ;
