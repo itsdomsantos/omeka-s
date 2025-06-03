@@ -334,6 +334,8 @@ public function install(ServiceLocatorInterface $serviceLocator)
     $settings->set('addtriplestore_item_deletion_info', []);
 }
     
+
+
 private function deleteFromGraphDB($identifier, $itemId, $graphId)
 {
     // GraphDB configuration - update these endpoints to match your setup
@@ -344,17 +346,30 @@ private function deleteFromGraphDB($identifier, $itemId, $graphId)
     error_log("Attempting to delete from GraphDB: identifier=$identifier, itemId=$itemId, graphUri=$graphUri", 3, OMEKA_PATH . '/logs/finalDelete.log');
     
     try {
-        // First try the specific graph
+        // First try to count how many triples exist for this resource
+        $countQuery = $this->buildCountQuery($graphUri, $identifier);
+        $countResponse = $this->executeSparqlQuery($graphdbEndpoint, $countQuery);
+        
+        // Parse the response to get the count
+        $countData = json_decode($countResponse->getBody(), true);
+        $tripleCount = 0;
+        
+        if ($countData && isset($countData['results']['bindings']) && 
+            !empty($countData['results']['bindings'])) {
+            $tripleCount = (int)$countData['results']['bindings'][0]['count']['value'];
+            error_log("Found $tripleCount triples related to identifier $identifier in graph $graphUri", 
+                3, OMEKA_PATH . '/logs/finalDelete.log');
+        }
+        
+        // Now proceed with deletion
         $deleted = false;
         
         // Different delete strategies based on available information
         if ($identifier) {
-            // If we have a specific identifier, target resources with that identifier
             error_log("Using identifier-based deletion strategy", 3, OMEKA_PATH . '/logs/finalDelete.log');
             $result = $this->deleteResourceByIdentifier($graphdbEndpoint, $graphUri, $identifier, $graphId);
             $deleted = $result->isSuccess();
         } else {
-            // If no identifier, try to delete based on Omeka item ID patterns
             error_log("Using ID-based deletion strategy as fallback", 3, OMEKA_PATH . '/logs/finalDelete.log');
             $result = $this->deleteResourceByOmekaId($graphdbEndpoint, $graphUri, $itemId);
             $deleted = $result->isSuccess();
@@ -373,19 +388,67 @@ private function deleteFromGraphDB($identifier, $itemId, $graphId)
             }
         }
         
-        error_log("Deletion from GraphDB completed for item $itemId", 3, OMEKA_PATH . '/logs/finalDelete.log');
+        error_log("Deletion from GraphDB completed for item $itemId (removed approximately $tripleCount triples)", 
+            3, OMEKA_PATH . '/logs/finalDelete.log');
     } catch (\Exception $e) {
-        error_log("Error deleting3 from GraphDB: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/finalDelete.log');
+        error_log("Error deleting from GraphDB: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/finalDelete.log');
     }
 }
+
+/**
+ * Build a query to count triples associated with a particular identifier
+ */
+private function buildCountQuery($graphUri, $identifier) {
+    return "
+PREFIX dct: <http://purl.org/dc/terms/>
+PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+
+SELECT (COUNT(*) as ?count)
+WHERE {
+  GRAPH <$graphUri> {
+    {
+      # Count all triples where our artifact is the subject
+      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
+      ?artifact ?p1 ?o1 .
+    }
+    UNION
+    {
+      # Count all triples where our artifact is the object
+      ?s2 ?p2 ?artifact .
+      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
+    }
+    UNION
+    { 
+      # Count all triples from paths with our identifier
+      ?s3 ?p3 ?o3 .
+      FILTER(CONTAINS(STR(?s3), \"/$identifier\") || CONTAINS(STR(?o3), \"/$identifier\"))
+    }
+  }
+}";
+}
+
+/**
+ * Execute a SPARQL SELECT query against GraphDB
+ */
+private function executeSparqlQuery($endpoint, $query) {
+    $client = new Client();
+    $client->setMethod('POST');
+    $client->setUri(str_replace('/statements', '', $endpoint));
+    $client->setHeaders([
+        'Content-Type' => 'application/sparql-query',
+        'Accept' => 'application/json'
+    ]);
+    $client->setRawBody($query);
     
-    /**
-     * Delete a resource from GraphDB using its identifier
-     *
-     * @param string $endpoint GraphDB endpoint
-     * @param string $graphUri Graph URI
-     * @param string $identifier Resource identifier
-     */
+    try {
+        $response = $client->send();
+        return $response;
+    } catch (\Exception $e) {
+        error_log("Exception when executing SPARQL query: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/finalDelete.log');
+        throw $e;
+    }
+}
+
 private function deleteResourceByIdentifier($endpoint, $graphUri, $identifier, $graphId)
 {
     // First, log what we're trying to do
@@ -416,112 +479,87 @@ DELETE {
 WHERE {
   GRAPH <$graphUri> {
     {
-      # The main arrowhead item and all its properties
-      <https://purl.org/megalod/{$graphId}/item/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/{$graphId}/item/{$identifier}> AS ?s)
+      # Match any item with this identifier - this handles both patterns
+      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
+      ?artifact ?p ?o .
+      BIND(?artifact AS ?s)
     }
     UNION
     {
-      # All triples where the arrowhead is the object
-      ?s ?p <https://purl.org/megalod/{$graphId}/item/{$identifier}> .
+      # All triples where the artifact is the object
+      ?s ?p ?artifact .
+      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
     }
     UNION
     {
-      # All related chipping data
-      <https://purl.org/megalod/{$graphId}/chipping/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/{$graphId}/chipping/{$identifier}> AS ?s)
+      # Get encounter events that reference this artifact
+      ?encounter crmsci:O19_encountered_object ?artifact .
+      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
+      ?encounter ?p ?o .
+      BIND(?encounter AS ?s)
     }
     UNION
     {
-      # All triples where the chipping data is the object
-      ?s ?p <https://purl.org/megalod/{$graphId}/chipping/{$identifier}> .
+      # All triples where the encounter is the object
+      ?s ?p ?encounter .
+      ?encounter crmsci:O19_encountered_object ?artifact .
+      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
     }
     UNION
     {
-      # All related coordinates data
-      <https://purl.org/megalod/{$graphId}/coordinates/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/{$graphId}/coordinates/{$identifier}> AS ?s)
+      # All related artifact components (using different patterns)
+      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
+      ?artifact ?relPred ?component .
+      ?component rdf:type ?componentType .
+      FILTER(STRSTARTS(STR(?componentType), \"https://purl.org/megalod/\") || 
+             STRSTARTS(STR(?componentType), \"http://www.cidoc-crm.org/\") ||
+             STRSTARTS(STR(?relPred), \"https://purl.org/megalod/ms/\"))
+      ?component ?p ?o .
+      BIND(?component AS ?s)
     }
     UNION
     {
-      # All triples where the coordinates are the object
-      ?s ?p <https://purl.org/megalod/{$graphId}/coordinates/{$identifier}> .
+      # All triples where related components are the object
+      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
+      ?artifact ?relPred ?component .
+      ?s ?p ?component .
+      FILTER(STRSTARTS(STR(?relPred), \"https://purl.org/megalod/ms/\") ||
+             STRSTARTS(STR(?relPred), \"http://schema.org/\"))
     }
     UNION
-    {
-      # All related depth data
-      <https://purl.org/megalod/{$graphId}/depth/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/{$graphId}/depth/{$identifier}> AS ?s)
-    }
-    UNION
-    {
-      # All triples where the depth data is the object
-      ?s ?p <https://purl.org/megalod/{$graphId}/depth/{$identifier}> .
-    }
-    UNION
-    {
-      # All related encounter event data
-      <https://purl.org/megalod/{$graphId}/encounter/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/{$graphId}/encounter/{$identifier}> AS ?s)
-    }
-    UNION
-    {
-      # All triples where the encounter event is the object
-      ?s ?p <https://purl.org/megalod/{$graphId}/encounter/{$identifier}> .
-    }
-    UNION
-    {
-      # All related morphology data
-      <https://purl.org/megalod/{$graphId}/morphology/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/{$graphId}/morphology/{$identifier}> AS ?s)
-    }
-    UNION
-    {
-      # All triples where the morphology data is the object
-      ?s ?p <https://purl.org/megalod/{$graphId}/morphology/{$identifier}> .
-    }
-    UNION
-    {
-      # All related typometry data (baseLength, bodyLength, height, thickness, width)
-      VALUES ?typometry {
-        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-baseLength>
-        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-bodyLength>
-        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-height>
-        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-thickness>
-        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-width>
-      }
+    { 
+      # Specific pattern for typometry values
+      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
+      ?typometry rdf:type excav:TypometryValue .
+      ?artifact ?anyProp ?typometry .
       ?typometry ?p ?o .
       BIND(?typometry AS ?s)
     }
     UNION
-    {
-      # All triples where the typometry data is the object
-      VALUES ?typometry {
-        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-baseLength>
-        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-bodyLength>
-        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-height>
-        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-thickness>
-        <https://purl.org/megalod/{$graphId}/typometry/{$identifier}-width>
-      }
-      ?s ?p ?typometry .
+    { 
+      # Specific pattern for artifact subpaths like /AH-003/typometry etc.
+      ?s ?p ?o .
+      FILTER(CONTAINS(STR(?s), \"/$identifier/\") && STRSTARTS(STR(?s), \"$graphUri\"))
     }
     UNION
     {
-      # All related weight data
-      <https://purl.org/megalod/{$graphId}/weight/{$identifier}> ?p ?o .
-      BIND(<https://purl.org/megalod/{$graphId}/weight/{$identifier}> AS ?s)
+      # Match related objects that have the artifact's ID in their URI path
+      ?related ?p ?o .
+      FILTER(CONTAINS(STR(?related), \"/$identifier\") && STRSTARTS(STR(?related), \"$graphUri\"))
+      BIND(?related AS ?s)
     }
     UNION
     {
-      # All triples where the weight data is the object
-      ?s ?p <https://purl.org/megalod/{$graphId}/weight/{$identifier}> .
+      # All triples where these URI-based resources are the object
+      ?s ?p ?related .
+      FILTER(CONTAINS(STR(?related), \"/$identifier\") && STRSTARTS(STR(?related), \"$graphUri\"))
     }
   }
 }";
 
-        error_log("SPARQL Query: $query", 3, OMEKA_PATH . '/logs/finalDelete.log');
-        return $this->executeSparqlUpdate($endpoint, $query);
-    }
+    error_log("SPARQL Query: $query", 3, OMEKA_PATH . '/logs/finalDelete.log');
+    return $this->executeSparqlUpdate($endpoint, $query);
+}
     
     /**
      * Delete a resource from GraphDB using patterns based on Omeka ID
