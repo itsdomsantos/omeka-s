@@ -37,8 +37,6 @@
     schema:weight <https://purl.org/megalod/weight/ah-001> ;
     excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
     excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin> ;
-    dul:hasLocation <https://purl.org/megalod/location/alto-castelinho> ;
-    crmsci:O19i_was_object_encountered_through <https://purl.org/megalod/encounter/enc-001> ;
     excav:foundInLocation <https://purl.org/megalod/location/alto-castelinho> ;
     excav:foundInContext <https://purl.org/megalod/context/CTX-001> ;
     excav:foundInSquare <https://purl.org/megalod/square/A1> ;
@@ -63,8 +61,6 @@
     schema:weight <https://purl.org/megalod/weight/ah-002> ;
     excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
     excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin> ;
-    dul:hasLocation <https://purl.org/megalod/location/alto-castelinho> ;
-    crmsci:O19i_was_object_encountered_through <https://purl.org/megalod/encounter/enc-002> ;
     excav:foundInLocation <https://purl.org/megalod/location/alto-castelinho> ;
     excav:foundInSquare <https://purl.org/megalod/square/A2> ;
     ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
@@ -83,14 +79,13 @@
     crm:E57_Material <https://purl.org/megalod/material/flint> ;
     excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/ah-003> ;
     excav:foundInContext <https://purl.org/megalod/context/CTX-001> ;
+    excav:foundInSVU <https://purl.org/megalod/svu/Layer-002> ;
     schema:height <https://purl.org/megalod/typometry/ah-003-height> ;
     schema:width <https://purl.org/megalod/typometry/ah-003-width> ;
     schema:depth <https://purl.org/megalod/typometry/ah-003-depth> ;
     schema:weight <https://purl.org/megalod/weight/ah-003> ;
     excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
     excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Medium> ;
-    dul:hasLocation <https://purl.org/megalod/location/alto-castelinho> ;
-    crmsci:O19i_was_object_encountered_through <https://purl.org/megalod/encounter/enc-003> ;
     excav:foundInLocation <https://purl.org/megalod/location/alto-castelinho> ;
     excav:foundInSquare <https://purl.org/megalod/square/B1> ;
     ah:shape <https://purl.org/megalod/kos/ah-shape/stemmed> ;
@@ -256,3 +251,11 @@
     ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/distal> , <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
     ah:chippingOrientation false ;
     ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex> .
+
+
+// create the encounter event for AH-003
+<https://purl.org/megalod/encounter/AH-003> a excav:EncounterEvent ;
+    dct:date "2025-05-30"^^xsd:literal ;
+    crmsci:O19_encountered_object <https://purl.org/megalod/item/arrowhead-003> ;
+    excav:foundInExcavation <https://purl.org/megalod/example/excavation/TestExcavation> ;
+    excav:foundInContext <https://purl.org/megalod/example/context/CV-001> ;
