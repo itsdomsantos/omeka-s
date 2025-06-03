@@ -3859,15 +3859,11 @@ private function processCoordinateResource($rdfData, $coordinateUri, &$itemData)
 
 
 
-
 /**
- * ENHANCED: Process encounter event and extract all archaeological context
+ * ENHANCED: Process encounter event and update the list of encountered objects
  */
-private function processEncounterEvent($rdfData, $encounterUri, &$itemData) {
+private function processEncounterEvent($rdfData, $encounterUri, &$itemData, $currentItemSetId) {
     error_log("Processing complete encounter event: $encounterUri", 3, OMEKA_PATH . '/logs/encounter-debug.log');
-    
-    // Get current item set context for URI normalization
-    $currentItemSetId = $this->getCurrentItemSetContext();
     
     // Extract encounter date
     if (isset($rdfData[$encounterUri]['http://purl.org/dc/terms/date'])) {
@@ -3884,6 +3880,66 @@ private function processEncounterEvent($rdfData, $encounterUri, &$itemData) {
                 ];
                 
                 error_log("Added encounter date: {$dateObj['value']}", 3, OMEKA_PATH . '/logs/encounter-debug.log');
+            }
+        }
+    }
+    
+    // Extract all encountered objects - critical for showing all items found at the event
+    if (isset($rdfData[$encounterUri]['https://cidoc-crm.org/extensions/crmsci/O19_encountered_object'])) {
+        $encounteredItems = [];
+        
+        foreach ($rdfData[$encounterUri]['https://cidoc-crm.org/extensions/crmsci/O19_encountered_object'] as $itemObj) {
+            if ($itemObj['type'] === 'uri') {
+                $itemUri = $itemObj['value'];
+                $itemId = $this->extractIdentifierFromUri($itemUri);
+                
+                // Try to get more info about the item
+                if (isset($rdfData[$itemUri])) {
+                    if (isset($rdfData[$itemUri]['http://purl.org/dc/terms/identifier'])) {
+                        foreach ($rdfData[$itemUri]['http://purl.org/dc/terms/identifier'] as $idObj) {
+                            if ($idObj['type'] === 'literal') {
+                                $encounteredItems[] = $idObj['value'];
+                            }
+                        }
+                    } else {
+                        $encounteredItems[] = $itemId ?: basename($itemUri);
+                    }
+                } else {
+                    $encounteredItems[] = $itemId ?: basename($itemUri);
+                }
+            }
+        }
+        
+        if (!empty($encounteredItems)) {
+            if (!isset($itemData['Encountered Objects'])) {
+                $itemData['Encountered Objects'] = [];
+            }
+            
+            $itemData['Encountered Objects'][] = [
+                'type' => 'literal',
+                'property_id' => 7685,
+                '@value' => implode(', ', $encounteredItems)
+            ];
+            
+            error_log("Added encountered objects: " . implode(', ', $encounteredItems), 3, OMEKA_PATH . '/logs/encounter-debug.log');
+        }
+    }
+    
+    // Extract depth information
+    if (isset($rdfData[$encounterUri]['http://dbpedia.org/ontology/depth'])) {
+        foreach ($rdfData[$encounterUri]['http://dbpedia.org/ontology/depth'] as $depthObj) {
+            if ($depthObj['type'] === 'literal') {
+                if (!isset($itemData['Discovery Depth'])) {
+                    $itemData['Discovery Depth'] = [];
+                }
+                
+                $itemData['Discovery Depth'][] = [
+                    'type' => 'literal',
+                    'property_id' => 7676,
+                    '@value' => $depthObj['value']
+                ];
+                
+                error_log("Added discovery depth: {$depthObj['value']}", 3, OMEKA_PATH . '/logs/encounter-debug.log');
             }
         }
     }
@@ -3971,25 +4027,6 @@ private function processEncounterEvent($rdfData, $encounterUri, &$itemData) {
                 }
                 
                 if ($found) break; // Found references with this predicate, no need to check others
-            }
-        }
-    }
-    
-    // Extract depth information
-    if (isset($rdfData[$encounterUri]['http://dbpedia.org/ontology/depth'])) {
-        foreach ($rdfData[$encounterUri]['http://dbpedia.org/ontology/depth'] as $depthObj) {
-            if ($depthObj['type'] === 'literal') {
-                if (!isset($itemData['Discovery Depth'])) {
-                    $itemData['Discovery Depth'] = [];
-                }
-                
-                $itemData['Discovery Depth'][] = [
-                    'type' => 'literal',
-                    'property_id' => 7676,
-                    '@value' => $depthObj['value']
-                ];
-                
-                error_log("Added discovery depth: {$depthObj['value']}", 3, OMEKA_PATH . '/logs/encounter-debug.log');
             }
         }
     }
@@ -4171,7 +4208,7 @@ private function extractEncounterEventData($rdfData, $subject, &$itemData, $curr
     
     // Process the encounter event if found
     if ($encounterEventUri && isset($rdfData[$encounterEventUri])) {
-        $this->processEncounterEvent($rdfData, $encounterEventUri, $itemData);
+        $this->processEncounterEvent($rdfData, $encounterEventUri, $itemData, $this->getCurrentItemSetContext());
     } else {
         error_log('No encounter event found for this arrowhead', 3, OMEKA_PATH . '/logs/encounter-debug.log');
     }
