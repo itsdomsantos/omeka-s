@@ -24,19 +24,19 @@
 
 # =========== ITEMS ===========
 
-<https://purl.org/megalod/item/arrowhead-003> a excav:Item, ah:Arrowhead ;
-    dct:identifier "AH-003"^^xsd:literal;
-    edm:Webresource <https://example.com/images/arrowhead-003.jpg> ;
+<https://purl.org/megalod/item/arrowhead-002> a excav:Item, ah:Arrowhead ;
+    dct:identifier "AH-002"^^xsd:literal;
+    edm:Webresource <https://example.com/images/arrowhead-002.jpg> ;
     dbo:Annotation "Large, stemmed arrowhead with bifacial retouch"^^xsd:literal;
     crm:E3_Condition_State true ;
     crm:E57_Material <https://purl.org/megalod/material/flint> ;
-    excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/ah-003> ;
-    excav:foundInContext <https://purl.org/megalod/context/CTX-001> ;
+    excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/ah-002> ;
+    excav:foundInContext <https://purl.org/megalod/context/CTX-002> ;
     excav:foundInSVU <https://purl.org/megalod/svu/Layer-002> ;
-    schema:height <https://purl.org/megalod/typometry/ah-003-height> ;
-    schema:width <https://purl.org/megalod/typometry/ah-003-width> ;
-    schema:depth <https://purl.org/megalod/typometry/ah-003-depth> ;
-    schema:weight <https://purl.org/megalod/weight/ah-003> ;
+    schema:height <https://purl.org/megalod/typometry/ah-002-height> ;
+    schema:width <https://purl.org/megalod/typometry/ah-002-width> ;
+    schema:depth <https://purl.org/megalod/typometry/ah-002-depth> ;
+    schema:weight <https://purl.org/megalod/weight/ah-002> ;
     excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
     excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Medium> ;
     excav:foundInLocation <https://purl.org/megalod/location/alto-castelinho> ;
@@ -44,32 +44,32 @@
     ah:shape <https://purl.org/megalod/kos/ah-shape/stemmed> ;
     crm:E55_Type true ;
     ah:variant <https://purl.org/megalod/kos/ah-variant/raised> ;
-    ah:hasMorphology <https://purl.org/megalod/Morphology/ah-003> ;
-    ah:hasBodyLength <https://purl.org/megalod/BodyLength/ah-003> ;
-    ah:hasBaseLength <https://purl.org/megalod/BaseLength/ah-003> ;
-    ah:hasChipping <https://purl.org/megalod/Chipping/ah-003> .
+    ah:hasMorphology <https://purl.org/megalod/Morphology/ah-002> ;
+    ah:hasBodyLength <https://purl.org/megalod/BodyLength/ah-002> ;
+    ah:hasBaseLength <https://purl.org/megalod/BaseLength/ah-002> ;
+    ah:hasChipping <https://purl.org/megalod/Chipping/ah-002> .
 
 # =========== COORDINATES ===========
 
 
-<https://purl.org/megalod/coordinates/ah-003> a excav:Coordinates ;
-    geo:longitude <https://purl.org/megalod/typometry/ah-003-x> ;
-    geo:latitude <https://purl.org/megalod/typometry/ah-003-y> ;
-    schema:depth <https://purl.org/megalod/typometry/ah-003-z> .
+<https://purl.org/megalod/coordinates/ah-002> a excav:Coordinates ;
+    geo:longitude <https://purl.org/megalod/typometry/ah-002-x> ;
+    geo:latitude <https://purl.org/megalod/typometry/ah-002-y> ;
+    schema:depth <https://purl.org/megalod/typometry/ah-002-z> .
 
 # =========== TYPOMETRY VALUES ===========
 
 
 
-<https://purl.org/megalod/typometry/ah-003-height> a excav:TypometryValue ;
+<https://purl.org/megalod/typometry/ah-002-height> a excav:TypometryValue ;
     schema:value "5.1"^^xsd:decimal ;
     schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
 
-<https://purl.org/megalod/typometry/ah-003-width> a excav:TypometryValue ;
+<https://purl.org/megalod/typometry/ah-002-width> a excav:TypometryValue ;
     schema:value "2.8"^^xsd:decimal ;
     schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
 
-<https://purl.org/megalod/typometry/ah-003-depth> a excav:TypometryValue ;
+<https://purl.org/megalod/typometry/ah-002-depth> a excav:TypometryValue ;
     schema:value "0.7"^^xsd:decimal ;
     schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
 
@@ -77,15 +77,15 @@
 
 
 
-<https://purl.org/megalod/typometry/ah-003-x> a excav:TypometryValue ;
+<https://purl.org/megalod/typometry/ah-002-x> a excav:TypometryValue ;
     schema:value "15.3"^^xsd:decimal ;
     schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
 
-<https://purl.org/megalod/typometry/ah-003-y> a excav:TypometryValue ;
+<https://purl.org/megalod/typometry/ah-002-y> a excav:TypometryValue ;
     schema:value "88.9"^^xsd:decimal ;
     schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
 
-<https://purl.org/megalod/typometry/ah-003-z> a excav:TypometryValue ;
+<https://purl.org/megalod/typometry/ah-002-z> a excav:TypometryValue ;
     schema:value "0.9"^^xsd:decimal ;
     schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
 
@@ -100,7 +100,7 @@
 
 
 
-<https://purl.org/megalod/Morphology/ah-003> a ah:Morphology ;
+<https://purl.org/megalod/Morphology/ah-002> a ah:Morphology ;
     ah:point true ;
     ah:body true ;
     ah:base <https://purl.org/megalod/kos/ah-base/stemmed> .
@@ -108,7 +108,7 @@
 # =========== CHIPPING ===========
 
 
-<https://purl.org/megalod/Chipping/ah-003> a ah:Chipping ;
+<https://purl.org/megalod/Chipping/ah-002> a ah:Chipping ;
     ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/parallel> ;
     ah:chippingAmplitude false ;
     ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/bifacial> ;

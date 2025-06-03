@@ -24,14 +24,14 @@
 # =========== MAIN EXCAVATION ===========
 
 <https://purl.org/megalod/excavation/alto-castelinho-2024> a excav:Excavation ;
-    dct:identifier "ALC-2024"^^xsd:literal;
+    dct:identifier "ALC-2023"^^xsd:literal;
     dul:hasLocation <https://purl.org/megalod/location/alto-castelinho> ;
     excav:hasPersonInCharge <https://purl.org/megalod/archaeologist/maria-santos> ;
     excav:hasSquare <https://purl.org/megalod/square/A1>, 
                     <https://purl.org/megalod/square/A2>,
                     <https://purl.org/megalod/square/B1> ;
-    excav:hasContext <https://purl.org/megalod/context/ctx-001>,
-                     <https://purl.org/megalod/context/ctx-002> .
+    excav:hasContext <https://purl.org/megalod/context/CTX-001>,
+                     <https://purl.org/megalod/context/CTX-001-002> .
 
 # =========== LOCATION ===========
 
@@ -76,28 +76,28 @@
 
 # =========== CONTEXTS ===========
 
-<https://purl.org/megalod/context/ctx-001> a excav:Context ;
+<https://purl.org/megalod/context/CTX-001> a excav:Context ;
     dct:identifier "CTX-001"^^xsd:literal;
-    excav:hasSVU <https://purl.org/megalod/svu/layer-02>,
-                 <https://purl.org/megalod/svu/layer-03> .
+    excav:hasSVU <https://purl.org/megalod/svu/Layer-02>,
+                 <https://purl.org/megalod/svu/Layer-03> .
 
-<https://purl.org/megalod/context/ctx-002> a excav:Context ;
+<https://purl.org/megalod/context/CTX-001-002> a excav:Context ;
     dct:identifier "CTX-002"^^xsd:literal;
-    excav:hasSVU <https://purl.org/megalod/svu/layer-04> .
+    excav:hasSVU <https://purl.org/megalod/svu/Layer-04> .
 
 # =========== STRATIGRAPHIC VOLUME UNITS ===========
 
-<https://purl.org/megalod/svu/layer-02> a excav:StratigraphicVolumeUnit ;
+<https://purl.org/megalod/svu/Layer-02> a excav:StratigraphicVolumeUnit ;
     dct:identifier "Layer-02"^^xsd:literal;
-    dct:description "Bronze Age occupation layer with lithic remains and hearth structures"^^xsd:literal;
+    dct:description "Bronze Age occupation Layer with lithic remains and hearth structures"^^xsd:literal;
     excav:hasTimeline <https://purl.org/megalod/timeline/bronze-age> .
 
-<https://purl.org/megalod/svu/layer-03> a excav:StratigraphicVolumeUnit ;
+<https://purl.org/megalod/svu/Layer-03> a excav:StratigraphicVolumeUnit ;
     dct:identifier "Layer-03"^^xsd:literal;
     dct:description "Late Bronze Age refuse pit with ceramic and lithic material"^^xsd:literal;
     excav:hasTimeline <https://purl.org/megalod/timeline/late-bronze-age> .
 
-<https://purl.org/megalod/svu/layer-04> a excav:StratigraphicVolumeUnit ;
+<https://purl.org/megalod/svu/Layer-04> a excav:StratigraphicVolumeUnit ;
     dct:identifier "Layer-04"^^xsd:literal;
     dct:description "Early Bronze Age workshop area with debitage and tools"^^xsd:literal;
     excav:hasTimeline <https://purl.org/megalod/timeline/early-bronze-age> .
