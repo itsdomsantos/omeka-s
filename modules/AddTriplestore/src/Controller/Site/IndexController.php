@@ -3598,40 +3598,104 @@ private function extractCoordinateData($rdfData, $subject, &$itemData, $currentI
     }
 }
 
+
+
 /**
- * Process a coordinate resource and extract values
+ * Process a coordinate resource and extract all values
  */
 private function processCoordinateResource($rdfData, $coordinateUri, &$itemData) {
-    error_log("Processing coordinate resource: $coordinateUri", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
+    error_log("Processing coordinate resource: $coordinateUri", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
     
+    // Initialize individual coordinate components
+    $coordinates = [
+        'X' => null,
+        'Y' => null,
+        'Z' => null
+    ];
+    
+    // Check for standard schema:value pattern (multiple values)
     if (isset($rdfData[$coordinateUri]['http://schema.org/value'])) {
         $values = $rdfData[$coordinateUri]['http://schema.org/value'];
-        error_log('Found ' . count($values) . ' coordinate values', 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
+        error_log('Found ' . count($values) . ' schema:value coordinates', 3, OMEKA_PATH . '/logs/coordinates-debug.log');
         
-        $coordString = '';
-        $labels = ['X', 'Y', 'Z'];
-        
+        // Process multiple schema:value entries in order
         foreach ($values as $index => $valueObj) {
-            if ($valueObj['type'] === 'literal' && isset($labels[$index])) {
-                if ($coordString) $coordString .= ', ';
-                $coordString .= $labels[$index] . ': ' . $valueObj['value'];
-                error_log("Added coordinate {$labels[$index]}: {$valueObj['value']}", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
+            if ($valueObj['type'] === 'literal') {
+                $key = isset(['X', 'Y', 'Z'][$index]) ? ['X', 'Y', 'Z'][$index] : "Value$index";
+                $coordinates[$key] = $valueObj['value'];
+                error_log("Added coordinate $key: {$valueObj['value']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
             }
+        }
+    }
+    
+    // Check for geo:longitude (X coordinate)
+    if (isset($rdfData[$coordinateUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'])) {
+        foreach ($rdfData[$coordinateUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'] as $xObj) {
+            if ($xObj['type'] === 'uri' && isset($rdfData[$xObj['value']])) {
+                $xValue = $this->extractMeasurementValue($rdfData, $xObj['value']);
+                $xUnit = $this->extractMeasurementUnit($rdfData, $xObj['value']);
+                $coordinates['X'] = $xValue . ($xUnit ? " $xUnit" : "");
+                error_log("Added X coordinate from geo:longitude: {$coordinates['X']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+            } else if ($xObj['type'] === 'literal') {
+                $coordinates['X'] = $xObj['value'];
+                error_log("Added X coordinate from geo:longitude literal: {$coordinates['X']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+            }
+        }
+    }
+    
+    // Check for geo:latitude (Y coordinate)
+    if (isset($rdfData[$coordinateUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'])) {
+        foreach ($rdfData[$coordinateUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'] as $yObj) {
+            if ($yObj['type'] === 'uri' && isset($rdfData[$yObj['value']])) {
+                $yValue = $this->extractMeasurementValue($rdfData, $yObj['value']);
+                $yUnit = $this->extractMeasurementUnit($rdfData, $yObj['value']);
+                $coordinates['Y'] = $yValue . ($yUnit ? " $yUnit" : "");
+                error_log("Added Y coordinate from geo:latitude: {$coordinates['Y']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+            } else if ($yObj['type'] === 'literal') {
+                $coordinates['Y'] = $yObj['value'];
+                error_log("Added Y coordinate from geo:latitude literal: {$coordinates['Y']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+            }
+        }
+    }
+    
+    // Check for schema:depth (Z coordinate)
+    if (isset($rdfData[$coordinateUri]['http://schema.org/depth'])) {
+        foreach ($rdfData[$coordinateUri]['http://schema.org/depth'] as $zObj) {
+            if ($zObj['type'] === 'uri' && isset($rdfData[$zObj['value']])) {
+                $zValue = $this->extractMeasurementValue($rdfData, $zObj['value']);
+                $zUnit = $this->extractMeasurementUnit($rdfData, $zObj['value']);
+                $coordinates['Z'] = $zValue . ($zUnit ? " $zUnit" : "");
+                error_log("Added Z coordinate from schema:depth: {$coordinates['Z']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+            } else if ($zObj['type'] === 'literal') {
+                $coordinates['Z'] = $zObj['value'];
+                error_log("Added Z coordinate from schema:depth literal: {$coordinates['Z']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+            }
+        }
+    }
+    
+    // Create a formatted coordinate string with all available values
+    $coordStrings = [];
+    foreach ($coordinates as $axis => $value) {
+        if ($value !== null) {
+            $coordStrings[] = "$axis: $value";
+        }
+    }
+    
+    if (!empty($coordStrings)) {
+        if (!isset($itemData['Coordinates'])) {
+            $itemData['Coordinates'] = [];
         }
         
-        if ($coordString) {
-            if (!isset($itemData['Coordinates'])) {
-                $itemData['Coordinates'] = [];
-            }
-            
-            $itemData['Coordinates'][] = [
-                'type' => 'literal',
-                'property_id' => 7674,
-                '@value' => $coordString
-            ];
-            
-            error_log("Added coordinates: $coordString", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
-        }
+        $coordDisplay = implode(', ', $coordStrings);
+        $itemData['Coordinates'][] = [
+            'type' => 'literal',
+            'property_id' => 7674,
+            '@value' => $coordDisplay
+        ];
+        
+        error_log("Added coordinates: $coordDisplay", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+    } else {
+        error_log("No coordinate values found for URI: $coordinateUri", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
     }
 }
 
@@ -3817,7 +3881,12 @@ private function extractArchaeologicalContext($rdfData, $subject, &$itemData, $c
             'uris' => [
                 'https://purl.org/megalod/ms/excavation/foundInContext', 
                 'excav:foundInContext',
-                "https://purl.org/megalod/$currentItemSetId/excavation/foundInContext"
+                "https://purl.org/megalod/$currentItemSetId/excavation/foundInContext",
+                // NEW: Add these literal URI strings that appear in valid-arrow.ttl
+                'http://purl.org/megalod/ms/excavation/foundInContext',
+                'https://purl.org/megalod/ms/excavation/foundInContext',
+                // IMPORTANT: This is exactly how it appears in your TTL
+                'excav:foundInContext'
             ],
             'label' => 'Found in Context',
             'propertyId' => 7672
@@ -3835,8 +3904,9 @@ private function extractArchaeologicalContext($rdfData, $subject, &$itemData, $c
     
     foreach ($contextProperties as $propName => $config) {
         foreach ($config['uris'] as $uri) {
+            // Log to see if this URI is found
             if (isset($rdfData[$subject][$uri])) {
-                error_log("Found context property: $uri", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
+                error_log("✓ FOUND context property: $uri", 3, OMEKA_PATH . '/logs/context-debug.log');
                 
                 if (!isset($itemData[$config['label']])) {
                     $itemData[$config['label']] = [];
@@ -3848,16 +3918,22 @@ private function extractArchaeologicalContext($rdfData, $subject, &$itemData, $c
                         $contextValue = $this->extractContextDisplayValue($rdfData, $contextObj['value']);
                         $displayValue = $contextValue ?: $contextObj['value'];
                         
+                        // Log the actual value being added
+                        error_log("Adding context value: $displayValue", 3, OMEKA_PATH . '/logs/context-debug.log');
+                        
                         $itemData[$config['label']][] = [
-                            'type' => 'literal',
+                            'type' => 'uri',  // Use URI type to create proper links
                             'property_id' => $config['propertyId'],
-                            '@value' => $displayValue
+                            '@id' => $contextObj['value'],
+                            'o:label' => $displayValue
                         ];
                         
                         error_log("Added {$config['label']}: $displayValue", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
                     }
                 }
                 break; // Found this property, move to next
+            } else {
+                error_log("✗ NOT FOUND: $uri", 3, OMEKA_PATH . '/logs/context-debug.log');
             }
         }
     }

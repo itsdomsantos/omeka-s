@@ -40,6 +40,7 @@
     dul:hasLocation <https://purl.org/megalod/location/alto-castelinho> ;
     crmsci:O19i_was_object_encountered_through <https://purl.org/megalod/encounter/enc-001> ;
     excav:foundInLocation <https://purl.org/megalod/location/alto-castelinho> ;
+    excav:foundInContext <https://purl.org/megalod/context/CTX-001> ;
     excav:foundInSquare <https://purl.org/megalod/square/A1> ;
     ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
     crm:E55_Type true ;
@@ -81,6 +82,7 @@
     crm:E3_Condition_State true ;
     crm:E57_Material <https://purl.org/megalod/material/flint> ;
     excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/ah-003> ;
+    excav:foundInContext <https://purl.org/megalod/context/CTX-001> ;
     schema:height <https://purl.org/megalod/typometry/ah-003-height> ;
     schema:width <https://purl.org/megalod/typometry/ah-003-width> ;
     schema:depth <https://purl.org/megalod/typometry/ah-003-depth> ;
