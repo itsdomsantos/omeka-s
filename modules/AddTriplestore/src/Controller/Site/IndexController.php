@@ -597,6 +597,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         $modifiedTtl
     );
     
+    
     // Coordinates: /coordinates/ah-003 → /AH-003/coordinates
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/coordinates\/([^>]+)>/',
@@ -759,6 +760,47 @@ $modifiedTtl = preg_replace_callback(
     '/<https:\/\/purl\.org\/megalod\/gps\/([^>]+)>/',
     function($matches) use ($itemSetId) {
         return "<https://purl.org/megalod/$itemSetId/gps/{$matches[1]}>";
+    },
+    $modifiedTtl
+);
+
+
+// In normalizeUris method, add this check for BC/AD URIs:
+$modifiedTtl = preg_replace_callback(
+    '/<https:\/\/purl\.org\/megalod\/([^\/]+)\/MegaLOD-BCAD\/(BC|AD)>/',
+    function($matches) {
+        // Always use the correct KOS namespace for BC/AD
+        return "<https://purl.org/megalod/kos/MegaLOD-BCAD/{$matches[2]}>";
+    },
+    $modifiedTtl
+);
+
+$modifiedTtl = preg_replace_callback(
+    '/<https:\/\/purl\.org\/megalod\/([^\/]+)\/excavation\/([^>]+)>/',
+    function($matches) use ($itemSetId) {
+        if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+        $excavationId = $matches[2]; // PRD-01
+        return "<https://purl.org/megalod/$itemSetId/excavation/$excavationId>";
+    },
+    $modifiedTtl
+);
+
+// Timeline URIs: /timeline/iron-age → /2581/timeline/iron-age
+$modifiedTtl = preg_replace_callback(
+    '/<https:\/\/purl\.org\/megalod\/timeline\/([^>]+)>/',
+    function($matches) use ($itemSetId) {
+        if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+        return "<https://purl.org/megalod/$itemSetId/timeline/{$matches[1]}>";
+    },
+    $modifiedTtl
+);
+
+// Instant URIs: /instant/800bc → /2581/instant/800bc  
+$modifiedTtl = preg_replace_callback(
+    '/<https:\/\/purl\.org\/megalod\/instant\/([^>]+)>/',
+    function($matches) use ($itemSetId) {
+        if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+        return "<https://purl.org/megalod/$itemSetId/instant/{$matches[1]}>";
     },
     $modifiedTtl
 );
@@ -977,7 +1019,7 @@ private function generateTimelineAndInstantSections(&$ttl, $excavationData, $bas
                 $isBC = $instantData['bc'];
                 
                 $ttl .= "<$instantUri> a excav:Instant ;\n";
-                $ttl .= "    excav:bcad <$baseUri/MegaLOD-BCAD/" . ($isBC ? 'BC' : 'AC') . "> ;\n";
+                $ttl .= "    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/" . ($isBC ? 'BC' : 'AD') . "> ;\n";
                 
                 // Format year properly for xsd:gYear
                 $yearValue = abs((int)$year);
