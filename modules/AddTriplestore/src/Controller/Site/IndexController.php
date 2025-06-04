@@ -8539,4 +8539,12 @@ private function escapeTtlString($string)
         $string
     );
 }
+
+
+
+public function aboutUsAction()
+{
+    $view = new ViewModel();
+    return $view;
+}
 }

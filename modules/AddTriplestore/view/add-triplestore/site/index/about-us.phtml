@@ -1,0 +1,158 @@
+<?php
+
+$this->headTitle('About Us');
+$this->htmlElement('body')->appendAttribute('class', 'about-us-page');
+?>
+
+<div class="about-us-container">
+    <h1>About MegaLOD Data Management Project</h1>
+    
+    <section class="about-section">
+        <h2>Project Overview</h2>
+        <p>
+            The Neolithic period (7000-1700 BCE) cultural heritage sites have traditionally been documented using basic tools like spreadsheets and local databases, accessible through various websites and apps. While these solutions make information available, they create isolated data silos that prevent data sharing and reuse. Our project addresses this limitation by developing a common data model using Linked Open Data (LOD) technology. This approach enables data interoperability, machine reasoning, and integration with existing cultural heritage resources from galleries, libraries, archives, and museums (GLAM community). By publishing data in the Semantic Web format, we create opportunities for new discoveries through interconnected datasets.
+        </p>
+        
+    </section>
+    
+    <section class="about-section">
+        <h2>Our Mission</h2>
+        <p>Our mission is to revolutionize archaeological research through an innovative, open-source platform for cataloging and sharing megalithic heritage data. We aim to:</p>
+        <br>
+        <ul>
+            <li>Provide a framework of interoperability for megalithic assets of the European Neolithic period</li>
+            <li>Develop a standardized metadata application profile (MAP) for publishing interoperable megalithic datasets</li>
+            <li>Create software applications allowing users to explore cultural heritage items in multiple dimensions</li>
+            <li>Make datasets openly available through SPARQL endpoints and APIs for maximum reusability</li>
+            <li>Develop a public website and virtual museum app to showcase megalithic sites and findings</li>
+        </ul>
+    </section>
+    
+    <section class="about-section">
+        <h2>Technical Approach</h2>
+        <p>The platform is built on the following technologies:</p>
+        <br>
+        <ul>
+            <li><strong>Linked Data:</strong> All artifacts and excavation records are stored as RDF triples, enabling rich semantic relationships</li>
+            <li><strong>Knowledge Organization Systems:</strong> Standardized vocabularies ensure consistent terminology across projects</li>
+            <li><strong>GraphDB:</strong> A powerful triplestore database providing flexible querying capabilities</li>
+            <li><strong>Omeka S:</strong> An extensible digital collection management system</li>
+        </ul>
+    </section>
+    
+    <section class="about-section">
+        <h2>Features</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <h3>Excavation Documentation</h3>
+                <p>Comprehensive forms for capturing detailed excavation contexts, including squares, stratigraphic units, and timelines.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3>Artifact Recording</h3>
+                <p>Specialized forms for documenting artifacts with detailed morphological and contextual information.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3>Semantic Integration</h3>
+                <p>All data is mapped to standardized ontologies, ensuring interoperability with other archaeological datasets.</p>
+            </div>
+            
+            <div class="feature-card">
+                <h3>Advanced Search</h3>
+                <p>Powerful query capabilities across all excavation and artifact data using semantic relationships.</p>
+            </div>
+        </div>
+    </section>
+</div>
+
+<style>
+.about-us-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem 1rem;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+.about-section {
+    margin-bottom: 3rem;
+    line-height: 1.6;
+}
+
+h1 {
+    font-size: 2.5rem;
+    margin-bottom: 2rem;
+    color:rgb(198, 198, 198);
+    border-bottom: 2px solid #eaeaea;
+    padding-bottom: 0.5rem;
+}
+
+h2 {
+    font-size: 1.8rem;
+    margin-bottom: 1.2rem;
+    color:rgb(41, 28, 16);
+}
+
+h3 {
+    font-size: 1.3rem;
+    margin-bottom: 0.8rem;
+    color:rgb(178, 83, 0);
+}
+
+ul {
+    padding-left: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+li {
+    margin-bottom: 0.5rem;
+}
+
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+.feature-card {
+    color: black;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 1.5rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.team-members {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 2rem;
+    margin-top: 1.5rem;
+}
+
+.team-member {
+    background-color: #ffffff;
+    border-left: 4px solid #3498db;
+    padding: 1.5rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+}
+
+.member-title {
+    font-style: italic;
+    color: #7f8c8d;
+    margin-top: -0.5rem;
+    margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+    .features-grid, .team-members {
+        grid-template-columns: 1fr;
+    }
+}
+</style>

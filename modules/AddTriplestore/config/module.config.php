@@ -71,6 +71,16 @@ return [
                                     ],
                                 ],
                             ],
+                            'about-us' => [
+                                'type' => 'Segment',
+                                'options' => [
+                                    'route' => '/about-us',
+                                    'defaults' => [
+                                        'controller' => 'AddTriplestore\Controller\Site\Index',
+                                        'action' => 'aboutUs',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],

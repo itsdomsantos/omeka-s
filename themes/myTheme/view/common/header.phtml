@@ -2,10 +2,68 @@
     <div class="container">
         <div class="logo">Logo</div>
         <nav class="nav">
-            <a href="#about">About Us</a>
-            <a href="#collections">Collections</a>
-            <a href="#map">Map</a>
-            <a href="/sign-in" class="sign-in">Sign in</a>
+            <a href="<?php echo $this->url('site/add-triplestore/about-us', ['site-slug' => $site->slug()]); ?>">About Us</a>
+            <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()], ['query' => ['query' => 'excavation', 'type' => 'item_sets']]); ?>">Collections</a>
+            <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()]); ?>">Map</a>
+            <?php if ($this->identity()): ?>
+                <a href="<?php echo $this->url('admin'); ?>" class="user-name">
+                    <?php echo $this->escapeHtml($this->identity()->getName()); ?>
+                </a>
+            <?php else: ?>
+                <a href="<?php echo $this->url('login'); ?>" class="sign-in">Sign in</a>
+            <?php endif; ?>
         </nav>
     </div>
 </header>
+
+<style>
+.header {
+    padding: 15px 0;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 24px;
+    font-weight: bold;
+    color: white;
+}
+
+.nav {
+    display: flex;
+    gap: 20px;
+}
+
+.nav a {
+    color: white;
+    text-decoration: none;
+    font-weight: 500;
+    padding: 8px 12px;
+    border-radius: 4px;
+    transition: background-color 0.3s;
+}
+
+.nav a:hover {
+    background-color: rgba(255,255,255,0.2);
+}
+
+.user-name, .sign-in {
+    background-color: white;
+    color: #FF8C00 !important;
+    padding: 8px 15px !important;
+    border-radius: 4px;
+    font-weight: bold !important;
+}
+
+.user-name:hover, .sign-in:hover {
+    background-color: #f5f5f5 !important;
+}
+</style>
