@@ -61,6 +61,16 @@ return [
                                     ],
                                 ],
                             ],
+                            'download-ttl' => [
+                                'type' => 'Segment',
+                                'options' => [
+                                    'route' => '/download-ttl',
+                                    'defaults' => [
+                                        'controller' => 'AddTriplestore\Controller\Site\Index',
+                                        'action' => 'downloadTtl',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],

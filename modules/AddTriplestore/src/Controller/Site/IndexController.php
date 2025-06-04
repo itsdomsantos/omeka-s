@@ -569,6 +569,11 @@ private function normalizeUris($ttlData, $itemSetId) {
     error_log("=== FIXED URI NORMALIZATION START ===", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     error_log("ItemSetId: $itemSetId", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     
+    if (!$itemSetId) {
+        error_log("No item set ID provided, skipping normalization", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+        return $ttlData;
+    }
+    
     // 1. First, extract the main item identifier
     $mainIdentifier = null;
     if (preg_match('/dct:identifier\s+"([^"]+)"/i', $ttlData, $matches)) {
@@ -576,45 +581,110 @@ private function normalizeUris($ttlData, $itemSetId) {
         error_log("Main identifier found: $mainIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     }
     
-    if (!$mainIdentifier) {
-        error_log("No main identifier found, skipping normalization", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-        return $ttlData;
-    }
-    
     $modifiedTtl = $ttlData;
     $replacements = 0;
     
-    // 2. Apply URI transformations with proper regex handling
+    // CRITICAL FIX: Replace excavation ID patterns with item set ID
+    // This pattern will match excavation IDs like PRD-01 in URIs
+    $excavationIdPattern = '/https:\/\/purl\.org\/megalod\/([A-Za-z0-9-]+)\/([^>]+)>/';
+    $modifiedTtl = preg_replace_callback(
+        $excavationIdPattern,
+        function($matches) use ($itemSetId, &$replacements) {
+            // Skip KOS namespaces
+            if (strpos($matches[0], '/kos/') !== false) {
+                return $matches[0];
+            }
+            
+            $resourcePath = $matches[2];
+            $excavationId = $matches[1];
+            
+            // Only replace if it looks like an excavation ID (not already an item set ID)
+            if (!is_numeric($excavationId) && $excavationId != $itemSetId) {
+                $replacements++;
+                error_log("Replacing excavation ID in URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$resourcePath>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+                return "<https://purl.org/megalod/$itemSetId/$resourcePath>";
+            }
+            
+            return $matches[0];
+        },
+        $modifiedTtl
+    );
+    
+    // 2. Apply URI transformations with proper regex handling for specific patterns
     
     // Main item URI: /item/arrowhead-003 → /AH-003
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/item\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier) {
+        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $replacements++;
             error_log("Replacing main item URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/$mainIdentifier>";
         },
         $modifiedTtl
     );
     
-    
     // Coordinates: /coordinates/ah-003 → /AH-003/coordinates
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/coordinates\/([^>]+)>/',
-        function($matches) use ($itemSetId, $mainIdentifier) {
+        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $replacements++;
             error_log("Replacing coordinates URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/coordinates>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/coordinates>";
         },
         $modifiedTtl
     );
     
+    // SVU: explicitly normalize SVU URIs
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/[^\/]+\/svu\/([^>]+)>/',
+        function($matches) use ($itemSetId, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $svuId = $matches[1];
+            $replacements++;
+            error_log("Fixing SVU URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/svu/$svuId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/svu/$svuId>";
+        },
+        $modifiedTtl
+    );
+    
+    // Context: explicitly normalize context URIs
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/[^\/]+\/context\/([^>]+)>/',
+        function($matches) use ($itemSetId, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $contextId = $matches[1];
+            $replacements++;
+            error_log("Fixing context URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/context/$contextId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/context/$contextId>";
+        },
+        $modifiedTtl
+    );
+    
+    // Square: explicitly normalize square URIs
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/[^\/]+\/square\/([^>]+)>/',
+        function($matches) use ($itemSetId, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $squareId = $matches[1];
+            $replacements++;
+            error_log("Fixing square URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/square/$squareId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/square/$squareId>";
+        },
+        $modifiedTtl
+    );
+    
+    // Continue with other specific patterns...
+    // [Keep all your existing specific patterns below]
+    
     // Typometry values: /typometry/ah-003-height → /AH-003/typometry/height
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/typometry\/[^-]+-[^-]+-([^>]+)>/',
-        function($matches) use ($itemSetId, $mainIdentifier) {
+        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
             $measurement = $matches[1]; // height, width, depth, x, y, z
+            $replacements++;
             error_log("Replacing typometry URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/typometry/$measurement>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/typometry/$measurement>";
         },
@@ -624,8 +694,9 @@ private function normalizeUris($ttlData, $itemSetId) {
     // Weight: /weight/ah-003 → /AH-003/weight
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/weight\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier) {
+        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $replacements++;
             error_log("Replacing weight URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/weight>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/weight>";
         },
@@ -635,8 +706,9 @@ private function normalizeUris($ttlData, $itemSetId) {
     // Morphology: /Morphology/ah-003 → /AH-003/morphology
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/Morphology\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier) {
+        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $replacements++;
             error_log("Replacing morphology URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/morphology>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/morphology>";
         },
@@ -646,8 +718,9 @@ private function normalizeUris($ttlData, $itemSetId) {
     // Chipping: /Chipping/ah-003 → /AH-003/chipping
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/Chipping\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier) {
+        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $replacements++;
             error_log("Replacing chipping URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/chipping>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/chipping>";
         },
@@ -657,8 +730,9 @@ private function normalizeUris($ttlData, $itemSetId) {
     // Body Length: /BodyLength/ah-003 → /AH-003/bodyLength
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/BodyLength\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier) {
+        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $replacements++;
             error_log("Replacing bodyLength URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/bodyLength>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/bodyLength>";
         },
@@ -668,8 +742,9 @@ private function normalizeUris($ttlData, $itemSetId) {
     // Base Length: /BaseLength/ah-003 → /AH-003/baseLength
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/BaseLength\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier) {
+        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $replacements++;
             error_log("Replacing baseLength URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/baseLength>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/baseLength>";
         },
@@ -679,9 +754,10 @@ private function normalizeUris($ttlData, $itemSetId) {
     // Context references: /context/CTX-001 → /context/CTX-001
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/context\/([^>]+)>/',
-        function($matches) use ($itemSetId) {
+        function($matches) use ($itemSetId, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
             $contextId = $matches[1]; // CTX-001
+            $replacements++;
             error_log("Replacing context URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/context/$contextId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/context/$contextId>";
         },
@@ -691,9 +767,10 @@ private function normalizeUris($ttlData, $itemSetId) {
     // SVU references: /svu/Layer-002 → /svu/Layer-002
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/svu\/([^>]+)>/',
-        function($matches) use ($itemSetId) {
+        function($matches) use ($itemSetId, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
             $svuId = $matches[1]; // Layer-002
+            $replacements++;
             error_log("Replacing SVU URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/svu/$svuId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/svu/$svuId>";
         },
@@ -703,9 +780,10 @@ private function normalizeUris($ttlData, $itemSetId) {
     // Square references: /square/B1 → /square/B1
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/square\/([^>]+)>/',
-        function($matches) use ($itemSetId) {
+        function($matches) use ($itemSetId, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
             $squareId = $matches[1]; // B1
+            $replacements++;
             error_log("Replacing square URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/square/$squareId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/square/$squareId>";
         },
@@ -715,9 +793,10 @@ private function normalizeUris($ttlData, $itemSetId) {
     // Location references: /location/alto-castelinho → /location/alto-castelinho
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/location\/([^>]+)>/',
-        function($matches) use ($itemSetId) {
+        function($matches) use ($itemSetId, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
             $locationId = $matches[1]; // alto-castelinho
+            $replacements++;
             error_log("Replacing location URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/location/$locationId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/location/$locationId>";
         },
@@ -727,83 +806,89 @@ private function normalizeUris($ttlData, $itemSetId) {
     // Material references: /material/flint → /material/flint
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/material\/([^>]+)>/',
-        function($matches) use ($itemSetId) {
+        function($matches) use ($itemSetId, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0];
             $materialId = $matches[1]; // flint
+            $replacements++;
             error_log("Replacing material URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/material/$materialId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
             return "<https://purl.org/megalod/$itemSetId/material/$materialId>";
         },
         $modifiedTtl
     );
-
- 
+    
     // Main excavation URI
-$modifiedTtl = preg_replace_callback(
-    '/<https:\/\/purl\.org\/megalod\/excavation\/([^>]+)>/',
-    function($matches) use ($itemSetId, $mainIdentifier) {
-        return "<https://purl.org/megalod/$itemSetId/excavation/$mainIdentifier>";
-    },
-    $modifiedTtl
-);
-
-// Archaeologist URI
-$modifiedTtl = preg_replace_callback(
-    '/<https:\/\/purl\.org\/megalod\/archaeologist\/([^>]+)>/',
-    function($matches) use ($itemSetId) {
-        return "<https://purl.org/megalod/$itemSetId/archaeologist/{$matches[1]}>";
-    },
-    $modifiedTtl
-);
-
-// GPS URI
-$modifiedTtl = preg_replace_callback(
-    '/<https:\/\/purl\.org\/megalod\/gps\/([^>]+)>/',
-    function($matches) use ($itemSetId) {
-        return "<https://purl.org/megalod/$itemSetId/gps/{$matches[1]}>";
-    },
-    $modifiedTtl
-);
-
-
-// In normalizeUris method, add this check for BC/AD URIs:
-$modifiedTtl = preg_replace_callback(
-    '/<https:\/\/purl\.org\/megalod\/([^\/]+)\/MegaLOD-BCAD\/(BC|AD)>/',
-    function($matches) {
-        // Always use the correct KOS namespace for BC/AD
-        return "<https://purl.org/megalod/kos/MegaLOD-BCAD/{$matches[2]}>";
-    },
-    $modifiedTtl
-);
-
-$modifiedTtl = preg_replace_callback(
-    '/<https:\/\/purl\.org\/megalod\/([^\/]+)\/excavation\/([^>]+)>/',
-    function($matches) use ($itemSetId) {
-        if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-        $excavationId = $matches[2]; // PRD-01
-        return "<https://purl.org/megalod/$itemSetId/excavation/$excavationId>";
-    },
-    $modifiedTtl
-);
-
-// Timeline URIs: /timeline/iron-age → /2581/timeline/iron-age
-$modifiedTtl = preg_replace_callback(
-    '/<https:\/\/purl\.org\/megalod\/timeline\/([^>]+)>/',
-    function($matches) use ($itemSetId) {
-        if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-        return "<https://purl.org/megalod/$itemSetId/timeline/{$matches[1]}>";
-    },
-    $modifiedTtl
-);
-
-// Instant URIs: /instant/800bc → /2581/instant/800bc  
-$modifiedTtl = preg_replace_callback(
-    '/<https:\/\/purl\.org\/megalod\/instant\/([^>]+)>/',
-    function($matches) use ($itemSetId) {
-        if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-        return "<https://purl.org/megalod/$itemSetId/instant/{$matches[1]}>";
-    },
-    $modifiedTtl
-);
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/excavation\/([^>]+)>/',
+        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
+            $replacements++;
+            return "<https://purl.org/megalod/$itemSetId/excavation/$mainIdentifier>";
+        },
+        $modifiedTtl
+    );
+    
+    // Archaeologist URI
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/archaeologist\/([^>]+)>/',
+        function($matches) use ($itemSetId, &$replacements) {
+            $replacements++;
+            return "<https://purl.org/megalod/$itemSetId/archaeologist/{$matches[1]}>";
+        },
+        $modifiedTtl
+    );
+    
+    // GPS URI
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/gps\/([^>]+)>/',
+        function($matches) use ($itemSetId, &$replacements) {
+            $replacements++;
+            return "<https://purl.org/megalod/$itemSetId/gps/{$matches[1]}>";
+        },
+        $modifiedTtl
+    );
+    
+    // In normalizeUris method, add this check for BC/AD URIs:
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/([^\/]+)\/MegaLOD-BCAD\/(BC|AD)>/',
+        function($matches) {
+            // Always use the correct KOS namespace for BC/AD
+            return "<https://purl.org/megalod/kos/MegaLOD-BCAD/{$matches[2]}>";
+        },
+        $modifiedTtl
+    );
+    
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/([^\/]+)\/excavation\/([^>]+)>/',
+        function($matches) use ($itemSetId, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $excavationId = $matches[2]; // PRD-01
+            $replacements++;
+            return "<https://purl.org/megalod/$itemSetId/excavation/$excavationId>";
+        },
+        $modifiedTtl
+    );
+    
+    // Timeline URIs: /timeline/iron-age → /2581/timeline/iron-age
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/timeline\/([^>]+)>/',
+        function($matches) use ($itemSetId, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $replacements++;
+            return "<https://purl.org/megalod/$itemSetId/timeline/{$matches[1]}>";
+        },
+        $modifiedTtl
+    );
+    
+    // Instant URIs: /instant/800bc → /2581/instant/800bc  
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/instant\/([^>]+)>/',
+        function($matches) use ($itemSetId, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+            $replacements++;
+            return "<https://purl.org/megalod/$itemSetId/instant/{$matches[1]}>";
+        },
+        $modifiedTtl
+    );
+    
     error_log("=== URI NORMALIZATION COMPLETE ===", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     error_log("Total replacements made: $replacements", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     
@@ -7784,71 +7869,269 @@ private function extractIdentifierFromItemData($itemData) {
         error_log('DEBUG item ID: ' . $itemId, 3, OMEKA_PATH . '/logs/ddd.log');
     }
 
-    public function searchAction()
-    {
-        $request = $this->getRequest();
-        $searchQuery = $request->getQuery('query', '');
-        $searchType = $request->getQuery('type', 'all'); // 'items', 'item_sets', or 'all'
-        $page = $request->getQuery('page', 1);
-        $perPage = 20;
-        
-        $results = [];
-        $totalItems = 0;
-        $totalItemSets = 0;
-        
-        if ($searchQuery) {
-            // Prepare search params
-            $searchParams = [
-                'page' => $page,
-                'per_page' => $perPage
-            ];
+// Update the searchAction method to handle all filters
+public function searchAction()
+{
+    $request = $this->getRequest();
+    $searchQuery = $request->getQuery('query', '');
+    $searchType = $request->getQuery('type', 'all'); // 'items', 'item_sets', or 'all'
+    $page = $request->getQuery('page', 1);
+    $perPage = 20;
+    
+    // Basic filters
+    $filterShape = $request->getQuery('shape', '');
+    $filterVariant = $request->getQuery('variant', '');
+    $filterMaterial = $request->getQuery('material', '');
+    $filterElongation = $request->getQuery('elongation', '');
+    
+    // Advanced filters - morphology
+    $filterThickness = $request->getQuery('thickness', '');
+    $filterBase = $request->getQuery('base', '');
+    $filterCondition = $request->getQuery('condition', '');
+    
+    // Advanced filters - chipping
+    $filterChippingMode = $request->getQuery('chippingMode', '');
+    $filterChippingDirection = $request->getQuery('chippingDirection', '');
+    $filterChippingDelineation = $request->getQuery('chippingDelineation', '');
+    $filterChippingShape = $request->getQuery('chippingShape', '');
+    $filterChippingAmplitude = $request->getQuery('chippingAmplitude', '');
+    
+    // Measurement range filters
+    $minHeight = $request->getQuery('minHeight', '');
+    $maxHeight = $request->getQuery('maxHeight', '');
+    $minWidth = $request->getQuery('minWidth', '');
+    $maxWidth = $request->getQuery('maxWidth', '');
+    $minThickness = $request->getQuery('minThickness', '');
+    $maxThickness = $request->getQuery('maxThickness', '');
+    $minWeight = $request->getQuery('minWeight', '');
+    $maxWeight = $request->getQuery('maxWeight', '');
+    
+    $results = [];
+    $totalItems = 0;
+    $totalItemSets = 0;
+    
+    $hasFilters = $filterShape || $filterVariant || $filterMaterial || $filterElongation || 
+                  $filterThickness || $filterBase || $filterCondition || $filterChippingMode || 
+                  $filterChippingDirection || $filterChippingDelineation || $filterChippingShape || 
+                  $filterChippingAmplitude || $minHeight || $maxHeight || $minWidth || $maxWidth || 
+                  $minThickness || $maxThickness || $minWeight || $maxWeight;
+    
+    if ($searchQuery || $hasFilters) {
+        // Search for item sets if search type is 'all' or 'item_sets'
+        if ($searchType === 'all' || $searchType === 'item_sets') {
+            $itemSetQuery = [];
             
-            // Add full-text search
-            if (strlen($searchQuery) > 2) {
-                $searchParams['fulltext_search'] = $searchQuery;
+            // Basic search query
+            if ($searchQuery) {
+                $itemSetQuery['fulltext_search'] = $searchQuery;
             }
             
-            // Search item sets
-            if ($searchType === 'all' || $searchType === 'item_sets') {
-                try {
-                    $itemSetResponse = $this->api()->search('item_sets', $searchParams);
-                    $results['item_sets'] = $itemSetResponse->getContent();
-                    $totalItemSets = $itemSetResponse->getTotalResults();
-                } catch (\Exception $e) {
-                    $this->logger()->err('Error searching item sets: ' . $e->getMessage());
-                    $results['item_sets'] = [];
-                    $totalItemSets = 0;
-                }
-            }
-            
-            // Search items
-            if ($searchType === 'all' || $searchType === 'items') {
-                try {
-                    $itemResponse = $this->api()->search('items', $searchParams);
-                    $results['items'] = $itemResponse->getContent();
-                    $totalItems = $itemResponse->getTotalResults();
-                } catch (\Exception $e) {
-                    $this->logger()->err('Error searching items: ' . $e->getMessage());
-                    $results['items'] = [];
-                    $totalItems = 0;
-                }
-            }
+            // Execute the item sets search
+            $itemSetsResponse = $this->api()->search('item_sets', $itemSetQuery);
+            $results['item_sets'] = $itemSetsResponse->getContent();
+            $totalItemSets = $itemSetsResponse->getTotalResults();
         }
         
-        $totalResults = $totalItems + $totalItemSets;
-        
-        return new ViewModel([
-            'searchQuery' => $searchQuery,
-            'searchType' => $searchType,
-            'results' => $results,
-            'totalResults' => $totalResults,
-            'totalItems' => $totalItems,
-            'totalItemSets' => $totalItemSets,
-            'page' => $page,
-            'perPage' => $perPage,
-            'site' => $this->currentSite()
-        ]);
+        // Search for items if search type is 'all' or 'items'
+        if ($searchType === 'all' || $searchType === 'items') {
+            $itemQuery = [];
+            
+            // Basic search query
+            if ($searchQuery) {
+                $itemQuery['fulltext_search'] = $searchQuery;
+            }
+            
+            // Apply property filters for arrowheads
+            $propertyFilters = [];
+            
+            // Basic filters
+            if ($filterShape) {
+                $propertyFilters[] = [
+                    'property' => 7651,  // Arrowhead Shape property ID
+                    'type' => 'eq',
+                    'text' => $filterShape
+                ];
+            }
+            
+            if ($filterVariant) {
+                $propertyFilters[] = [
+                    'property' => 7652,  // Arrowhead Variant property ID
+                    'type' => 'eq',
+                    'text' => $filterVariant
+                ];
+            }
+            
+            if ($filterMaterial) {
+                $propertyFilters[] = [
+                    'property' => 4633,  // Material property ID
+                    'type' => 'eq',
+                    'text' => $filterMaterial
+                ];
+            }
+            
+            if ($filterElongation) {
+                $propertyFilters[] = [
+                    'property' => 7676,  // Elongation Index property ID
+                    'type' => 'eq',
+                    'text' => $filterElongation
+                ];
+            }
+            
+            // Advanced filters - morphology
+            if ($filterThickness) {
+                $propertyFilters[] = [
+                    'property' => 7677,  // Thickness Index property ID
+                    'type' => 'eq',
+                    'text' => $filterThickness
+                ];
+            }
+            
+            if ($filterBase) {
+                $propertyFilters[] = [
+                    'property' => 7653,  // Base Type property ID
+                    'type' => 'eq',
+                    'text' => $filterBase
+                ];
+            }
+            
+            if ($filterCondition !== '') {
+                $propertyFilters[] = [
+                    'property' => 476,  // Condition State property ID
+                    'type' => 'eq',
+                    'text' => $filterCondition
+                ];
+            }
+            
+            // Advanced filters - chipping
+            if ($filterChippingMode) {
+                $propertyFilters[] = [
+                    'property' => 7656,  // Chipping Mode property ID
+                    'type' => 'eq',
+                    'text' => $filterChippingMode
+                ];
+            }
+            
+            if ($filterChippingDirection) {
+                $propertyFilters[] = [
+                    'property' => 7658,  // Chipping Direction property ID
+                    'type' => 'eq',
+                    'text' => $filterChippingDirection
+                ];
+            }
+            
+            if ($filterChippingDelineation) {
+                $propertyFilters[] = [
+                    'property' => 7660,  // Chipping Delineation property ID
+                    'type' => 'eq',
+                    'text' => $filterChippingDelineation
+                ];
+            }
+            
+            if ($filterChippingShape) {
+                $propertyFilters[] = [
+                    'property' => 7661,  // Chipping Shape property ID
+                    'type' => 'eq',
+                    'text' => $filterChippingShape
+                ];
+            }
+            
+            if ($filterChippingAmplitude !== '') {
+                $propertyFilters[] = [
+                    'property' => 7657,  // Chipping Amplitude property ID
+                    'type' => 'eq',
+                    'text' => $filterChippingAmplitude
+                ];
+            }
+            
+            // Measurement range filters - we'll use regex to extract the numeric parts
+            if ($minHeight) {
+                $propertyFilters[] = [
+                    'property' => 5616,  // Height property ID
+                    'type' => 'gte',
+                    'text' => $minHeight
+                ];
+            }
+            
+            if ($maxHeight) {
+                $propertyFilters[] = [
+                    'property' => 5616,  // Height property ID
+                    'type' => 'lte',
+                    'text' => $maxHeight
+                ];
+            }
+            
+            if ($minWidth) {
+                $propertyFilters[] = [
+                    'property' => 5688,  // Width property ID
+                    'type' => 'gte',
+                    'text' => $minWidth
+                ];
+            }
+            
+            if ($maxWidth) {
+                $propertyFilters[] = [
+                    'property' => 5688,  // Width property ID
+                    'type' => 'lte',
+                    'text' => $maxWidth
+                ];
+            }
+            
+            if ($minThickness) {
+                $propertyFilters[] = [
+                    'property' => 7244,  // Thickness property ID
+                    'type' => 'gte',
+                    'text' => $minThickness
+                ];
+            }
+            
+            if ($maxThickness) {
+                $propertyFilters[] = [
+                    'property' => 7244,  // Thickness property ID
+                    'type' => 'lte',
+                    'text' => $maxThickness
+                ];
+            }
+            
+            if ($minWeight) {
+                $propertyFilters[] = [
+                    'property' => 5779,  // Weight property ID
+                    'type' => 'gte',
+                    'text' => $minWeight
+                ];
+            }
+            
+            if ($maxWeight) {
+                $propertyFilters[] = [
+                    'property' => 5779,  // Weight property ID
+                    'type' => 'lte',
+                    'text' => $maxWeight
+                ];
+            }
+            
+            // Add property filters if any
+            if (!empty($propertyFilters)) {
+                $itemQuery['property'] = $propertyFilters;
+            }
+            
+            // Execute the items search
+            $itemsResponse = $this->api()->search('items', $itemQuery);
+            $results['items'] = $itemsResponse->getContent();
+            $totalItems = $itemsResponse->getTotalResults();
+        }
     }
+    
+    $totalResults = $totalItems + $totalItemSets;
+    
+    return new ViewModel([
+        'site' => $this->currentSite(),
+        'searchQuery' => $searchQuery,
+        'searchType' => $searchType,
+        'results' => $results,
+        'totalResults' => $totalResults,
+        'totalItems' => $totalItems,
+        'totalItemSets' => $totalItemSets
+    ]);
+}
     
 
 public function viewDetailsAction()
@@ -8097,4 +8380,163 @@ private function getHumanReadableLabel($term)
             error_log('Failed to create media: ' . $response->getBody());
         }
     }
+
+    // download data functionality
+    public function downloadTtlAction()
+{
+    $id = $this->params()->fromQuery('id');
+    $type = $this->params()->fromQuery('type', 'item');
+    
+    if (empty($id)) {
+        return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
+    }
+    
+    // Determine API endpoint based on resource type
+    $resourceType = $type === 'item_set' ? 'item_sets' : 'items';
+    $api = $this->api();
+    
+    try {
+        // Get the resource
+        $resource = $api->read($resourceType, $id)->getContent();
+        
+        // Generate TTL for the main resource
+        $ttlData = $this->generateTtlForResource($resource, $type);
+        
+        // If it's an item set, also include all its items
+        if ($type === 'item_set') {
+            $items = $api->search('items', ['item_set_id' => $id])->getContent();
+            foreach ($items as $item) {
+                $ttlData .= $this->generateTtlForResource($item, 'item');
+                
+                // Also include media for each item
+                $media = $api->search('media', ['item_id' => $item->id()])->getContent();
+                foreach ($media as $medium) {
+                    $ttlData .= $this->generateTtlForResource($medium, 'media');
+                }
+            }
+        }
+        
+        // Set response headers for download
+        $filename = $resource->displayTitle();
+        $filename = preg_replace('/[^a-zA-Z0-9_-]/', '_', $filename); // Sanitize filename
+        
+        $response = $this->getResponse();
+        $response->getHeaders()->addHeaderLine('Content-Type', 'text/turtle; charset=UTF-8');
+        $response->getHeaders()->addHeaderLine('Content-Disposition', 'attachment; filename="' . $filename . '.ttl"');
+        $response->setContent($ttlData);
+        
+        return $response;
+    } catch (\Exception $e) {
+        $this->messenger()->addError('Error generating TTL data: ' . $e->getMessage());
+        return $this->redirect()->toRoute('site/add-triplestore/view-details', 
+            ['site-slug' => $this->currentSite()->slug()],
+            ['query' => ['id' => $id, 'type' => $type]]
+        );
+    }
+}
+
+private function generateTtlForResource($resource, $type)
+{
+    $ttl = '';
+    
+    // Create the subject URI based on resource type and ID
+    $baseUrl = $this->url()->fromRoute('top', [], ['force_canonical' => true]);
+    $baseUrl = rtrim($baseUrl, '/');
+    $subjectUri = $baseUrl . '/' . ($type === 'item_set' ? 'item-set' : ($type === 'item' ? 'item' : 'media')) . '/' . $resource->id();
+    
+    $ttl .= "# Resource: " . $resource->displayTitle() . "\n";
+    $ttl .= "<{$subjectUri}>\n";
+    
+    // Add common properties
+    $ttl .= "    a <http://www.w3.org/ns/ldp#Resource> ;\n";
+    $ttl .= "    <http://purl.org/dc/terms/title> \"" . $this->escapeTtlString($resource->displayTitle()) . "\" ;\n";
+    
+    if ($resource->displayDescription()) {
+        $ttl .= "    <http://purl.org/dc/terms/description> \"" . $this->escapeTtlString($resource->displayDescription()) . "\" ;\n";
+    }
+    
+    // Add all other properties
+    $values = $resource->values();
+    $propertiesAdded = false;
+    
+    foreach ($values as $term => $propertyValues) {
+        foreach ($propertyValues['values'] as $value) {
+            $propertiesAdded = true;
+            $val = $value->value();
+            $uri = $value->uri();
+            
+            if ($uri) {
+                $ttl .= "    <{$term}> <{$uri}> ;\n";
+            } else {
+                // Escape special characters in string values
+                $ttl .= "    <{$term}> \"" . $this->escapeTtlString($val) . "\" ;\n";
+            }
+        }
+    }
+    
+    // Add relationships
+    if ($type === 'item_set') {
+        $ttl .= "    <http://www.w3.org/ns/ldp#contains> ";
+        $api = $this->api();
+        $items = $api->search('items', ['item_set_id' => $resource->id()])->getContent();
+        
+        $itemUris = [];
+        foreach ($items as $item) {
+            $itemUris[] = "<{$baseUrl}/item/{$item->id()}>";
+        }
+        
+        if (count($itemUris) > 0) {
+            $ttl .= implode(", ", $itemUris) . " ;\n";
+        } else {
+            // Remove last semicolon and newline if no items
+            $ttl = rtrim($ttl, ";\n") . " ;\n";
+        }
+    } elseif ($type === 'item') {
+        // Add item set references for items
+        $itemSets = $resource->itemSets();
+        if (!empty($itemSets)) {
+            $ttl .= "    <http://purl.org/dc/terms/isPartOf> ";
+            $setUris = [];
+            foreach ($itemSets as $itemSet) {
+                $setUris[] = "<{$baseUrl}/item-set/{$itemSet->id()}>";
+            }
+            $ttl .= implode(", ", $setUris) . " ;\n";
+        }
+        
+        // Add media references
+        $api = $this->api();
+        $media = $api->search('media', ['item_id' => $resource->id()])->getContent();
+        if (!empty($media)) {
+            $ttl .= "    <http://purl.org/dc/terms/hasPart> ";
+            $mediaUris = [];
+            foreach ($media as $medium) {
+                $mediaUris[] = "<{$baseUrl}/media/{$medium->id()}>";
+            }
+            $ttl .= implode(", ", $mediaUris) . " ;\n";
+        }
+    } elseif ($type === 'media') {
+        // Add reference to parent item
+        $ttl .= "    <http://purl.org/dc/terms/isPartOf> <{$baseUrl}/item/{$resource->item()->id()}> ;\n";
+        
+        // Add media-specific data like file URL
+        $ttl .= "    <http://purl.org/dc/terms/source> <" . $resource->originalUrl() . "> ;\n";
+    }
+    
+    // Replace the last semicolon with a period
+    $ttl = rtrim($ttl, ";\n") . " .\n\n";
+    
+    return $ttl;
+}
+
+/**
+ * Escape special characters in TTL strings
+ */
+private function escapeTtlString($string)
+{
+    return str_replace(
+        ['"', '\\', "\n", "\r", "\t"],
+        ['\"', '\\\\', '\\n', '\\r', '\\t'],
+        $string
+    );
+}
 }

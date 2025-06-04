@@ -187,6 +187,12 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
                     <?php endif; ?>
                     
                     <li>
+                        <a href="<?php echo $this->url('site/add-triplestore/download-ttl', ['site-slug' => $site->slug()], ['query' => ['id' => $resource->id(), 'type' => ($resourceType === 'Excavation' ? 'item_set' : 'item')]]); ?>" class="action-link" target="_blank">
+                            <span class="icon">📥</span> Download TTL Data
+                        </a>
+                    </li>
+                    
+                    <li>
                         <a href="<?php echo $this->url('admin/default', ['controller' => ($resourceType === 'Excavation' ? 'item-set' : 'item')], ['query' => ['resource-id' => $resource->id(), 'resource-type' => ($resourceType === 'Excavation' ? 'item_set' : 'item')]]); ?>" class="action-link" target="_blank">
                             <span class="icon">✏️</span> Edit in Admin (Requires Login)
                         </a>

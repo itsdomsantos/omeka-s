@@ -5,9 +5,34 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
 $this->headLink()->appendStylesheet('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
 // Add Leaflet JS
 $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
+
+// Get filter values from request
+$selectedShape = $this->params()->fromQuery('shape', '');
+$selectedVariant = $this->params()->fromQuery('variant', '');
+$selectedMaterial = $this->params()->fromQuery('material', '');
+$selectedElongation = $this->params()->fromQuery('elongation', '');
+$selectedThickness = $this->params()->fromQuery('thickness', '');
+$selectedBase = $this->params()->fromQuery('base', '');
+$selectedCondition = $this->params()->fromQuery('condition', '');
+$selectedChippingMode = $this->params()->fromQuery('chippingMode', '');
+$selectedChippingDirection = $this->params()->fromQuery('chippingDirection', '');
+$selectedChippingDelineation = $this->params()->fromQuery('chippingDelineation', '');
+$selectedChippingShape = $this->params()->fromQuery('chippingShape', '');
+$selectedChippingAmplitude = $this->params()->fromQuery('chippingAmplitude', '');
+
+// Get numeric range filters
+$minHeight = $this->params()->fromQuery('minHeight', '');
+$maxHeight = $this->params()->fromQuery('maxHeight', '');
+$minWidth = $this->params()->fromQuery('minWidth', '');
+$maxWidth = $this->params()->fromQuery('maxWidth', '');
+$minThickness = $this->params()->fromQuery('minThickness', '');
+$maxThickness = $this->params()->fromQuery('maxThickness', '');
+$minWeight = $this->params()->fromQuery('minWeight', '');
+$maxWeight = $this->params()->fromQuery('maxWeight', '');
 ?>
 
-<div class="add-triplestore-search">
+
+<div class="add-triplestore-search"><div class="add-triplestore-search">
     <h1>Search Archaeological Data</h1>
     
     <form action="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()]); ?>" method="get" class="search-form">
@@ -31,6 +56,197 @@ $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
             
             <button type="submit" class="search-button">Search</button>
         </div>
+        
+        <!-- Arrowhead Filter Section -->
+        <div class="filter-section <?php echo ($searchType === 'items' || $searchType === 'all' || empty($searchType)) ? '' : 'hidden'; ?>">
+            <h3>Filter Arrowheads</h3>
+            
+            <!-- Toggle button for advanced filters -->
+            <button type="button" id="toggleAdvancedFilters" class="toggle-filters-btn">Show Advanced Filters</button>
+            
+            <div class="filter-controls">
+                <!-- Basic Filters Row -->
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="shape">Shape:</label>
+                        <select name="shape" id="shape">
+                            <option value="">Any Shape</option>
+                            <option value="triangle" <?php echo ($selectedShape === 'triangle') ? 'selected' : ''; ?>>Triangular</option>
+                            <option value="lozenge-shaped" <?php echo ($selectedShape === 'lozenge-shaped') ? 'selected' : ''; ?>>Losangular</option>
+                            <option value="stemmed" <?php echo ($selectedShape === 'stemmed') ? 'selected' : ''; ?>>Stemmed</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="variant">Variant:</label>
+                        <select name="variant" id="variant">
+                            <option value="">Any Variant</option>
+                            <option value="flat" <?php echo ($selectedVariant === 'flat') ? 'selected' : ''; ?>>Flat</option>
+                            <option value="raised" <?php echo ($selectedVariant === 'raised') ? 'selected' : ''; ?>>Raised</option>
+                            <option value="thick" <?php echo ($selectedVariant === 'thick') ? 'selected' : ''; ?>>Thick</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="material">Material:</label>
+                        <select name="material" id="material">
+                            <option value="">Any Material</option>
+                            <option value="flint" <?php echo ($selectedMaterial === 'flint') ? 'selected' : ''; ?>>Flint</option>
+                            <option value="obsidian" <?php echo ($selectedMaterial === 'obsidian') ? 'selected' : ''; ?>>Obsidian</option>
+                            <option value="quartz" <?php echo ($selectedMaterial === 'quartz') ? 'selected' : ''; ?>>Quartz</option>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="elongation">Elongation:</label>
+                        <select name="elongation" id="elongation">
+                            <option value="">Any Elongation</option>
+                            <option value="Short" <?php echo ($selectedElongation === 'Short') ? 'selected' : ''; ?>>Short</option>
+                            <option value="Medium" <?php echo ($selectedElongation === 'Medium') ? 'selected' : ''; ?>>Medium</option>
+                            <option value="Elongated" <?php echo ($selectedElongation === 'Elongated') ? 'selected' : ''; ?>>Elongated</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Advanced Filters (initially hidden) -->
+                <div class="advanced-filters" style="display: none;">
+                    <h4>Morphology</h4>
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="base">Base Type:</label>
+                            <select name="base" id="base">
+                                <option value="">Any Base</option>
+                                <option value="straight" <?php echo ($selectedBase === 'straight') ? 'selected' : ''; ?>>Straight</option>
+                                <option value="convex" <?php echo ($selectedBase === 'convex') ? 'selected' : ''; ?>>Convex</option>
+                                <option value="concave" <?php echo ($selectedBase === 'concave') ? 'selected' : ''; ?>>Concave</option>
+                                <option value="stemmed" <?php echo ($selectedBase === 'stemmed') ? 'selected' : ''; ?>>Stemmed</option>
+                                <option value="triangular" <?php echo ($selectedBase === 'triangular') ? 'selected' : ''; ?>>Triangular</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="thickness">Thickness Index:</label>
+                            <select name="thickness" id="thickness">
+                                <option value="">Any Thickness</option>
+                                <option value="Thin" <?php echo ($selectedThickness === 'Thin') ? 'selected' : ''; ?>>Thin</option>
+                                <option value="Medium" <?php echo ($selectedThickness === 'Medium') ? 'selected' : ''; ?>>Medium</option>
+                                <option value="Thick" <?php echo ($selectedThickness === 'Thick') ? 'selected' : ''; ?>>Thick</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="condition">Condition:</label>
+                            <select name="condition" id="condition">
+                                <option value="">Any Condition</option>
+                                <option value="true" <?php echo ($selectedCondition === 'true') ? 'selected' : ''; ?>>Complete</option>
+                                <option value="false" <?php echo ($selectedCondition === 'false') ? 'selected' : ''; ?>>Broken</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <h4>Chipping Characteristics</h4>
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="chippingMode">Mode:</label>
+                            <select name="chippingMode" id="chippingMode">
+                                <option value="">Any Mode</option>
+                                <option value="plane" <?php echo ($selectedChippingMode === 'plane') ? 'selected' : ''; ?>>Plane</option>
+                                <option value="parallel" <?php echo ($selectedChippingMode === 'parallel') ? 'selected' : ''; ?>>Parallel</option>
+                                <option value="sub-parallel" <?php echo ($selectedChippingMode === 'sub-parallel') ? 'selected' : ''; ?>>Sub-parallel</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="chippingDirection">Direction:</label>
+                            <select name="chippingDirection" id="chippingDirection">
+                                <option value="">Any Direction</option>
+                                <option value="direct" <?php echo ($selectedChippingDirection === 'direct') ? 'selected' : ''; ?>>Direct</option>
+                                <option value="reverse" <?php echo ($selectedChippingDirection === 'reverse') ? 'selected' : ''; ?>>Reverse</option>
+                                <option value="bifacial" <?php echo ($selectedChippingDirection === 'bifacial') ? 'selected' : ''; ?>>Bifacial</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="chippingDelineation">Delineation:</label>
+                            <select name="chippingDelineation" id="chippingDelineation">
+                                <option value="">Any Delineation</option>
+                                <option value="continuous" <?php echo ($selectedChippingDelineation === 'continuous') ? 'selected' : ''; ?>>Continuous</option>
+                                <option value="composite" <?php echo ($selectedChippingDelineation === 'composite') ? 'selected' : ''; ?>>Composite</option>
+                                <option value="denticulated" <?php echo ($selectedChippingDelineation === 'denticulated') ? 'selected' : ''; ?>>Denticulated</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-row">
+                        <div class="filter-group">
+                            <label for="chippingShape">Shape:</label>
+                            <select name="chippingShape" id="chippingShape">
+                                <option value="">Any Shape</option>
+                                <option value="straight" <?php echo ($selectedChippingShape === 'straight') ? 'selected' : ''; ?>>Straight</option>
+                                <option value="convex" <?php echo ($selectedChippingShape === 'convex') ? 'selected' : ''; ?>>Convex</option>
+                                <option value="concave" <?php echo ($selectedChippingShape === 'concave') ? 'selected' : ''; ?>>Concave</option>
+                                <option value="sinuous" <?php echo ($selectedChippingShape === 'sinuous') ? 'selected' : ''; ?>>Sinuous</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label for="chippingAmplitude">Amplitude:</label>
+                            <select name="chippingAmplitude" id="chippingAmplitude">
+                                <option value="">Any Amplitude</option>
+                                <option value="true" <?php echo ($selectedChippingAmplitude === 'true') ? 'selected' : ''; ?>>Marginal</option>
+                                <option value="false" <?php echo ($selectedChippingAmplitude === 'false') ? 'selected' : ''; ?>>Deep</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <h4>Measurements</h4>
+                    <div class="filter-row">
+                        <div class="filter-group filter-range">
+                            <label>Height (mm):</label>
+                            <div class="range-inputs">
+                                <input type="number" name="minHeight" placeholder="Min" value="<?php echo $this->escapeHtml($minHeight); ?>" min="0" step="0.1">
+                                <span>to</span>
+                                <input type="number" name="maxHeight" placeholder="Max" value="<?php echo $this->escapeHtml($maxHeight); ?>" min="0" step="0.1">
+                            </div>
+                        </div>
+                        
+                        <div class="filter-group filter-range">
+                            <label>Width (mm):</label>
+                            <div class="range-inputs">
+                                <input type="number" name="minWidth" placeholder="Min" value="<?php echo $this->escapeHtml($minWidth); ?>" min="0" step="0.1">
+                                <span>to</span>
+                                <input type="number" name="maxWidth" placeholder="Max" value="<?php echo $this->escapeHtml($maxWidth); ?>" min="0" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-row">
+                        <div class="filter-group filter-range">
+                            <label>Thickness (mm):</label>
+                            <div class="range-inputs">
+                                <input type="number" name="minThickness" placeholder="Min" value="<?php echo $this->escapeHtml($minThickness); ?>" min="0" step="0.1">
+                                <span>to</span>
+                                <input type="number" name="maxThickness" placeholder="Max" value="<?php echo $this->escapeHtml($maxThickness); ?>" min="0" step="0.1">
+                            </div>
+                        </div>
+                        
+                        <div class="filter-group filter-range">
+                            <label>Weight (g):</label>
+                            <div class="range-inputs">
+                                <input type="number" name="minWeight" placeholder="Min" value="<?php echo $this->escapeHtml($minWeight); ?>" min="0" step="0.1">
+                                <span>to</span>
+                                <input type="number" name="maxWeight" placeholder="Max" value="<?php echo $this->escapeHtml($maxWeight); ?>" min="0" step="0.1">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="filter-actions">
+                    <button type="submit" class="filter-button">Apply Filters</button>
+                    <button type="button" id="clearFilters" class="clear-button">Clear Filters</button>
+                </div>
+            </div>
+        </div>
     </form>
 
     <!-- Map Section -->
@@ -44,7 +260,6 @@ $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
         </div>
         <div id="excavationMap" class="excavation-map"></div>
     </div>
-    
     <?php if ($searchQuery): ?>
         <div class="search-results">
             <h2>Search Results for "<?php echo $this->escapeHtml($searchQuery); ?>"</h2>
@@ -75,7 +290,7 @@ $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
                                     foreach ($values as $term => $propertyValues) {
                                         if (!empty($propertyValues)) {
                                             foreach ($propertyValues as $propertyValue) {
-                                                if ($propertyValue && method_exists($propertyValue, 'property') && $propertyValue->property()) {
+                                                if ($propertyValue && is_object($propertyValue) && method_exists($propertyValue, 'property') && $propertyValue->property()) {
                                                     $propertyLabel = $propertyValue->property()->label();
                                                     $value = $propertyValue->value();
                                                     
@@ -98,7 +313,8 @@ $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
                                     if ($lat && $lng): 
                                         $itemCount = 0;
                                         try {
-                                            $itemCount = count($itemSet->items());
+                                                $itemCount = $itemSet->itemCount();
+
                                         } catch (\Exception $e) {
                                             error_log("Error getting item count: " . $e->getMessage(), 3, '/tmp/omeka_map_debug.log');
                                             $itemCount = 0;
@@ -154,7 +370,8 @@ $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
                                     <span class="count-icon">🏹</span>
                                     <span class="count-text"><?php 
                                         try {
-                                            $itemCount = count($itemSet->items());
+                                                $itemCount = $itemSet->itemCount();
+
                                             echo $itemCount . ' artifact' . ($itemCount !== 1 ? 's' : '');
                                         } catch (\Exception $e) {
                                             echo '0 artifacts';
@@ -653,6 +870,179 @@ $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js
     50% { transform: scale(1.2); }
     100% { transform: scale(1); }
 }
+
+
+/* search filter styles */
+/* Add these styles to the existing <style> section in search.phtml */
+
+/* Filter Section */
+.filter-section {
+    background-color: #f9f9f9;
+    border-radius: 12px;
+    padding: 15px 20px;
+    margin-top: 15px;
+    box-shadow: 0 1px 15px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+}
+
+
+.filter-section.hidden {
+    display: none;
+}
+
+.filter-section h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+    color: #333;
+    font-weight: 600;
+}
+
+.filter-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    align-items: flex-end;
+}
+
+.filter-group {
+    flex: 1;
+    min-width: 150px;
+    max-width: 250px;
+}
+
+.filter-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    color: #444;
+    font-size: 14px;
+}
+
+.filter-group select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background-color: white;
+    font-size: 14px;
+}
+
+.filter-button {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 9px 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.filter-button:hover {
+    background-color: #45a049;
+}
+
+.clear-button {
+    background-color: #f8f9fa;
+    color: #333;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 8px 15px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.clear-button:hover {
+    background-color: #e9ecef;
+}
+
+/* Make filters responsive */
+@media (max-width: 768px) {
+    .filter-group {
+        flex: 1 0 100%;
+        max-width: 100%;
+    }
+    
+    .filter-button,
+    .clear-button {
+        flex: 1 0 calc(50% - 7.5px);
+        text-align: center;
+    }
+}
+
+/* Add these additional CSS rules to the existing <style> section */
+
+/* Enhanced filter section */
+.filter-section h4 {
+    margin: 20px 0 10px 0;
+    font-size: 16px;
+    color: #444;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
+}
+
+.filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+.toggle-filters-btn {
+    background-color: #f0f0f0;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    padding: 8px 16px;
+    margin-bottom: 15px;
+    cursor: pointer;
+    font-weight: 500;
+    color: #333;
+    transition: all 0.2s;
+}
+
+.toggle-filters-btn:hover {
+    background-color: #e0e0e0;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.advanced-filters {
+    background-color: #f9f9f9;
+    border-radius: 8px;
+    padding: 15px;
+    margin-top: 10px;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+}
+
+.filter-range {
+    display: flex;
+    flex-direction: column;
+}
+
+.range-inputs {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.range-inputs input {
+    width: 80px;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.range-inputs span {
+    color: #666;
+    font-size: 14px;
+}
 </style>
 
 <script>
@@ -713,6 +1103,139 @@ function initializeMap() {
     }
 }
 
+// Add this JavaScript to the bottom of the file in a <script> tag
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle toggle for advanced filters
+    const toggleButton = document.getElementById('toggleAdvancedFilters');
+    const advancedFilters = document.querySelector('.advanced-filters');
+    
+    if (toggleButton && advancedFilters) {
+        toggleButton.addEventListener('click', function() {
+            const isHidden = advancedFilters.style.display === 'none';
+            advancedFilters.style.display = isHidden ? 'block' : 'none';
+            toggleButton.textContent = isHidden ? 'Hide Advanced Filters' : 'Show Advanced Filters';
+        });
+    }
+    
+    // Handle filter visibility based on search type
+    const filterSection = document.querySelector('.filter-section');
+    const searchTypeRadios = document.querySelectorAll('input[name="type"]');
+    
+    searchTypeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'items' || this.value === 'all') {
+                filterSection.classList.remove('hidden');
+            } else {
+                filterSection.classList.add('hidden');
+            }
+        });
+    });
+    
+    // Check if any advanced filters are active, if so, show advanced section
+    const advancedFilterInputs = document.querySelectorAll(
+        '#base, #thickness, #condition, #chippingMode, #chippingDirection, ' +
+        '#chippingDelineation, #chippingShape, #chippingAmplitude, ' +
+        '[name="minHeight"], [name="maxHeight"], [name="minWidth"], [name="maxWidth"], ' +
+        '[name="minThickness"], [name="maxThickness"], [name="minWeight"], [name="maxWeight"]'
+    );
+    
+    let hasActiveAdvancedFilter = false;
+    
+    advancedFilterInputs.forEach(input => {
+        if (input.value) {
+            hasActiveAdvancedFilter = true;
+        }
+    });
+    
+    if (hasActiveAdvancedFilter && advancedFilters) {
+        advancedFilters.style.display = 'block';
+        toggleButton.textContent = 'Hide Advanced Filters';
+    }
+    
+    // Clear filters button
+    document.getElementById('clearFilters').addEventListener('click', function() {
+        const selects = filterSection.querySelectorAll('select');
+        const inputs = filterSection.querySelectorAll('input[type="number"]');
+        
+        selects.forEach(select => {
+            select.value = '';
+        });
+        
+        inputs.forEach(input => {
+            input.value = '';
+        });
+        
+        // Get the current URL
+        let currentUrl = new URL(window.location.href);
+        
+        // Remove filter parameters but keep search query and type
+        let searchQuery = currentUrl.searchParams.get('query');
+        let searchType = currentUrl.searchParams.get('type');
+        
+        // Create new URL with only search query and type
+        let newUrl = new URL(currentUrl.pathname, currentUrl.origin);
+        
+        if (searchQuery) {
+            newUrl.searchParams.set('query', searchQuery);
+        }
+        
+        if (searchType) {
+            newUrl.searchParams.set('type', searchType);
+        }
+        
+        // Navigate to the new URL
+        window.location.href = newUrl.toString();
+    });
+});
+// Add this to the existing <script> section at the bottom of search.phtml
+
+// Handle filter visibility based on search type
+document.addEventListener('DOMContentLoaded', function() {
+    // Get filter section and search type radios
+    const filterSection = document.querySelector('.filter-section');
+    const searchTypeRadios = document.querySelectorAll('input[name="type"]');
+    
+    // Listen for changes on search type radios
+    searchTypeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'items' || this.value === 'all') {
+                filterSection.classList.remove('hidden');
+            } else {
+                filterSection.classList.add('hidden');
+            }
+        });
+    });
+    
+    // Clear filters button functionality
+    document.getElementById('clearFilters').addEventListener('click', function() {
+        const selects = filterSection.querySelectorAll('select');
+        selects.forEach(select => {
+            select.value = '';
+        });
+        
+        // Get the current URL
+        let currentUrl = new URL(window.location.href);
+        
+        // Remove filter parameters but keep search query and type
+        let searchQuery = currentUrl.searchParams.get('query');
+        let searchType = currentUrl.searchParams.get('type');
+        
+        // Create new URL with only search query and type
+        let newUrl = new URL(currentUrl.pathname, currentUrl.origin);
+        
+        if (searchQuery) {
+            newUrl.searchParams.set('query', searchQuery);
+        }
+        
+        if (searchType) {
+            newUrl.searchParams.set('type', searchType);
+        }
+        
+        // Navigate to the new URL
+        window.location.href = newUrl.toString();
+    });
+});
 // UPDATED addExcavationMarkers function with improved popups
 function addExcavationMarkers() {
     excavationData.forEach(function(excavation) {
