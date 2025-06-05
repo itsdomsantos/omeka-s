@@ -492,13 +492,13 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
     
     if (!empty($excavationData['district'])) {
         $districtSlug = $this->createUrlSlug($excavationData['district']);
-        $districtUri = "$baseUri/$districtSlug";
+        $districtUri = "http://dbpedia.org/resource/$districtSlug";
         $ttl .= "    dbo:district <$districtUri> ;\n";
     }
     
     if (!empty($excavationData['parish'])) {
         $parishSlug = $this->createUrlSlug($excavationData['parish']);
-        $parishUri = "$baseUri/$parishSlug";
+        $parishUri = "http://dbpedia.org/resource/$parishSlug";
         $ttl .= "    dbo:parish <$parishUri> ;\n";
     }
     
@@ -528,13 +528,13 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
     // Add simple entity declarations for district/parish
     if (!empty($excavationData['district'])) {
         $districtSlug = $this->createUrlSlug($excavationData['district']);
-        $districtUri = "$baseUri/$districtSlug";
+        $districtUri = "http://dbpedia.org/resource/$districtSlug";
         $ttl .= "<$districtUri> a dbo:District .\n";
     }
     
     if (!empty($excavationData['parish'])) {
         $parishSlug = $this->createUrlSlug($excavationData['parish']);
-        $parishUri = "$baseUri/$parishSlug";
+        $parishUri = "http://dbpedia.org/resource/$parishSlug";
         $ttl .= "<$parishUri> a dbo:Parish .\n";
     }
     
@@ -542,7 +542,6 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
     
     return $ttl;
 }
-
 
 
 private function normalizeUris($ttlData, $itemSetId) {
@@ -556,14 +555,19 @@ private function normalizeUris($ttlData, $itemSetId) {
     
     // 1. First, extract the main excavation identifier
     $excavationIdentifier = null;
-    if (preg_match('/dct:identifier\s+"([^"]+)"/i', $ttlData, $matches)) {
-        $excavationIdentifier = $matches[1]; // e.g., "alto-castelinho-2024"
-        error_log("Main excavation identifier found: $excavationIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-    } else {
-        // Default to item set ID if no specific identifier found
-        $excavationIdentifier = "excavation-$itemSetId";
-        error_log("No excavation identifier found, using default: $excavationIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+    error_log("item set: $itemSetId", 3, OMEKA_PATH . '/logs/uri-normalize-fix.log');
+    $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
+    if ($excavationIdentifier == null){
+        if (preg_match('/dct:identifier\s+"([^"]+)"/i', $ttlData, $matches)) {
+            $excavationIdentifier = $matches[1]; // e.g., "alto-castelinho-2024"
+            error_log("Main excavation identifier found: $excavationIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+        } else {
+            // Default to item set ID if no specific identifier found
+            $excavationIdentifier = "excavation-$itemSetId";
+            error_log("No excavation identifier found, using default: $excavationIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+        }
     }
+    error_log("Excavation identifier used for normalization: $excavationIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fix.log');
     
     $modifiedTtl = $ttlData;
     $replacements = 0;
@@ -574,8 +578,8 @@ private function normalizeUris($ttlData, $itemSetId) {
         function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
             $replacements++;
-            error_log("Replacing excavation URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier>";
+            error_log("Replacing excavation URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier>";
         },
         $modifiedTtl
     );
@@ -587,8 +591,9 @@ private function normalizeUris($ttlData, $itemSetId) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
             $locationId = $matches[1];
             $replacements++;
-            error_log("Replacing location URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/location/$locationId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/location/$locationId>";
+            error_log("ientifier found: $excavationIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixeddddddd.log');
+            error_log("Replacing location URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/location/$locationId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/location/$locationId>";
         },
         $modifiedTtl
     );
@@ -600,8 +605,8 @@ private function normalizeUris($ttlData, $itemSetId) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
             $gpsId = $matches[1];
             $replacements++;
-            error_log("Replacing GPS URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/gps/$gpsId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/gps/$gpsId>";
+            error_log("Replacing GPS URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/gps/$gpsId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/gps/$gpsId>";
         },
         $modifiedTtl
     );
@@ -613,8 +618,8 @@ private function normalizeUris($ttlData, $itemSetId) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
             $archaeologistId = $matches[1];
             $replacements++;
-            error_log("Replacing archaeologist URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/archaeologist/$archaeologistId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/archaeologist/$archaeologistId>";
+            error_log("Replacing archaeologist URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/archaeologist/$archaeologistId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/archaeologist/$archaeologistId>";
         },
         $modifiedTtl
     );
@@ -626,8 +631,8 @@ private function normalizeUris($ttlData, $itemSetId) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
             $squareId = $matches[1];
             $replacements++;
-            error_log("Replacing square URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/square/$squareId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/square/$squareId>";
+            error_log("Replacing square URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/square/$squareId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/square/$squareId>";
         },
         $modifiedTtl
     );
@@ -639,8 +644,8 @@ private function normalizeUris($ttlData, $itemSetId) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
             $contextId = $matches[1];
             $replacements++;
-            error_log("Replacing context URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/context/$contextId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/context/$contextId>";
+            error_log("Replacing context URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/$contextId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/$contextId>";
         },
         $modifiedTtl
     );
@@ -652,8 +657,8 @@ private function normalizeUris($ttlData, $itemSetId) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
             $svuId = $matches[1];
             $replacements++;
-            error_log("Replacing SVU URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/svu/$svuId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/svu/$svuId>";
+            error_log("Replacing SVU URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/svu/$svuId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/svu/$svuId>";
         },
         $modifiedTtl
     );
@@ -665,8 +670,8 @@ private function normalizeUris($ttlData, $itemSetId) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
             $timelineId = $matches[1];
             $replacements++;
-            error_log("Replacing timeline URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/timeline/$timelineId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/timeline/$timelineId>";
+            error_log("Replacing timeline URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/timeline/$timelineId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/timeline/$timelineId>";
         },
         $modifiedTtl
     );
@@ -678,8 +683,8 @@ private function normalizeUris($ttlData, $itemSetId) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
             $instantId = $matches[1];
             $replacements++;
-            error_log("Replacing instant URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/instant/$instantId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/instant/$instantId>";
+            error_log("Replacing instant URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/instant/$instantId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/instant/$instantId>";
         },
         $modifiedTtl
     );
@@ -692,8 +697,167 @@ private function normalizeUris($ttlData, $itemSetId) {
         },
         $modifiedTtl
     );
+
+    // 12. MODIFIED: ITEM URI PATTERN - use /itemsetid/item/ pattern
+
+       // get the item identifier
+    $itemIdentifier = null;
+    if (preg_match('/dct:identifier\s+"([^"]+)"/i', $modifiedTtl, $matches)) {
+        $itemIdentifier = $matches[1]; 
+        error_log("Item identifier found: $itemIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+    } else {
+        // Default to item set ID if no specific identifier found
+        $itemIdentifier = "item-$itemSetId";
+        error_log("No item identifier found, using default: $itemIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+    }
     
-    // 12. Fix any malformed URIs with double angle brackets
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/item\/([^>]+)>/',
+        function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
+            $replacements++;
+            error_log("Replacing item URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/item/$itemIdentifier>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/item/$itemIdentifier>";
+        },
+        $modifiedTtl
+    );
+
+    // 13. Normalize typometry URIs
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/typometry\/([^>]+)>/',
+        function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
+            $typometryId = $matches[1];
+            $replacements++;
+            error_log("Replacing typometry URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/item/$itemIdentifier/typometry/$typometryId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/item/$itemIdentifier/typometry/$typometryId>";
+        },
+        $modifiedTtl
+    );
+    
+    // 14. Normalize coordinates URIs
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/coordinates\/([^>]+)>/',
+        function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
+            $coordinatesId = $matches[1];
+            $replacements++;
+            error_log("Replacing coordinates URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/item/$itemIdentifier/coordinates/$coordinatesId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/item/$itemIdentifier/coordinates/$coordinatesId>";
+        },
+        $modifiedTtl
+    );
+
+    // 15. Normalize weight URIs  
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/weight\/([^>]+)>/',
+        function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
+            $weightId = $matches[1];
+            $replacements++;
+            error_log("Replacing weight URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/item/$itemIdentifier/weight/$weightId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/item/$itemIdentifier/weight/$weightId>";
+        },
+        $modifiedTtl
+    );
+    
+    // 16. Normalize morphology URIs
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/Morphology\/([^>]+)>/',
+        function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
+            $morphologyId = $matches[1];
+            $replacements++;
+            error_log("Replacing morphology URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/item/$itemIdentifier/morphology/$morphologyId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/item/$itemIdentifier/morphology/$morphologyId>";
+        },
+        $modifiedTtl
+    );
+    
+    // 17. Normalize body length URIs
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/BodyLength\/([^>]+)>/',
+        function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
+            $bodyLengthId = $matches[1];
+            $replacements++;
+            error_log("Replacing body length URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/item/$itemIdentifier/bodylength/$bodyLengthId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/item/$itemIdentifier/bodylength/$bodyLengthId>";
+        },
+        $modifiedTtl
+    );
+    
+    // 18. Normalize base length URIs
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/BaseLength\/([^>]+)>/',
+        function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
+            $baseLengthId = $matches[1];
+            $replacements++; 
+            error_log("Replacing base length URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/item/$itemIdentifier/baselength/$baseLengthId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/item/$itemIdentifier/baselength/$baseLengthId>";
+        },
+        $modifiedTtl
+    );
+    
+    // 19. Normalize chipping URIs
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/Chipping\/([^>]+)>/',
+        function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
+            $chippingId = $matches[1];
+            $replacements++;
+            error_log("Replacing chipping URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/item/$itemIdentifier/chipping/$chippingId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/item/$itemIdentifier/chipping/$chippingId>";
+        },
+        $modifiedTtl
+    );
+
+    // 19.5 normalize gps coordinates URIs
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/gps\/([^>]+)>/',
+        function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
+            $gpsId = $matches[1];
+            $replacements++;
+            error_log("Replacing GPS coordinates URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/item/$itemIdentifier/gps/$gpsId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/item/$itemIdentifier/gps/$gpsId>";
+        },
+        $modifiedTtl
+    );
+    
+    // 20. Normalize encounter URIs
+    $modifiedTtl = preg_replace_callback(
+    '/<https:\/\/purl\.org\/megalod\/encounter\/([^>]+)>/',
+    function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
+        $encounterId = $matches[1];
+        $replacements++;
+        
+        // Get excavation identifier for the item set
+        $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId) ?: "excavation";
+        
+        // Create encounter URI with correct path structure including excavation identifier
+        $newUri = "<https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/encounter/$encounterId>";
+        
+        error_log("Replacing encounter URI: {$matches[0]} → $newUri", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+        return $newUri;
+    },
+    $modifiedTtl
+);
+
+$modifiedTtl = preg_replace_callback(
+    '/<https:\/\/purl\.org\/megalod\/([^\/]+)\/item\/([^\/]+)\/encounter\/([^>]+)>/',
+    function($matches) use ($itemSetId, &$replacements) {
+        $setId = $matches[1];
+        $itemId = $matches[2];
+        $encounterId = $matches[3];
+        
+        // Get excavation identifier for the item set
+        $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($setId) ?: "excavation";
+        
+        // Create encounter URI with correct path structure
+        $newUri = "<https://purl.org/megalod/$setId/excavation/$excavationIdentifier/encounter/$encounterId>";
+        
+        $replacements++;
+        error_log("Normalizing encounter URI structure: {$matches[0]} → $newUri", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+        return $newUri;
+    },
+    $modifiedTtl
+);
+    
+
+    // 22. Fix any malformed URIs with double angle brackets
     $modifiedTtl = str_replace('<<', '<', $modifiedTtl);
     $modifiedTtl = str_replace('>>', '>', $modifiedTtl);
     
@@ -704,7 +868,6 @@ private function normalizeUris($ttlData, $itemSetId) {
     error_log("Modified TTL:\n$modifiedTtl", 3, OMEKA_PATH . '/logs/fixed.log');
     return $modifiedTtl;
 }
-
 /**
  * FIXED: Updated SVU TTL generation to use correct timeline URI structure
  */
@@ -1200,20 +1363,23 @@ private function processArrowheadFormData($formData, $itemSetId)
     error_log('=== FORM PROCESSING DEBUG ===', 3, OMEKA_PATH . '/logs/form-debug.log');
     error_log('Form data received: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/form-debug.log');
     
-    // Generate a base URI for resources
-    $baseUri = "https://purl.org/megalod/$itemSetId";
+
     
     // Generate a unique ID for the arrowhead if not provided
     $arrowheadId = !empty($formData['arrowhead_identifier']) 
         ? $formData['arrowhead_identifier'] 
         : 'AH-' . uniqid();
     
+    // Generate a base URI for resources
+    $baseUri = "https://purl.org/megalod/$itemSetId/item/$arrowheadId";
     // Create resource URIs
-    $arrowheadUri = "$baseUri/item/$arrowheadId";
+    $arrowheadUri = $baseUri;
     $morphologyUri = "$baseUri/morphology/$arrowheadId";
     $chippingUri = "$baseUri/chipping/$arrowheadId";
     $excavationUri = "$baseUri";
     $encounterUri = "$baseUri/encounter/$arrowheadId";
+    //gps uri 
+    $gpsUri = "$baseUri/gps/$arrowheadId";
     
     // Build TTL data
     $ttl = $this->getTtlPrefixes();
@@ -1693,8 +1859,8 @@ $fieldMappings = [
     'prompt_64' => 'thickness_unit',          // Thickness unit
     'prompt_65' => 'arrowhead_type',          // Elongate/Short
     'prompt_66' => 'elongation_index',        // Medium/Elongated/Short
-    'prompt_67' => 'gps_latitude',            // GPS latitude (empty in your case)
-    'prompt_68' => 'gps_longitude',           // GPS longitude (empty in your case)
+    'prompt_67' => 'gps_latitude',            // GPS latitude 
+    'prompt_68' => 'gps_longitude',           // GPS longitude 
     'prompt_69' => 'arrowhead_variant',       // Flat/Raised/Thick
     'prompt_70' => 'arrowhead_shape',         // Triangle/Losangular/Stemmed
     'prompt_71' => 'point_definition',        // Sharp/Fractured
@@ -1742,9 +1908,6 @@ foreach ($fieldMappings as $collectingField => $arrowheadField) {
         } elseif (strpos($value, 'False') === 0 || strpos($value, 'false') === 0) {
             $arrowheadData[$arrowheadField] = 'false';
         } else {
-            // Clean up parenthetical explanations
-            // "True (Elongate)" becomes "true"
-            // "Raised" stays "Raised"
             $cleanValue = preg_replace('/\s*\([^)]*\)/', '', $value);
             $arrowheadData[$arrowheadField] = trim($cleanValue);
         }
@@ -2050,7 +2213,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             // 4. Update TTL with encounter event reference
             $ttlData = $this->addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId);
             error_log('✓ Enhanced TTL with encounter event', 3, OMEKA_PATH . '/logs/encounter-validation.log');
-            error_log('Final TTL after encounter event: ' . $ttlData, 3, OMEKA_PATH . '/logs/encounter-ttl-final.log');
+            error_log('Final TTL after encounter event: ' . $ttlData, 3, OMEKA_PATH . '/logs/encounter-aux-aux.log');
         }
 
 
@@ -3100,11 +3263,64 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
     // 8. IMAGES/MEDIA - Extract web resources
     $this->extractMediaResources($rdfData, $subject, $itemData);
     
+    // 9. GPS COORDINATES - Extract GPS coordinates from the arrowhead 
+    $this->extractGPSCoordinates($rdfData, $subject, $itemData, $currentItemSetId);
     error_log('Finished enhanced arrowhead processing', 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
 }
 
 
-
+private function extractGPSCoordinates($rdfData, $subject, &$itemData, $currentItemSetId) {
+    error_log('Extracting GPS coordinates for subject: ' . $subject, 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
+    
+    // Get current item set context
+    $currentItemSetId = $this->getCurrentItemSetContext();
+    
+    // Define the URIs to check for GPS coordinates
+    $gpsUris = [
+        'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
+        'https://purl.org/ah/ms/excavationMS#GPSCoordinates',
+        'excav:GPSCoordinates'
+    ];
+    
+    // Scan for GPS coordinate resources
+    foreach ($rdfData as $resourceUri => $properties) {
+        foreach ($gpsUris as $typeUri) {
+            if (isset($properties[$typeUri])) {
+                foreach ($properties[$typeUri] as $typeObj) {
+                    if ($typeObj['value'] === 'excav:GPSCoordinates' || 
+                        strpos($typeObj['value'], 'GPSCoordinates') !== false) {
+                        
+                        // Found GPS coordinates resource, extract lat/long
+                        $coordinates = [];
+                        
+                        if (isset($properties['http://www.w3.org/2003/01/geo/wgs84_pos#lat'])) {
+                            $coordinates['lat'] = $properties['http://www.w3.org/2003/01/geo/wgs84_pos#lat'][0]['value'];
+                        }
+                        
+                        if (isset($properties['http://www.w3.org/2003/01/geo/wgs84_pos#long'])) {
+                            $coordinates['long'] = $properties['http://www.w3.org/2003/01/geo/wgs84_pos#long'][0]['value'];
+                        }
+                        
+                        if (!empty($coordinates)) {
+                            $coordStr = "Lat: {$coordinates['lat']}, Long: {$coordinates['long']}";
+                            
+                            // Store GPS coordinates in Omeka S format
+                            $itemData['dcterms:spatial'][] = [
+                                'type' => 'literal',
+                                'property_id' => 7664, // Spatial property ID 
+                                '@value' => $coordStr
+                            ];
+                            error_log("Added GPS Coordinates: $coordStr", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
+                            return; // Found and processed coordinates
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    error_log("No GPS coordinates found for subject: $subject", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
+}
 
 /**
  * FIXED: Property mapping issues and missing morphology/chipping data
@@ -3722,7 +3938,7 @@ private function extractCoordinateData($rdfData, $subject, &$itemData, $currentI
 
 
 /**
- * Process a coordinate resource and extract all values
+ * Process a coordinate resource and extract all values - ENHANCED VERSION
  */
 private function processCoordinateResource($rdfData, $coordinateUri, &$itemData) {
     error_log("Processing coordinate resource: $coordinateUri", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
@@ -3734,7 +3950,7 @@ private function processCoordinateResource($rdfData, $coordinateUri, &$itemData)
         'Z' => null
     ];
     
-    // Check for standard schema:value pattern (multiple values)
+    // Case 1: Check for standard schema:value pattern (multiple values)
     if (isset($rdfData[$coordinateUri]['http://schema.org/value'])) {
         $values = $rdfData[$coordinateUri]['http://schema.org/value'];
         error_log('Found ' . count($values) . ' schema:value coordinates', 3, OMEKA_PATH . '/logs/coordinates-debug.log');
@@ -3748,48 +3964,37 @@ private function processCoordinateResource($rdfData, $coordinateUri, &$itemData)
             }
         }
     }
+
+    // Case 2: Check for linked typometry resources (nested structure)
+    $coordinateProps = [
+        'http://www.w3.org/2003/01/geo/wgs84_pos#long' => 'X',
+        'http://www.w3.org/2003/01/geo/wgs84_pos#lat' => 'Y',
+        'http://schema.org/depth' => 'Z',
+        'geo:long' => 'X',
+        'geo:lat' => 'Y'
+    ];
     
-    // Check for geo:longitude (X coordinate)
-    if (isset($rdfData[$coordinateUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'])) {
-        foreach ($rdfData[$coordinateUri]['http://www.w3.org/2003/01/geo/wgs84_pos#longitude'] as $xObj) {
-            if ($xObj['type'] === 'uri' && isset($rdfData[$xObj['value']])) {
-                $xValue = $this->extractMeasurementValue($rdfData, $xObj['value']);
-                $xUnit = $this->extractMeasurementUnit($rdfData, $xObj['value']);
-                $coordinates['X'] = $xValue . ($xUnit ? " $xUnit" : "");
-                error_log("Added X coordinate from geo:longitude: {$coordinates['X']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
-            } else if ($xObj['type'] === 'literal') {
-                $coordinates['X'] = $xObj['value'];
-                error_log("Added X coordinate from geo:longitude literal: {$coordinates['X']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
-            }
-        }
-    }
-    
-    // Check for geo:latitude (Y coordinate)
-    if (isset($rdfData[$coordinateUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'])) {
-        foreach ($rdfData[$coordinateUri]['http://www.w3.org/2003/01/geo/wgs84_pos#latitude'] as $yObj) {
-            if ($yObj['type'] === 'uri' && isset($rdfData[$yObj['value']])) {
-                $yValue = $this->extractMeasurementValue($rdfData, $yObj['value']);
-                $yUnit = $this->extractMeasurementUnit($rdfData, $yObj['value']);
-                $coordinates['Y'] = $yValue . ($yUnit ? " $yUnit" : "");
-                error_log("Added Y coordinate from geo:latitude: {$coordinates['Y']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
-            } else if ($yObj['type'] === 'literal') {
-                $coordinates['Y'] = $yObj['value'];
-                error_log("Added Y coordinate from geo:latitude literal: {$coordinates['Y']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
-            }
-        }
-    }
-    
-    // Check for schema:depth (Z coordinate)
-    if (isset($rdfData[$coordinateUri]['http://schema.org/depth'])) {
-        foreach ($rdfData[$coordinateUri]['http://schema.org/depth'] as $zObj) {
-            if ($zObj['type'] === 'uri' && isset($rdfData[$zObj['value']])) {
-                $zValue = $this->extractMeasurementValue($rdfData, $zObj['value']);
-                $zUnit = $this->extractMeasurementUnit($rdfData, $zObj['value']);
-                $coordinates['Z'] = $zValue . ($zUnit ? " $zUnit" : "");
-                error_log("Added Z coordinate from schema:depth: {$coordinates['Z']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
-            } else if ($zObj['type'] === 'literal') {
-                $coordinates['Z'] = $zObj['value'];
-                error_log("Added Z coordinate from schema:depth literal: {$coordinates['Z']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+    foreach ($coordinateProps as $propUri => $coord) {
+        if (isset($rdfData[$coordinateUri][$propUri])) {
+            foreach ($rdfData[$coordinateUri][$propUri] as $valueObj) {
+                if ($valueObj['type'] === 'uri' && isset($rdfData[$valueObj['value']])) {
+                    // This is a reference to another resource (typometry value)
+                    $typometryUri = $valueObj['value'];
+                    error_log("Found linked typometry for $coord: $typometryUri", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+                    
+                    // Extract the value from the typometry resource
+                    $value = $this->extractMeasurementValue($rdfData, $typometryUri);
+                    $unit = $this->extractMeasurementUnit($rdfData, $typometryUri);
+                    
+                    if ($value !== null) {
+                        $coordinates[$coord] = $value . ($unit ? " $unit" : "");
+                        error_log("Added $coord coordinate from typometry: {$coordinates[$coord]}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+                    }
+                } else if ($valueObj['type'] === 'literal') {
+                    // Direct literal value
+                    $coordinates[$coord] = $valueObj['value'];
+                    error_log("Added $coord coordinate from literal: {$valueObj['value']}", 3, OMEKA_PATH . '/logs/coordinates-debug.log');
+                }
             }
         }
     }
@@ -4118,46 +4323,35 @@ private function extractArchaeologicalContext($rdfData, $subject, &$itemData, $c
     
     // Context properties to extract with correct URI patterns
     $contextProperties = [
-        'foundInExcavation' => [
+        'location' => [
             'uris' => [
-                'https://purl.org/megalod/ms/excavation/foundInExcavation', 
-                'excav:foundInExcavation',
-                "https://purl.org/megalod/$currentItemSetId/excavation/foundInExcavation"
-            ],
-            'label' => 'Found in Excavation',
-            'propertyId' => 7673
-        ],
-        'foundInLocation' => [
-            'uris' => [
-                'https://purl.org/megalod/ms/excavation/foundInLocation', 
+                'https://purl.org/megalod/ms/excavation/foundInLocation',
                 'excav:foundInLocation',
                 "https://purl.org/megalod/$currentItemSetId/excavation/foundInLocation"
             ],
             'label' => 'Found in Location',
-            'propertyId' => 7680
+            'propertyId' => 7680,
+            'type' => 'resource'
         ],
-        'foundInSquare' => [
+        'square' => [
             'uris' => [
-                'https://purl.org/megalod/ms/excavation/foundInSquare', 
+                'https://purl.org/megalod/ms/excavation/foundInSquare',
                 'excav:foundInSquare',
                 "https://purl.org/megalod/$currentItemSetId/excavation/foundInSquare"
             ],
             'label' => 'Found in Square',
-            'propertyId' => 7683
+            'propertyId' => 7683,
+            'type' => 'resource'
         ],
-        'foundInContext' => [
+        'context' => [
             'uris' => [
-                'https://purl.org/megalod/ms/excavation/foundInContext', 
-                'excav:foundInContext',
-                "https://purl.org/megalod/$currentItemSetId/excavation/foundInContext",
-                // NEW: Add these literal URI strings that appear in valid-arrow.ttl
-                'http://purl.org/megalod/ms/excavation/foundInContext',
                 'https://purl.org/megalod/ms/excavation/foundInContext',
-                // IMPORTANT: This is exactly how it appears in your TTL
-                'excav:foundInContext'
+                'excav:foundInContext',
+                "https://purl.org/megalod/$currentItemSetId/excavation/foundInContext"
             ],
             'label' => 'Found in Context',
-            'propertyId' => 7672
+            'propertyId' => 7672,
+            'type' => 'resource'
         ],
         'foundInSVU' => [
             'uris' => [
@@ -4167,7 +4361,7 @@ private function extractArchaeologicalContext($rdfData, $subject, &$itemData, $c
             ],
             'label' => 'Found in SVU',
             'propertyId' => 7671
-        ]
+        ],
     ];
     
     foreach ($contextProperties as $propName => $config) {
@@ -4470,28 +4664,7 @@ private function extractCoordinateDataEnhanced($rdfData, $subject, &$itemData, $
     
     // Strategy 1: Get coordinates from hasCoordinatesInSquare
     $this->extractCoordinateData($rdfData, $subject, $itemData, $currentItemSetId);
-    
-    // Strategy 2: Also try to get coordinates from related excavation/location
-    $locationUris = [
-        'https://purl.org/megalod/ms/excavation/foundInLocation',
-        'excav:foundInLocation',
-        "https://purl.org/megalod/$currentItemSetId/excavation/foundInLocation"
-    ];
-    
-    foreach ($locationUris as $locUri) {
-        if (isset($rdfData[$subject][$locUri])) {
-            foreach ($rdfData[$subject][$locUri] as $locObj) {
-                if ($locObj['type'] === 'uri' && isset($rdfData[$locObj['value']])) {
-                    $locationUri = $locObj['value'];
-                    error_log("Processing location for coordinates: $locationUri", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
-                    
-                    // Extract GPS coordinates from location
-                    $this->extractGPSFromLocation($rdfData, $locationUri, $itemData);
-                }
-            }
-            break;
-        }
-    }
+
 }
 
 /**
@@ -4560,7 +4733,7 @@ private function extractMediaResources($rdfData, $subject, &$itemData) {
                 if ($mediaObj['type'] === 'uri') {
                     $itemData['Web Resources'][] = [
                         'type' => 'uri',
-                        'property_id' => 7677,
+                        'property_id' => 38, //hasformat: Web resource
                         '@id' => $mediaObj['value'],
                         'o:label' => basename($mediaObj['value'])
                     ];
@@ -5063,14 +5236,18 @@ private function createNewEncounterEvent($context, $itemSetId, $signature) {
     }
 }
 
+
 /**
  * Add encounter event reference to TTL with complete context data
  */
 private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
-    $encounterUri = "https://purl.org/megalod/$itemSetId/encounter/encounter-{$encounterEvent['omeka_id']}";
+    $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
+    error_log("Using excavation identifier: $excavationIdentifier", 3, OMEKA_PATH . '/logs/encounter-validationnnnnnn.log');
+    $encounterUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/encounter/encounter-{$encounterEvent['omeka_id']}";
     
     // Extract item identifier and context from TTL
     $itemIdentifier = $this->extractItemIdentifierFromTtl($ttlData);
+    error_log("Item identifier extracted: $itemIdentifier", 3, OMEKA_PATH . '/logs/encounter-validationnnn.log');
     $arrowheadContext = $this->extractArrowheadContextFromTtl($ttlData);
     
     // 1. Add encounter reference to the arrowhead item
@@ -5089,39 +5266,105 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     // Add date
     $encounterDefinition .= "    dct:date \"" . $arrowheadContext['date'] . "\"^^xsd:literal ;\n";
     
-    // FIXED: Use correct arrowhead URI format (not /item/ path)
-    $encounterDefinition .= "    crmsci:O19_encountered_object <https://purl.org/megalod/$itemSetId/$itemIdentifier> ;\n";
+    // FIXED: Use correct arrowhead URI format (not /item/ path)       
+    $encounterDefinition .= "    crmsci:O19_encountered_object <https://purl.org/megalod/$itemSetId/item/$itemIdentifier> ;\n";
     
     // Add excavation reference
     if ($arrowheadContext['excavation']) {
-        $encounterDefinition .= "    excav:foundInExcavation <https://purl.org/megalod/$itemSetId> ;\n";
+        $encounterDefinition .= "    excav:foundInExcavation <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier> ;\n";
     }
     
     // Add context reference
-    if ($arrowheadContext['context']) {
-        $encounterDefinition .= "    excav:foundInContext <https://purl.org/megalod/$itemSetId/context/{$arrowheadContext['context']}> ;\n";
+    if ($arrowheadContext['context']) {                   
+        $encounterDefinition .= "    excav:foundInContext <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}> ;\n";
     }
     
     // Add SVU reference
     if ($arrowheadContext['svu']) {
-        $encounterDefinition .= "    excav:foundInSVU <https://purl.org/megalod/$itemSetId/svu/{$arrowheadContext['svu']}> ;\n";
-    }
-    
-    // Add location reference
-    if ($arrowheadContext['location']) {
-        $encounterDefinition .= "    excav:foundInLocation <https://purl.org/megalod/$itemSetId/location/{$arrowheadContext['location']}> ;\n";
-    }
-    
-    // Add square reference
-    if ($arrowheadContext['square']) {
-        $encounterDefinition .= "    excav:foundInSquare <https://purl.org/megalod/$itemSetId/square/{$arrowheadContext['square']}> ;\n";
+        $encounterDefinition .= "    excav:foundInSVU <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/svu/{$arrowheadContext['svu']}> ;\n";
     }
     
     // Close the encounter event definition
     $encounterDefinition .= "    .\n";
     
-    error_log("Generated encounter event TTL:\n$encounterDefinition", 3, OMEKA_PATH . '/logs/encounter-ttl.log');
+    // 3. Add declarations for referenced resources
+    $encounterDefinition .= "\n# =========== CONTEXT ENTITY DECLARATIONS ===========\n\n";
     
+    // Add context declaration if present
+    if ($arrowheadContext['context']) {
+        $contextUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}";
+        $encounterDefinition .= "<$contextUri> a excav:Context ;\n";
+        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['context']}\"^^xsd:literal .\n\n";
+    }
+    
+    // Add SVU declaration if present
+    if ($arrowheadContext['svu']) {
+        $svuUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/svu/{$arrowheadContext['svu']}";
+        $encounterDefinition .= "<$svuUri> a excav:StratigraphicVolumeUnit ;\n";
+        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['svu']}\"^^xsd:literal .\n\n";
+    }
+    
+    // Add location declaration if present
+    if ($arrowheadContext['location']) {
+        $locationUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
+        
+        // Query GraphDB to get the actual location name
+        $query = "
+PREFIX dbo: <http://dbpedia.org/ontology/>
+PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+
+SELECT ?locationName
+WHERE {
+  GRAPH <" . "https://purl.org/megalod/$itemSetId" . "/> {
+    <$locationUri> a excav:Location ;
+                   dbo:informationName ?locationName .
+  }
+}
+LIMIT 1";
+
+        try {
+            $client = new \Laminas\Http\Client();
+            $client->setUri($this->graphdbQueryEndpoint);
+            $client->setMethod('POST');
+            $client->setHeaders([
+                'Content-Type' => 'application/sparql-query',
+                'Accept' => 'application/sparql-results+json'
+            ]);
+            $client->setRawBody($query);
+            
+            $response = $client->send();
+            
+            if ($response->isSuccess()) {
+                $results = json_decode($response->getBody(), true);
+                if (isset($results['results']['bindings'][0]['locationName']['value'])) {
+                    $locationName = $results['results']['bindings'][0]['locationName']['value'];
+                } else {
+                    // Fallback to formatted identifier if no name found
+                    $locationName = ucwords(str_replace('-', ' ', $arrowheadContext['location']));
+                }
+            }
+            
+            $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
+            $encounterDefinition .= "    dbo:informationName \"$locationName\"^^xsd:literal .\n\n";
+            
+        } catch (\Exception $e) {
+            error_log("Error querying location name: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/encounter-creation.log');
+            // Use fallback name in case of errorx
+            $locationName = ucwords(str_replace('-', ' ', $arrowheadContext['location']));
+            $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
+            $encounterDefinition .= "    dbo:informationName \"$locationName\"^^xsd:literal .\n\n";
+        }
+    }
+    
+    // Add square declaration if present
+    if ($arrowheadContext['square']) {
+        $squareUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/square/{$arrowheadContext['square']}";
+        $encounterDefinition .= "<$squareUri> a excav:Square ;\n";
+        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['square']}\"^^xsd:literal .\n\n";
+    }
+    
+    error_log("Generated encounter event TTL:\n$encounterDefinition", 3, OMEKA_PATH . '/logs/encounter-ttl.log');
+    error_log("Enhanced TTL with encounter event reference: " . $enhancedTtl . $encounterDefinition . "\n", 3, OMEKA_PATH . '/logs/encounter-tttt.log');
     return $enhancedTtl . $encounterDefinition;
 }
 /**
@@ -5140,10 +5383,6 @@ private function generateEncounterTitle($context) {
         $parts[] = "Context {$context['context']}";
     } elseif ($context['svu']) {
         $parts[] = "SVU {$context['svu']}";
-    }
-    
-    if ($context['square']) {
-        $parts[] = "Square {$context['square']}";
     }
     
     return implode(' - ', $parts) ?: 'Archaeological Encounter Event';

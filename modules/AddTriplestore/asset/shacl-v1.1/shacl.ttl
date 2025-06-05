@@ -344,6 +344,13 @@
         sh:maxCount 1 ;
     ] ;
     sh:property [
+        sh:path excav:hasGPSCoordinates ;
+        sh:name "Intem found in Location GPS Coordinates" ;
+        sh:class excav:GPSCoordinates ;
+        sh:minCount 0 ;
+        sh:maxCount 1 ;
+    ] ;
+    sh:property [
         sh:path schema:height ;
         sh:name "Height of the Item" ;
         sh:class excav:TypometryValue ;

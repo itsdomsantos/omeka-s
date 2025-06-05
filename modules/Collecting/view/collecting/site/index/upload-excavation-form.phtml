@@ -330,23 +330,7 @@ $existingArchaeologists = $existingArchaeologists ?? [];
         <div class="form-section">
             <h3>👤 Archaeologist Information</h3>
             <div class="archaeologist-selection">
-                <div class="form-group">
-                    <label for="existing_archaeologist">Select Existing Archaeologist</label>
-                    <select id="existing_archaeologist" name="existing_archaeologist" class="form-control">
-                        <option value="">-- Create New Archaeologist --</option>
-                        <?php foreach ($existingArchaeologists as $archaeologist): ?>
-                        <option value="<?php echo $this->escapeHtml($archaeologist['id']); ?>"
-                                data-name="<?php echo $this->escapeHtml($archaeologist['name']); ?>"
-                                data-orcid="<?php echo $this->escapeHtml($archaeologist['orcid']); ?>"
-                                data-email="<?php echo $this->escapeHtml($archaeologist['email']); ?>">
-                            <?php echo $this->escapeHtml($archaeologist['name']); ?>
-                            <?php if (!empty($archaeologist['orcid'])): ?>
-                                (<?php echo $this->escapeHtml($archaeologist['orcid']); ?>)
-                            <?php endif; ?>
-                        </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
+               
                 
                 <div id="new-archaeologist-fields">
                     <div class="grid-2">
@@ -598,19 +582,6 @@ function getEntityFields(type) {
             <div class="form-group">
                 <label for="context_description">Description</label>
                 <textarea id="context_description" name="context_description" class="form-control" rows="3" placeholder="Describe this archaeological context..."></textarea>
-            </div>
-            <div class="form-group">
-                <label for="context_type">Context Type</label>
-                <select id="context_type" name="context_type" class="form-control">
-                    <option value="">Select type</option>
-                    <option value="layer">Layer</option>
-                    <option value="feature">Feature</option>
-                    <option value="structure">Structure</option>
-                    <option value="pit">Pit</option>
-                    <option value="hearth">Hearth</option>
-                    <option value="posthole">Post Hole</option>
-                    <option value="deposit">Deposit</option>
-                </select>
             </div>`,
         
         'svu': `
@@ -655,35 +626,12 @@ function getEntityFields(type) {
                     <label for="square_north_south">North-South Coordinate</label>
                     <input type="number" step="any" id="square_north_south" name="square_north_south" class="form-control" placeholder="0.0">
                 </div>
-            </div>
-            <div class="form-group">
-                <label for="square_size">Square Size (meters)</label>
-                <input type="number" step="any" id="square_size" name="square_size" class="form-control" placeholder="1.0">
             </div>`,
         
         'encounter': `
             <div class="form-group">
                 <label for="encounter_date">Date *</label>
                 <input type="date" id="encounter_date" name="encounter_date" class="form-control" required>
-            </div>
-            <div class="form-group">
-                <label for="encounter_depth">Depth (cm)</label>
-                <input type="number" step="any" id="encounter_depth" name="encounter_depth" class="form-control" placeholder="0.0">
-            </div>
-            <div class="form-group">
-                <label for="encounter_method">Excavation Method</label>
-                <select id="encounter_method" name="encounter_method" class="form-control">
-                    <option value="">Select method</option>
-                    <option value="manual">Manual Excavation</option>
-                    <option value="mechanical">Mechanical Excavation</option>
-                    <option value="sieving">Sieving</option>
-                    <option value="surface">Surface Collection</option>
-                    <option value="water_screening">Water Screening</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="encounter_notes">Notes</label>
-                <textarea id="encounter_notes" name="encounter_notes" class="form-control" rows="3" placeholder="Additional notes about this encounter..."></textarea>
             </div>`
     };
     
@@ -781,7 +729,7 @@ function getEntitySummary(type, entity) {
     const summaries = {
         'context': {
             title: entity.context_id || 'Unnamed Context',
-            details: `${entity.context_type ? entity.context_type.charAt(0).toUpperCase() + entity.context_type.slice(1) : 'Unspecified type'} | ${entity.context_description || 'No description'}`
+            details: `${entity.context_description || 'No description'}`
         },
         'svu': {
             title: entity.svu_id || 'Unnamed SVU',
@@ -789,11 +737,11 @@ function getEntitySummary(type, entity) {
         },
         'square': {
             title: entity.square_id || 'Unnamed Square',
-            details: `${entity.square_size || '?'}m² | E-W: ${entity.square_east_west || '0'}, N-S: ${entity.square_north_south || '0'}`
+            details: `E-W: ${entity.square_east_west || '0'}, N-S: ${entity.square_north_south || '0'}`
         },
         'encounter': {
             title: `Encounter ${entity.encounter_date || 'No date'}`,
-            details: `Depth: ${entity.encounter_depth || '?'}cm | Method: ${entity.encounter_method || 'Not specified'} | ${entity.encounter_notes || 'No notes'}`
+            details: `Date: ${entity.encounter_date || 'No date'}`
         }
     };
     
