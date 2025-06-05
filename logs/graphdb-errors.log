@@ -41330,3 +41330,9 @@ _:7975660053a04e57a418b233e75681ac1027370 <http://www.w3.org/ns/shacl#sourceShap
 _:418541f4-e142-4e48-b280-906151ef1efd-56 <http://www.w3.org/ns/shacl#path> <https://purl.org/megalod/ms/excavation/foundInSquare> .
 _:418541f4-e142-4e48-b280-906151ef1efd-56 <http://www.w3.org/ns/shacl#class> <https://purl.org/megalod/ms/excavation/Square> .
 
+2025-06-05T10:39:57+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Namespace prefix 'https' used but not defined [line 26]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Namespace prefix 'https' used but not defined [line 26]2025-06-05T10:39:57+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Namespace prefix 'https' used but not defined [line 26]
+2025-06-05T10:41:37+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Namespace prefix 'https' used but not defined [line 26]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Namespace prefix 'https' used but not defined [line 26]2025-06-05T10:41:37+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Namespace prefix 'https' used but not defined [line 26]
+2025-06-05T10:42:40+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Namespace prefix 'https' used but not defined [line 26]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Namespace prefix 'https' used but not defined [line 26]2025-06-05T10:42:40+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Namespace prefix 'https' used but not defined [line 26]

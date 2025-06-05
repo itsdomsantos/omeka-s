@@ -5,6 +5,8 @@
             <a href="<?php echo $this->url('site/add-triplestore/about-us', ['site-slug' => $site->slug()]); ?>">About Us</a>
             <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()], ['query' => ['query' => 'excavation', 'type' => 'item_sets']]); ?>">Collections</a>
             <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()]); ?>">Map</a>
+
+            <a href="<?php echo $this->url('site/add-triplestore', ['site-slug' => $site->slug()]); ?>">Main Menu</a>
             <?php if ($this->identity()): ?>
                 <a href="<?php echo $this->url('admin'); ?>" class="user-name">
                     <?php echo $this->escapeHtml($this->identity()->getName()); ?>
