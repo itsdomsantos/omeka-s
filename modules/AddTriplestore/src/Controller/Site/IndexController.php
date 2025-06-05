@@ -543,7 +543,7 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
     return $ttl;
 }
 
-// CRITICAL: Add this method to prevent KOS URI normalization in the normalizeUris method
+
 
 private function normalizeUris($ttlData, $itemSetId) {
     error_log("=== FIXED URI NORMALIZATION START ===", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
@@ -554,326 +554,155 @@ private function normalizeUris($ttlData, $itemSetId) {
         return $ttlData;
     }
     
-    // 1. First, extract the main item identifier
-    $mainIdentifier = null;
+    // 1. First, extract the main excavation identifier
+    $excavationIdentifier = null;
     if (preg_match('/dct:identifier\s+"([^"]+)"/i', $ttlData, $matches)) {
-        $mainIdentifier = $matches[1]; // e.g., "AH-003"
-        error_log("Main identifier found: $mainIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+        $excavationIdentifier = $matches[1]; // e.g., "alto-castelinho-2024"
+        error_log("Main excavation identifier found: $excavationIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+    } else {
+        // Default to item set ID if no specific identifier found
+        $excavationIdentifier = "excavation-$itemSetId";
+        error_log("No excavation identifier found, using default: $excavationIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     }
     
     $modifiedTtl = $ttlData;
     $replacements = 0;
     
-    // CRITICAL FIX: Replace excavation ID patterns with item set ID
-    // This pattern will match excavation IDs like PRD-01 in URIs
-    $excavationIdPattern = '/https:\/\/purl\.org\/megalod\/([A-Za-z0-9-]+)\/([^>]+)>/';
-    $modifiedTtl = preg_replace_callback(
-        $excavationIdPattern,
-        function($matches) use ($itemSetId, &$replacements) {
-            // Skip KOS namespaces
-            if (strpos($matches[0], '/kos/') !== false) {
-                return $matches[0];
-            }
-            
-            $resourcePath = $matches[2];
-            $excavationId = $matches[1];
-            
-            // Only replace if it looks like an excavation ID (not already an item set ID)
-            if (!is_numeric($excavationId) && $excavationId != $itemSetId) {
-                $replacements++;
-                error_log("Replacing excavation ID in URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$resourcePath>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-                return "<https://purl.org/megalod/$itemSetId/$resourcePath>";
-            }
-            
-            return $matches[0];
-        },
-        $modifiedTtl
-    );
-    
-    // 2. Apply URI transformations with proper regex handling for specific patterns
-    
-    // Main item URI: /item/arrowhead-003 → /AH-003
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/item\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $replacements++;
-            error_log("Replacing main item URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$mainIdentifier>";
-        },
-        $modifiedTtl
-    );
-    
-    // Coordinates: /coordinates/ah-003 → /AH-003/coordinates
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/coordinates\/([^>]+)>/',
-        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $replacements++;
-            error_log("Replacing coordinates URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/coordinates>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/coordinates>";
-        },
-        $modifiedTtl
-    );
-    
-    // SVU: explicitly normalize SVU URIs
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/[^\/]+\/svu\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $svuId = $matches[1];
-            $replacements++;
-            error_log("Fixing SVU URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/svu/$svuId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/svu/$svuId>";
-        },
-        $modifiedTtl
-    );
-    
-    // Context: explicitly normalize context URIs
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/[^\/]+\/context\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $contextId = $matches[1];
-            $replacements++;
-            error_log("Fixing context URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/context/$contextId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/context/$contextId>";
-        },
-        $modifiedTtl
-    );
-    
-    // Square: explicitly normalize square URIs
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/[^\/]+\/square\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $squareId = $matches[1];
-            $replacements++;
-            error_log("Fixing square URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/square/$squareId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/square/$squareId>";
-        },
-        $modifiedTtl
-    );
-    
-    // Continue with other specific patterns...
-    // [Keep all your existing specific patterns below]
-    
-    // Typometry values: /typometry/ah-003-height → /AH-003/typometry/height
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/typometry\/[^-]+-[^-]+-([^>]+)>/',
-        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $measurement = $matches[1]; // height, width, depth, x, y, z
-            $replacements++;
-            error_log("Replacing typometry URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/typometry/$measurement>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/typometry/$measurement>";
-        },
-        $modifiedTtl
-    );
-    
-    // Weight: /weight/ah-003 → /AH-003/weight
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/weight\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $replacements++;
-            error_log("Replacing weight URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/weight>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/weight>";
-        },
-        $modifiedTtl
-    );
-    
-    // Morphology: /Morphology/ah-003 → /AH-003/morphology
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/Morphology\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $replacements++;
-            error_log("Replacing morphology URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/morphology>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/morphology>";
-        },
-        $modifiedTtl
-    );
-    
-    // Chipping: /Chipping/ah-003 → /AH-003/chipping
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/Chipping\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $replacements++;
-            error_log("Replacing chipping URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/chipping>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/chipping>";
-        },
-        $modifiedTtl
-    );
-    
-    // Body Length: /BodyLength/ah-003 → /AH-003/bodyLength
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/BodyLength\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $replacements++;
-            error_log("Replacing bodyLength URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/bodyLength>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/bodyLength>";
-        },
-        $modifiedTtl
-    );
-    
-    // Base Length: /BaseLength/ah-003 → /AH-003/baseLength
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/BaseLength\/[^>]+>/',
-        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $replacements++;
-            error_log("Replacing baseLength URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$mainIdentifier/baseLength>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/$mainIdentifier/baseLength>";
-        },
-        $modifiedTtl
-    );
-    
-    // Context references: /context/CTX-001 → /context/CTX-001
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/context\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $contextId = $matches[1]; // CTX-001
-            $replacements++;
-            error_log("Replacing context URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/context/$contextId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/context/$contextId>";
-        },
-        $modifiedTtl
-    );
-    
-    // SVU references: /svu/Layer-002 → /svu/Layer-002
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/svu\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $svuId = $matches[1]; // Layer-002
-            $replacements++;
-            error_log("Replacing SVU URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/svu/$svuId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/svu/$svuId>";
-        },
-        $modifiedTtl
-    );
-    
-    // Square references: /square/B1 → /square/B1
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/square\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $squareId = $matches[1]; // B1
-            $replacements++;
-            error_log("Replacing square URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/square/$squareId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/square/$squareId>";
-        },
-        $modifiedTtl
-    );
-    
-    // Location references: /location/alto-castelinho → /location/alto-castelinho
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/location\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $locationId = $matches[1]; // alto-castelinho
-            $replacements++;
-            error_log("Replacing location URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/location/$locationId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/location/$locationId>";
-        },
-        $modifiedTtl
-    );
-    
-    // Material references: /material/flint → /material/flint
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/material\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $materialId = $matches[1]; // flint
-            $replacements++;
-            error_log("Replacing material URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/material/$materialId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<https://purl.org/megalod/$itemSetId/material/$materialId>";
-        },
-        $modifiedTtl
-    );
-    
-    // Main excavation URI
+    // 2. Main excavation URI pattern
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/excavation\/([^>]+)>/',
-        function($matches) use ($itemSetId, $mainIdentifier, &$replacements) {
+        function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
             $replacements++;
-            return "<https://purl.org/megalod/$itemSetId/excavation/$mainIdentifier>";
+            error_log("Replacing excavation URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier>";
         },
         $modifiedTtl
     );
     
-    // Archaeologist URI
+    // 3. Location URI pattern
     $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/archaeologist\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
+        '/<https:\/\/purl\.org\/megalod\/location\/([^>]+)>/',
+        function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
+            $locationId = $matches[1];
             $replacements++;
-            return "<https://purl.org/megalod/$itemSetId/archaeologist/{$matches[1]}>";
+            error_log("Replacing location URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/location/$locationId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/location/$locationId>";
         },
         $modifiedTtl
     );
     
-    // GPS URI
+    // 4. GPS URI pattern
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/gps\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
+        function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
+            $gpsId = $matches[1];
             $replacements++;
-            return "<https://purl.org/megalod/$itemSetId/gps/{$matches[1]}>";
+            error_log("Replacing GPS URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/gps/$gpsId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/gps/$gpsId>";
         },
         $modifiedTtl
     );
     
-    // In normalizeUris method, add this check for BC/AD URIs:
+    // 5. Archaeologist URI pattern
     $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/([^\/]+)\/MegaLOD-BCAD\/(BC|AD)>/',
-        function($matches) {
-            // Always use the correct KOS namespace for BC/AD
-            return "<https://purl.org/megalod/kos/MegaLOD-BCAD/{$matches[2]}>";
-        },
-        $modifiedTtl
-    );
-    
-    $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/([^\/]+)\/excavation\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
-            $excavationId = $matches[2]; // PRD-01
+        '/<https:\/\/purl\.org\/megalod\/archaeologist\/([^>]+)>/',
+        function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
+            $archaeologistId = $matches[1];
             $replacements++;
-            return "<https://purl.org/megalod/$itemSetId/excavation/$excavationId>";
+            error_log("Replacing archaeologist URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/archaeologist/$archaeologistId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/archaeologist/$archaeologistId>";
         },
         $modifiedTtl
     );
     
-    // Timeline URIs: /timeline/iron-age → /2581/timeline/iron-age
+    // 6. Square URI pattern
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/square\/([^>]+)>/',
+        function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
+            $squareId = $matches[1];
+            $replacements++;
+            error_log("Replacing square URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/square/$squareId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/square/$squareId>";
+        },
+        $modifiedTtl
+    );
+    
+    // 7. Context URI pattern
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/context\/([^>]+)>/',
+        function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
+            $contextId = $matches[1];
+            $replacements++;
+            error_log("Replacing context URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/context/$contextId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/context/$contextId>";
+        },
+        $modifiedTtl
+    );
+    
+    // 8. SVU URI pattern
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/svu\/([^>]+)>/',
+        function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
+            $svuId = $matches[1];
+            $replacements++;
+            error_log("Replacing SVU URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/svu/$svuId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/svu/$svuId>";
+        },
+        $modifiedTtl
+    );
+    
+    // 9. Timeline URI pattern
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/timeline\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+        function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
+            $timelineId = $matches[1];
             $replacements++;
-            return "<https://purl.org/megalod/$itemSetId/timeline/{$matches[1]}>";
+            error_log("Replacing timeline URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/timeline/$timelineId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/timeline/$timelineId>";
         },
         $modifiedTtl
     );
     
-    // Instant URIs: /instant/800bc → /2581/instant/800bc  
+    // 10. Instant URI pattern
     $modifiedTtl = preg_replace_callback(
         '/<https:\/\/purl\.org\/megalod\/instant\/([^>]+)>/',
-        function($matches) use ($itemSetId, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0];
+        function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
+            if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
+            $instantId = $matches[1];
             $replacements++;
-            return "<https://purl.org/megalod/$itemSetId/instant/{$matches[1]}>";
+            error_log("Replacing instant URI: {$matches[0]} → <https://purl.org/megalod/$itemSetId/$excavationIdentifier/instant/$instantId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+            return "<https://purl.org/megalod/$itemSetId/$excavationIdentifier/instant/$instantId>";
         },
         $modifiedTtl
     );
+    
+    // 11. Special case for KOS URIs - always preserve the original path
+    $modifiedTtl = preg_replace_callback(
+        '/<https:\/\/purl\.org\/megalod\/[^>]*\/kos\/([^>]+)>/',
+        function($matches) {
+            return "<https://purl.org/megalod/kos/{$matches[1]}>";
+        },
+        $modifiedTtl
+    );
+    
+    // 12. Fix any malformed URIs with double angle brackets
+    $modifiedTtl = str_replace('<<', '<', $modifiedTtl);
+    $modifiedTtl = str_replace('>>', '>', $modifiedTtl);
     
     error_log("=== URI NORMALIZATION COMPLETE ===", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     error_log("Total replacements made: $replacements", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     
     return $modifiedTtl;
 }
+
 /**
  * FIXED: Updated SVU TTL generation to use correct timeline URI structure
  */
