@@ -94,7 +94,8 @@ class IndexController extends AbstractActionController
         $uploadType = $this->params()->fromQuery('upload_type') ?: $this->params()->fromPost('upload_type');
         $itemSetId = $this->params()->fromQuery('item_set_id') ?: $this->params()->fromPost('item_set_id');
         $mode = $this->params()->fromQuery('mode', $this->params()->fromPost('mode', 'upload'));
-    
+
+        error_log('going for if is upload action' . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
         
         // Process arrowhead file upload
         if ($mode == 'file' && $uploadType == 'arrowhead' && $itemSetId) {
@@ -182,93 +183,92 @@ class IndexController extends AbstractActionController
             }
         }
 
-        
-// Replace your excavation form processing section in AddTriplestore/IndexController.php with this:
-
-// Process the excavation form submission
-if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
-    // Get all POST data from the collecting form
-    $formData = $this->params()->fromPost();
-    
-    error_log('Received excavation collecting form data: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/excavation-collecting-form.log');
-    
-    // Transform collecting form data to excavation format
-    $excavationData = $this->transformCollectingFormToExcavationData($formData);
-    
-    if (!empty($excavationData)) {
-        // Generate excavation identifier
-        $excavationIdentifier = $excavationData['excavation_id'] ?? 'EXC-' . uniqid();
-        
-        // Create TTL data from the excavation form
-        $ttlData = $this->processExcavationFormData($excavationData, $excavationIdentifier);
-        
-        // Create item set first
-        $itemSetData = $this->createExcavationItemSetData($excavationIdentifier, $excavationData);
-        
-        try {
-            // Create the item set
-            $response = $this->api()->create('item_sets', $itemSetData);
-            if ($response) {
-                $newItemSet = $response->getContent();
-                $itemSetId = $newItemSet->id();
+        // Process the excavation form submission
+        if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
+            // Get all POST data from the collecting form
+            $formData = $this->params()->fromPost();
+            
+            error_log('Received excavation collecting form data: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/excavation-collecting-form.log');
+            
+            // Transform collecting form data to excavation format
+            $excavationData = $this->transformCollectingFormToExcavationData($formData);
+            
+            if (!empty($excavationData)) {
+                // Generate excavation identifier
+                $excavationIdentifier = $excavationData['excavation_id'] ?? 'EXC-' . uniqid();
                 
-                // Store the mapping between item set and excavation
-                $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
+                // Create TTL data from the excavation form
+                $ttlData = $this->processExcavationFormData($excavationData, $excavationIdentifier);
                 
-                // Upload TTL data to triplestore
-                $result = $this->uploadTtlData($ttlData, $itemSetId);
+                // Create item set first
+                $itemSetData = $this->createExcavationItemSetData($excavationIdentifier, $excavationData);
                 
-                error_log('Excavation form processing result: ' . $result, 3, OMEKA_PATH . '/logs/excavation-collecting-form.log');
-                
-                // Redirect to arrowhead upload page with success message
-                return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/upload', [
-                    'site-slug' => $this->currentSite()->slug(),
-                ], [
-                    'query' => [
-                        'upload_type' => 'arrowhead',
-                        'item_set_id' => $itemSetId,
-                        'mode' => 'file',
-                        'result' => $result
-                    ]
-                ]));
+                try {
+                    // Create the item set
+                    $response = $this->api()->create('item_sets', $itemSetData);
+                    if ($response) {
+                        $newItemSet = $response->getContent();
+                        $itemSetId = $newItemSet->id();
+                        
+                        // Store the mapping between item set and excavation
+                        $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
+                        
+                        // Upload TTL data to triplestore
+                        $result = $this->uploadTtlData($ttlData, $itemSetId);
+                        
+                        error_log('Excavation form processing result: ' . $result, 3, OMEKA_PATH . '/logs/excavation-collecting-form.log');
+                        
+                        // Redirect to arrowhead upload page with success message
+                        return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/upload', [
+                            'site-slug' => $this->currentSite()->slug(),
+                        ], [
+                            'query' => [
+                                'upload_type' => 'arrowhead',
+                                'item_set_id' => $itemSetId,
+                                'mode' => 'file',
+                                'result' => $result
+                            ]
+                        ]));
+                    }
+                } catch (\Exception $e) {
+                    error_log('Error creating excavation item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-collecting-form.log');
+                    return $this->redirect()->toUrl($this->url()->fromRoute('site', [
+                        'site-slug' => $this->currentSite()->slug()
+                    ], [
+                        'query' => [
+                            'result' => 'Error: Failed to create excavation - ' . $e->getMessage()
+                        ]
+                    ]));
+                }
             }
-        } catch (\Exception $e) {
-            error_log('Error creating excavation item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-collecting-form.log');
+            
+            // If transformation failed, redirect with error
             return $this->redirect()->toUrl($this->url()->fromRoute('site', [
                 'site-slug' => $this->currentSite()->slug()
             ], [
                 'query' => [
-                    'result' => 'Error: Failed to create excavation - ' . $e->getMessage()
+                    'result' => 'Error: Could not process excavation form data'
                 ]
             ]));
         }
-    }
-    
-    // If transformation failed, redirect with error
-    return $this->redirect()->toUrl($this->url()->fromRoute('site', [
-        'site-slug' => $this->currentSite()->slug()
-    ], [
-        'query' => [
-            'result' => 'Error: Could not process excavation form data'
-        ]
-    ]));
-}
-
-
         
         // For direct file uploads - handle normally
         else if (isset($_FILES['file']) && !empty($_FILES['file']['tmp_name'])) {
             // Log the upload type for debugging
-            error_log('File upload detected: ' . $uploadType, 3, OMEKA_PATH . '/logs/file-upload.log');
+            error_log('going to upload file' . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
             
             $result = $this->processFileUpload($this->getRequest(), $uploadType, $itemSetId);
+            error_log('File upload result: ' . $result  . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
             
             // If this is an excavation file upload, create an item set if needed and redirect to arrowhead upload
             if ($uploadType == 'excavation') {
+                error_log('going for excav uplotad file' . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
+
                 error_log('Processing excavation file upload', 3, OMEKA_PATH . '/logs/a.log');
                 // Extract excavation identifier from the upload result
                 error_log('Upload result: ' . $result, 3, OMEKA_PATH . '/logs/a.log');
-                preg_match('/Excavation ([A-Za-z0-9-]+)/', $result, $matches);                $excavationIdentifier = isset($matches[1]) ? $matches[1] : null;
+                preg_match('/Excavation ([A-Za-z0-9-]+)/', $result, $matches);
+                $excavationIdentifier = isset($matches[1]) ? $matches[1] : null;
                 error_log('Excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/a.log');
                 if ($excavationIdentifier) {
                     // Get the item set ID either from the upload result or from the mapping
@@ -278,6 +278,8 @@ if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
                     }
                     
                     if ($itemSetId) {
+                        error_log('there is item set' . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
+
                         // Redirect to the arrowhead upload form with the excavation context
                         return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/upload', [
                             'site-slug' => $this->currentSite()->slug(),
@@ -291,28 +293,6 @@ if ($uploadType == 'excavation' && !isset($_FILES['file'])) {
                         ]));
                     }
                 }
-            }
-            // Check if this is supposed to be a continuous arrowhead upload (fallback)
-            if ($mode == 'file' && $uploadType == 'arrowhead' && $itemSetId) {
-                // Check if excavation ID is available for a more specific message
-                error_log('Item Set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/ab.log');
-                $excavationId = $this->getExcavationIdentifierFromItemSet($itemSetId);
-                error_log('Excavation ID: ' . $excavationId, 3, OMEKA_PATH . '/logs/ab.log');
-                if ($excavationId && strpos($result, 'successfully') !== false) {
-                    $result = "Arrowhead was successfully added to excavation $excavationId (Item Set #$itemSetId). You can upload another or click Exit when done.";
-                }
-                
-                // Redirect back to the arrowhead upload page
-                return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/upload', [
-                    'site-slug' => $this->currentSite()->slug(),
-                ], [
-                    'query' => [
-                        'upload_type' => 'arrowhead',
-                        'item_set_id' => $itemSetId,
-                        'mode' => 'file',
-                        'result' => $result
-                    ]
-                ]));
             }
             
             // For excavation file uploads, make sure we redirect to a page where arrowheads can be added
@@ -2061,6 +2041,9 @@ private function getExcavationLocationUri($excavationId, $itemSetId = null) {
             if ($uploadType) {
                 try {
                     $this->validateUploadType($ttlData, $uploadType);
+                    error_log('Upload type validation passed for: ' . $uploadType . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
+
+
                 } catch (\Exception $e) {
                     // Type mismatch but not critical for continuous upload
                     error_log('Upload type validation warning: ' . $e->getMessage());
@@ -2098,12 +2081,15 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             $this->validateUploadType($ttlData, 'excavation');
             error_log('✓ Excavation validation passed', 3, OMEKA_PATH . '/logs/upload-debug.log');
             $isExcavation = true;
-            
+
+            error_log('This is excavation data' . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
+
             // Extract excavation identifier for graph organization
             $extractedId = $this->extractExcavationIdentifier($ttlData);
+            error_log('Extracted excavation identifier: ' . $extractedId . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
             if ($extractedId) {
                 $excavationIdentifier = $extractedId;
-                error_log('✓ Extracted excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/upload-debug.log');
+                error_log('✓ Extracted excavation identifier: ' . $excavationIdentifier ."\n", 3, OMEKA_PATH . '/logs/malfunction.log');
             } else {
                 error_log('⚠ Could not extract excavation identifier', 3, OMEKA_PATH . '/logs/upload-debug.log');
             }
@@ -2121,22 +2107,25 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             }
         }
 
+        error_log('so far so good', 3, OMEKA_PATH . '/logs/malfunction.log');
+
         error_log('Final determination - isExcavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/upload-debug.log');
         error_log('Excavation identifier: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/upload-debug.log');
 
 
         // Normalize URIs based on context
         if ($itemSetId) {
+            error_log('Normalizing URIs for item set ID: ' . $itemSetId . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
             $ttlData = $this->normalizeUris($ttlData, $itemSetId);
             error_log('URIs normalized for item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
         } elseif ($isExcavation && $excavationIdentifier) {
             // SINGLE POINT OF ITEM SET CREATION FOR EXCAVATIONS
+            error_log('Normalizing URIs for excavation identifier: ' . $excavationIdentifier . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
             if ($this->excavationIdentifierExists($excavationIdentifier)) {
                 // Optionally handle duplicate excavation identifiers
                 // For now, we'll proceed but log a warning
-                error_log('Warning: Excavation identifier already exists: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-debug.log');
+                error_log('Warning: Excavation identifier already exists: ' . $excavationIdentifier . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
             }
-            //log new ttlData
             
             // Extract excavation metadata
             $excavationMetadata = $this->extractExcavationMetadataFromTtl($ttlData);
@@ -2178,14 +2167,15 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
                     $newItemSet = $response->getContent();
                     $itemSetId = $newItemSet->id();
                     
-                    error_log('Successfully created single item set with ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/kkkkkkkkkkklllllll-debug.log');
+                    error_log('Successfully created single item set with ID: ' . $itemSetId . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
                     
                     // Update the processing context with the new item set ID
                     $this->currentProcessingItemSetId = $itemSetId;
+                    error_log('Updated current processing item set ID to: ' . $this->currentProcessingItemSetId . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
                     
                     // Now normalize the URIs with the new item set ID
                     $ttlData = $this->normalizeUris($ttlData, $itemSetId);
-                    error_log('URIs normalized for excavation with item set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/uri-normalize.log');
+                    error_log('normalized data: ' . $ttlData . "\n", 3, OMEKA_PATH . '/logs/malfunction-normalize.log');
                     
                     // Store the mapping between item set and excavation
                     $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
@@ -2371,34 +2361,22 @@ private function storeMappingBetweenItemSetAndExcavation($itemSetId, $excavation
 
 
 private function extractExcavationIdentifier(string $ttlData): ?string {
-    error_log('Extracting excavation identifier from TTL', 3, OMEKA_PATH . '/logs/excavation-identifier.log');
+    error_log('Extracting excavation identifier from TTL' . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
     
     // Pattern 1: Direct dct:identifier pattern from your TTL
     if (preg_match('/dct:identifier\s+"([^"]+)"\^\^xsd:literal/', $ttlData, $matches)) {
-        error_log('Found identifier via dct:identifier: ' . $matches[1], 3, OMEKA_PATH . '/logs/excavation-identifier.log');
+        error_log('Found identifier via dct:identifier: ' . $matches[1] . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
         return $matches[1];
     }
     
     // Pattern 2: Alternative dcterms:identifier
     if (preg_match('/dcterms:identifier\s+"([^"]+)"/', $ttlData, $matches)) {
-        error_log('Found identifier via dcterms:identifier: ' . $matches[1], 3, OMEKA_PATH . '/logs/excavation-identifier.log');
+        error_log('Found identifier via dcterms:identifier: ' . $matches[1] . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
         return $matches[1];
     }
     
-    // Pattern 3: Extract from excavation URI pattern
-    if (preg_match('/<https:\/\/purl\.org\/megalod\/([^\/]+)\/excavation\/([^>]+)>/', $ttlData, $matches)) {
-        $identifier = $matches[2]; // This should be "EXC-001"
-        error_log('Found identifier from URI pattern: ' . $identifier, 3, OMEKA_PATH . '/logs/excavation-identifier.log');
-        return $identifier;
-    }
     
-    // Pattern 4: Look for any EXC-XXX pattern in the file
-    if (preg_match('/EXC-\d+/', $ttlData, $matches)) {
-        error_log('Found EXC pattern: ' . $matches[0], 3, OMEKA_PATH . '/logs/excavation-identifier.log');
-        return $matches[0];
-    }
-    
-    error_log('No excavation identifier found in TTL', 3, OMEKA_PATH . '/logs/excavation-identifier.log');
+    error_log('No excavation identifier found in TTL' . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
     return null;
 }
 
