@@ -700,6 +700,8 @@ private function normalizeUris($ttlData, $itemSetId) {
     error_log("=== URI NORMALIZATION COMPLETE ===", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     error_log("Total replacements made: $replacements", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     
+    // Log the final modified TTL for debugging
+    error_log("Modified TTL:\n$modifiedTtl", 3, OMEKA_PATH . '/logs/fixed.log');
     return $modifiedTtl;
 }
 

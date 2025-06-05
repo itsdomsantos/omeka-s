@@ -33,7 +33,7 @@
     crm:E57_Material <https://purl.org/megalod/material/flint> ;
     excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/ah-007> ;
     excav:foundInContext <https://purl.org/megalod/context/CTX-001> ;
-    excav:foundInSVU <https://purl.org/megalod/svu/svu-001> ;
+    excav:foundInSVU <https://purl.org/megalod/svu/Layer-02> ;
     schema:height <https://purl.org/megalod/typometry/ah-007-height> ;
     schema:width <https://purl.org/megalod/typometry/ah-007-width> ;
     schema:depth <https://purl.org/megalod/typometry/ah-007-depth> ;
