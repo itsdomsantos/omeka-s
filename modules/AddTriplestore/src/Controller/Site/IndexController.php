@@ -3984,6 +3984,45 @@ private function processEncounterEvent($rdfData, $encounterUri, &$itemData, $cur
 // Extract all encountered objects - FIXED: Create proper resource links
     $encounteredObjects = [];
     $encounteredItemUris = [];
+
+    if (isset($rdfData[$encounterUri]['crmsci:O19_encountered_object'])) {
+    $encounteredRefs = [];
+    
+    foreach ($rdfData[$encounterUri]['crmsci:O19_encountered_object'] as $objRef) {
+        if ($objRef['type'] === 'uri') {
+            // Get identifier from the referenced object if available
+            $objId = $this->extractIdentifierFromUri($objRef['value']) ?: basename($objRef['value']);
+            $displayValue = $this->extractResourceDisplayName($rdfData, $objRef['value']) ?: $objId;
+            
+            $encounteredRefs[] = $displayValue;
+            
+            // Also add as resource reference
+            if (!isset($itemData['Encountered Item'])) {
+                $itemData['Encountered Item'] = [];
+            }
+            
+            $itemData['Encountered Item'][] = [
+                'type' => 'uri',
+                'property_id' => 374, // Use appropriate property ID
+                '@id' => $objRef['value'],
+                'o:label' => $displayValue
+            ];
+        }
+    }
+    
+    // Add as text list for backward compatibility
+    if (!empty($encounteredRefs)) {
+        if (!isset($itemData['Encountered Objects'])) {
+            $itemData['Encountered Objects'] = [];
+        }
+        
+        $itemData['Encountered Objects'][] = [
+            'type' => 'literal', 
+            'property_id' => 374,
+            '@value' => implode(', ', $encounteredRefs)
+        ];
+    }
+}
     
     if (isset($rdfData[$encounterUri]['https://cidoc-crm.org/extensions/crmsci/O19_encountered_object']) || 
         isset($rdfData[$encounterUri]['crmsci:O19_encountered_object'])) {
@@ -4044,7 +4083,7 @@ private function processEncounterEvent($rdfData, $encounterUri, &$itemData, $cur
         
         $itemData['Encountered Objects'][] = [
             'type' => 'literal',
-            'property_id' => 7685,
+            'property_id' => 374,
             '@value' => implode(', ', $identifierList)
         ];
         
@@ -4067,7 +4106,7 @@ private function processEncounterEvent($rdfData, $encounterUri, &$itemData, $cur
                 // Found the item, add as a resource reference
                 $itemData['Encountered Item'][] = [
                     'type' => 'resource',
-                    'property_id' => 7686, // Use an appropriate property ID for item links
+                    'property_id' => 374, // Use an appropriate property ID for item links
                     'value_resource_id' => $item->id()
                 ];
                 
@@ -4198,49 +4237,27 @@ private function processEncounterEvent($rdfData, $encounterUri, &$itemData, $cur
 }
 
 
-/**
- * Find an item by identifier with better logging and error handling
- */
-private function findItemByIdentifierWithLogging($identifier, $itemSetId = null) {
-    error_log("Finding item with identifier: $identifier in item set: " . ($itemSetId ?: 'any'), 3, OMEKA_PATH . '/logs/encounter-item-links.log');
-    
-    try {
-        // Search by exact identifier match
-        $searchParams = [
-            'property' => [
-                [
-                    'property' => 10, // dcterms:identifier property ID
-                    'type' => 'eq',
-                    'text' => $identifier
-                ]
-            ]
-        ];
-        
-        if ($itemSetId) {
-            $searchParams['item_set_id'] = $itemSetId;
+private function extractResourceDisplayName($rdfData, $resourceUri) {
+    // First try to get identifier
+    if (isset($rdfData[$resourceUri]['http://purl.org/dc/terms/identifier'])) {
+        foreach ($rdfData[$resourceUri]['http://purl.org/dc/terms/identifier'] as $idObj) {
+            if ($idObj['type'] === 'literal') {
+                return $idObj['value'];
+            }
         }
-        
-        $response = $this->api()->search('items', $searchParams);
-        $items = $response->getContent();
-        
-        if (!empty($items)) {
-            $item = $items[0];
-            error_log("✓ Found item by identifier $identifier: Item ID " . $item->id(), 3, OMEKA_PATH . '/logs/encounter-item-links.log');
-            return $item;
-        }
-        
-        // If not found and we have an item set constraint, try without it
-        if ($itemSetId) {
-            error_log("Item not found in specified item set, trying global search", 3, OMEKA_PATH . '/logs/encounter-item-links.log');
-            return $this->findItemByIdentifierWithLogging($identifier);
-        }
-        
-        error_log("✗ No item found with identifier: $identifier", 3, OMEKA_PATH . '/logs/encounter-item-links.log');
-        return null;
-    } catch (\Exception $e) {
-        error_log("Error searching for item: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/encounter-item-links.log');
-        return null;
     }
+    
+    // Next try title
+    if (isset($rdfData[$resourceUri]['http://purl.org/dc/terms/title'])) {
+        foreach ($rdfData[$resourceUri]['http://purl.org/dc/terms/title'] as $titleObj) {
+            if ($titleObj['type'] === 'literal') {
+                return $titleObj['value'];
+            }
+        }
+    }
+    
+    // Last resort, extract from URI
+    return basename($resourceUri);
 }
 
 
@@ -4410,118 +4427,7 @@ private function extractEncounterEventData($rdfData, $subject, &$itemData, $curr
     }
 }
 
-/**
- * NEW: Process complete encounter event with all context information
- */
-private function processEncounterEventComplete($rdfData, $encounterUri, &$itemData, $currentItemSetId) {
-    error_log("Processing complete encounter event: $encounterUri", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
-    
-    // Extract basic encounter information
-    $encounterInfo = [];
-    
-    // Extract date
-    if (isset($rdfData[$encounterUri]['http://purl.org/dc/terms/date'])) {
-        foreach ($rdfData[$encounterUri]['http://purl.org/dc/terms/date'] as $dateObj) {
-            if ($dateObj['type'] === 'literal') {
-                $encounterInfo[] = 'Date: ' . $dateObj['value'];
-                error_log("Added encounter date: {$dateObj['value']}", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
-            }
-        }
-    }
-    
-    // Extract depth if available
-    if (isset($rdfData[$encounterUri]['http://dbpedia.org/ontology/depth'])) {
-        foreach ($rdfData[$encounterUri]['http://dbpedia.org/ontology/depth'] as $depthObj) {
-            if ($depthObj['type'] === 'literal') {
-                $encounterInfo[] = 'Depth: ' . $depthObj['value'];
-                error_log("Added encounter depth: {$depthObj['value']}", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
-            }
-        }
-    }
-    
-    // Extract excavation reference
-    $excavationUris = [
-        'https://purl.org/megalod/ms/excavation/foundInExcavation',
-        'excav:foundInExcavation',
-        "https://purl.org/megalod/$currentItemSetId/excavation/foundInExcavation"
-    ];
-    
-    foreach ($excavationUris as $excavUri) {
-        if (isset($rdfData[$encounterUri][$excavUri])) {
-            foreach ($rdfData[$encounterUri][$excavUri] as $excObj) {
-                if ($excObj['type'] === 'uri') {
-                    $excavationId = $this->extractContextDisplayValue($rdfData, $excObj['value']) ?: 
-                                   $this->extractIdentifierFromUriStructure($excObj['value']) ?: 
-                                   $currentItemSetId;
-                    $encounterInfo[] = 'Excavation: ' . $excavationId;
-                    error_log("Added excavation to encounter: $excavationId", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
-                }
-            }
-            break;
-        }
-    }
-    
-    // Extract context reference  
-    $contextUris = [
-        'https://purl.org/megalod/ms/excavation/foundInContext',
-        'excav:foundInContext',
-        "https://purl.org/megalod/$currentItemSetId/excavation/foundInContext"
-    ];
-    
-    foreach ($contextUris as $ctxUri) {
-        if (isset($rdfData[$encounterUri][$ctxUri])) {
-            foreach ($rdfData[$encounterUri][$ctxUri] as $ctxObj) {
-                if ($ctxObj['type'] === 'uri') {
-                    $contextId = $this->extractContextDisplayValue($rdfData, $ctxObj['value']) ?: 
-                                $this->extractIdentifierFromUriStructure($ctxObj['value']);
-                    if ($contextId) {
-                        $encounterInfo[] = 'Context: ' . $contextId;
-                        error_log("Added context to encounter: $contextId", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
-                    }
-                }
-            }
-            break;
-        }
-    }
-    
-    // Extract SVU reference
-    $svuUris = [
-        'https://purl.org/megalod/ms/excavation/foundInSVU',
-        'excav:foundInSVU', 
-        "https://purl.org/megalod/$currentItemSetId/excavation/foundInSVU"
-    ];
-    
-    foreach ($svuUris as $svuUri) {
-        if (isset($rdfData[$encounterUri][$svuUri])) {
-            foreach ($rdfData[$encounterUri][$svuUri] as $svuObj) {
-                if ($svuObj['type'] === 'uri') {
-                    $svuId = $this->extractContextDisplayValue($rdfData, $svuObj['value']) ?: 
-                            $this->extractIdentifierFromUriStructure($svuObj['value']);
-                    if ($svuId) {
-                        $encounterInfo[] = 'SVU: ' . $svuId;
-                        error_log("Added SVU to encounter: $svuId", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
-                    }
-                }
-            }
-            break;
-        }
-    }
-    
-    // Combine all encounter information
-    if (!empty($encounterInfo)) {
-        if (!isset($itemData['Encounter Event Details'])) {
-            $itemData['Encounter Event Details'] = [];
-        }
-        
-        $itemData['Encounter Event Details'][] = [
-            'type' => 'literal',
-            'property_id' => 4,
-            '@value' => implode(' | ', $encounterInfo)
-        ];
-        
-        error_log("Added complete encounter event: " . implode(' | ', $encounterInfo), 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
-    }
-}
+
 
 /**
  * ENHANCED: Extract context display value with better fallbacks
