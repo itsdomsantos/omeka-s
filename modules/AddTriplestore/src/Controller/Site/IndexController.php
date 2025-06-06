@@ -487,19 +487,28 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
         $ttl .= "    dbo:informationName \"" . $excavationData['site_name'] . "\"^^xsd:literal ;\n";
     }
     
-    // Add district/parish with lowercase property names and normalized URIs
+    // Add District/parish with lowercase property names and normalized URIs
     $baseUri = dirname(dirname($locationUri)); // Get base URI from location URI
+    $entitiesToDeclare = [];
     
     if (!empty($excavationData['district'])) {
         $districtSlug = $this->createUrlSlug($excavationData['district']);
         $districtUri = "http://dbpedia.org/resource/$districtSlug";
-        $ttl .= "    dbo:district <$districtUri> ;\n";
+        $ttl .= "    dbo:District <$districtUri> ;\n";
+        $entitiesToDeclare['district'] = [
+            'uri' => $districtUri,
+            'label' => $excavationData['district']
+        ];
     }
     
     if (!empty($excavationData['parish'])) {
         $parishSlug = $this->createUrlSlug($excavationData['parish']);
         $parishUri = "http://dbpedia.org/resource/$parishSlug";
-        $ttl .= "    dbo:parish <$parishUri> ;\n";
+        $ttl .= "    dbo:Parish <$parishUri> ;\n";
+        $entitiesToDeclare['parish'] = [
+            'uri' => $parishUri,
+            'label' => $excavationData['parish']
+        ];
     }
     
     // Country as DBpedia resource (uppercase 'Country')
@@ -507,6 +516,7 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
         $countrySlug = str_replace(' ', '_', $excavationData['country']);
         $countryUri = "http://dbpedia.org/resource/" . $countrySlug;
         $ttl .= "    dbo:Country <$countryUri> ;\n";
+
     }
     
     // FIXED: Reference to separate GPS coordinates object
@@ -525,20 +535,22 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
         $ttl .= "    .\n\n";
     }
     
-    // Add simple entity declarations for district/parish
-    if (!empty($excavationData['district'])) {
-        $districtSlug = $this->createUrlSlug($excavationData['district']);
-        $districtUri = "http://dbpedia.org/resource/$districtSlug";
-        $ttl .= "<$districtUri> a dbo:District .\n";
+    // Add type declarations for referenced entities
+    if (!empty($entitiesToDeclare)) {
+        $ttl .= "# Type declarations for referenced resources\n";
+        
+        if (isset($entitiesToDeclare['district'])) {
+            $ttl .= "<{$entitiesToDeclare['district']['uri']}> a dbo:District .\n";
+        }
+        
+        if (isset($entitiesToDeclare['parish'])) {
+            $ttl .= "<{$entitiesToDeclare['parish']['uri']}> a dbo:Parish .\n";
+        }
+        
+
+        $ttl .= "\n";
     }
     
-    if (!empty($excavationData['parish'])) {
-        $parishSlug = $this->createUrlSlug($excavationData['parish']);
-        $parishUri = "http://dbpedia.org/resource/$parishSlug";
-        $ttl .= "<$parishUri> a dbo:Parish .\n";
-    }
-    
-    $ttl .= "\n";
     
     return $ttl;
 }
@@ -5028,9 +5040,7 @@ private function findExistingEncounterEvent($signature, $itemSetId) {
     return null;
 }
 
-/**
- * Extract context data from signature
- */
+
 private function contextFromSignature($signature) {
     // Create a cache for this method 
     static $signatureCache = [];
@@ -5074,40 +5084,41 @@ private function contextFromSignature($signature) {
             
             // Get excavation
             if (isset($values['excav:foundInExcavation'])) {
-                foreach ($values['excav:foundInExcavation'] as $value) {
-                    $context['excavation'] = $value->value();
+                foreach ($values['excav:foundInExcavation'] as $valueRep) {
+                    // FIXED: Access the value correctly - valueRep is a ValueRepresentation
+                    $context['excavation'] = $valueRep->value();
                     break;
                 }
             }
             
             // Get context
             if (isset($values['excav:foundInContext'])) {
-                foreach ($values['excav:foundInContext'] as $value) {
-                    $context['context'] = $value->value();
+                foreach ($values['excav:foundInContext'] as $valueRep) {
+                    $context['context'] = $valueRep->value();
                     break;
                 }
             }
             
             // Get SVU
             if (isset($values['excav:foundInSVU'])) {
-                foreach ($values['excav:foundInSVU'] as $value) {
-                    $context['svu'] = $value->value();
+                foreach ($values['excav:foundInSVU'] as $valueRep) {
+                    $context['svu'] = $valueRep->value();
                     break;
                 }
             }
             
             // Get date
             if (isset($values['dcterms:date'])) {
-                foreach ($values['dcterms:date'] as $value) {
-                    $context['date'] = $value->value();
+                foreach ($values['dcterms:date'] as $valueRep) {
+                    $context['date'] = $valueRep->value();
                     break;
                 }
             }
             
             // Get square
             if (isset($values['excav:foundInSquare'])) {
-                foreach ($values['excav:foundInSquare'] as $value) {
-                    $context['square'] = $value->value();
+                foreach ($values['excav:foundInSquare'] as $valueRep) {
+                    $context['square'] = $valueRep->value();
                     break;
                 }
             }
@@ -6551,8 +6562,8 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                 
                 // FIXED: Process location properties with CORRECT lowercase URIs
                 $locationProperties = [
-                    'http://dbpedia.org/ontology/district' => ['District', 1555],  // lowercase 'district'
-                    'http://dbpedia.org/ontology/parish' => ['Parish', 1681],      // lowercase 'parish'
+                    'http://dbpedia.org/ontology/District' => ['District', 1555],  // lowercase 'district'
+                    'http://dbpedia.org/ontology/Parish' => ['Parish', 1681],      // lowercase 'parish'
                     'http://dbpedia.org/ontology/Country' => ['Country', 1402]     // uppercase 'Country'
                 ];
                 
@@ -8390,8 +8401,8 @@ private function getHumanReadableLabel($term)
         }
     }
 
-    // download data functionality
-    public function downloadTtlAction()
+
+public function downloadTtlAction()
 {
     $id = $this->params()->fromQuery('id');
     $type = $this->params()->fromQuery('type', 'item');
@@ -8411,13 +8422,20 @@ private function getHumanReadableLabel($term)
         // Generate TTL for the main resource
         $ttlData = $this->generateTtlForResource($resource, $type);
         
+        // Add declarations for all referenced resources
+        $ttlData .= $this->generateReferenceDeclarations($resource);
+        
         // If it's an item set, also include all its items
         if ($type === 'item_set') {
+            error_log("Generating TTL for item set $id", 3, OMEKA_PATH . '/logs/download-ttl.log');
             $items = $api->search('items', ['item_set_id' => $id])->getContent();
             foreach ($items as $item) {
                 $ttlData .= $this->generateTtlForResource($item, 'item');
                 
-                // Also include media for each item
+                // Also include declarations for referenced resources
+                $ttlData .= $this->generateReferenceDeclarations($item);
+                
+                // Include media for each item
                 $media = $api->search('media', ['item_id' => $item->id()])->getContent();
                 foreach ($media as $medium) {
                     $ttlData .= $this->generateTtlForResource($medium, 'media');
@@ -8443,6 +8461,466 @@ private function getHumanReadableLabel($term)
         );
     }
 }
+
+/**
+ * Generate declarations for all referenced resources in a resource
+ */
+private function generateReferenceDeclarations($resource)
+{
+    $ttl = "\n# =========== REFERENCE DECLARATIONS ===========\n";
+    $values = $resource->values();
+    $itemSetId = $this->getItemSetIdForResource($resource);
+    $baseUri = $itemSetId ? "https://purl.org/megalod/$itemSetId" : "https://purl.org/megalod";
+    $excavationId = $this->extractExcavationIdFromResource($resource);
+    
+    // Track URIs we've already seen to avoid duplicates
+    $processedUris = [];
+    
+    // Process location references
+    if (isset($values['excavation:foundInLocation'])) {
+        foreach ($values['excavation:foundInLocation']['values'] as $value) {
+            if ($value->uri() && !isset($processedUris[$value->uri()])) {
+                $locationUri = $value->uri();
+                $locationName = $value->value() ?: "Archaeological Site";
+                $processedUris[$locationUri] = true;
+                
+                $ttl .= "\n# Location declaration\n";
+                $ttl .= "<$locationUri> a excav:Location ;\n";
+                $ttl .= "    dbo:informationName \"$locationName\"^^xsd:literal ;\n";
+                
+                // Try to extract location name from the URI
+                if (preg_match('/location\/([^\/]+)$/', $locationUri, $matches)) {
+                    $locationSlug = $matches[1];
+                    $readableLocationName = ucwords(str_replace('-', ' ', $locationSlug));
+                    if ($locationName !== $readableLocationName) {
+                        $ttl .= "    rdfs:label \"$readableLocationName\"^^xsd:literal ;\n";
+                    }
+                }
+                
+                // Query GraphDB for more location info if possible
+                $additionalInfo = $this->queryAdditionalLocationInfo($locationUri);
+                if ($additionalInfo) {
+                    $ttl .= $additionalInfo;
+                }
+                
+                $ttl .= "    .\n";
+            }
+        }
+    }
+    
+    // Process square references
+    if (isset($values['excavation:foundInSquare'])) {
+        foreach ($values['excavation:foundInSquare']['values'] as $value) {
+            if ($value->uri() && !isset($processedUris[$value->uri()])) {
+                $squareUri = $value->uri();
+                $squareId = $value->value() ?: "Unknown Square";
+                $processedUris[$squareUri] = true;
+                
+                $ttl .= "\n# Square declaration\n";
+                $ttl .= "<$squareUri> a excav:Square ;\n";
+                $ttl .= "    dct:identifier \"$squareId\"^^xsd:literal ;\n";
+                
+                // Query GraphDB for coordinates if possible
+                $coordinatesInfo = $this->querySquareCoordinates($squareUri);
+                if ($coordinatesInfo) {
+                    $ttl .= $coordinatesInfo;
+                }
+                
+                $ttl .= "    .\n";
+            }
+        }
+    }
+    
+    // Process context references
+    if (isset($values['excavation:foundInContext'])) {
+        foreach ($values['excavation:foundInContext']['values'] as $value) {
+            if ($value->uri() && !isset($processedUris[$value->uri()])) {
+                $contextUri = $value->uri();
+                $contextId = $value->value() ?: "Unknown Context";
+                $processedUris[$contextUri] = true;
+                
+                $ttl .= "\n# Context declaration\n";
+                $ttl .= "<$contextUri> a excav:Context ;\n";
+                $ttl .= "    dct:identifier \"$contextId\"^^xsd:literal ;\n";
+                
+                // Query for description if available
+                $contextDescription = $this->queryContextDescription($contextUri);
+                if ($contextDescription) {
+                    $ttl .= "    dct:description \"$contextDescription\"^^xsd:literal ;\n";
+                }
+                
+                $ttl .= "    .\n";
+            }
+        }
+    }
+    
+    // Process SVU references
+    if (isset($values['excavation:foundInSVU'])) {
+        foreach ($values['excavation:foundInSVU']['values'] as $value) {
+            if ($value->uri() && !isset($processedUris[$value->uri()])) {
+                $svuUri = $value->uri();
+                $svuId = $value->value() ?: "Unknown SVU";
+                $processedUris[$svuUri] = true;
+                
+                $ttl .= "\n# SVU declaration\n";
+                $ttl .= "<$svuUri> a excav:StratigraphicVolumeUnit ;\n";
+                $ttl .= "    dct:identifier \"$svuId\"^^xsd:literal ;\n";
+                
+                // Query for description if available
+                $svuDescription = $this->querySvuDescription($svuUri);
+                if ($svuDescription) {
+                    $ttl .= "    dct:description \"$svuDescription\"^^xsd:literal ;\n";
+                }
+                
+                $ttl .= "    .\n";
+            }
+        }
+    }
+    
+    // Process excavation references
+    if (isset($values['excavation:foundInExcavation'])) {
+        foreach ($values['excavation:foundInExcavation']['values'] as $value) {
+            if ($value->uri() && !isset($processedUris[$value->uri()])) {
+                $excavationUri = $value->uri();
+                $processedUris[$excavationUri] = true;
+                
+                $ttl .= "\n# Excavation declaration\n";
+                $ttl .= "<$excavationUri> a excav:Excavation ;\n";
+                
+                if ($excavationId) {
+                    $ttl .= "    dct:identifier \"$excavationId\"^^xsd:literal ;\n";
+                }
+                
+                $ttl .= "    .\n";
+            }
+        }
+    }
+
+    // Extract and declare district, parish and country data
+    $districts = [];
+    $parishes = [];
+    $countries = [];
+    
+    // Try to find district, parish and country in the location data
+    if (isset($values['District'])) {
+        foreach ($values['District']['values'] as $value) {
+            $districtName = $value->value();
+            $districtSlug = str_replace(' ', '_', $districtName);
+            $districts["http://dbpedia.org/resource/$districtSlug"] = $districtName;
+        }
+    }
+    
+    if (isset($values['Parish'])) {
+        foreach ($values['Parish']['values'] as $value) {
+            $parishName = $value->value();
+            $parishSlug = str_replace(' ', '_', $parishName);
+            $parishes["http://dbpedia.org/resource/$parishSlug"] = $parishName;
+        }
+    }
+    
+    if (isset($values['Country'])) {
+        foreach ($values['Country']['values'] as $value) {
+            $countryName = $value->value();
+            $countrySlug = str_replace(' ', '_', $countryName);
+            $countries["http://dbpedia.org/resource/$countrySlug"] = $countryName;
+        }
+    }
+    
+    // Add declarations for districts, parishes and countries
+    if (!empty($districts) || !empty($parishes) || !empty($countries)) {
+        $ttl .= "\n# Type declarations for referenced resources\n";
+        
+        foreach ($districts as $uri => $name) {
+            $ttl .= "<$uri> a dbo:District .\n";
+        }
+        
+        foreach ($parishes as $uri => $name) {
+            $ttl .= "<$uri> a dbo:Parish .\n";
+        }
+        
+        
+        $ttl .= "\n";
+    }
+    
+    return $ttl;
+}
+
+/**
+ * Get the item set ID for a resource
+ */
+private function getItemSetIdForResource($resource)
+{
+    // For item sets, use the resource's ID directly
+    if ($resource instanceof \Omeka\Api\Representation\ItemSetRepresentation) {
+        return $resource->id();
+    }
+    
+    // For items, get the first item set ID
+    if ($resource instanceof \Omeka\Api\Representation\ItemRepresentation) {
+        $itemSets = $resource->itemSets();
+        foreach ($itemSets as $itemSet) {
+            return $itemSet->id();
+        }
+    }
+    
+    return null;
+}
+
+/**
+ * Extract excavation identifier from resource by analyzing URIs
+ */
+private function extractExcavationIdFromResource($resource)
+{
+    $values = $resource->values();
+    
+    // Check various reference properties
+    $referenceProperties = [
+        'excavation:foundInExcavation',
+        'excavation:foundInLocation',
+        'excavation:foundInSquare',
+        'excavation:foundInContext',
+        'excavation:foundInSVU'
+    ];
+    
+    foreach ($referenceProperties as $property) {
+        if (isset($values[$property])) {
+            foreach ($values[$property]['values'] as $value) {
+                if ($value->uri()) {
+                    $uri = $value->uri();
+                    // Extract excavation ID from URI pattern
+                    if (preg_match('/\/excavation\/([^\/]+)\//', $uri, $matches)) {
+                        return $matches[1];
+                    }
+                }
+            }
+        }
+    }
+    
+    return null;
+}
+
+
+private function queryAdditionalLocationInfo($locationUri) 
+{
+    try {
+        $query = "
+        PREFIX dbo: <http://dbpedia.org/ontology/>
+        PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+        PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+        
+        SELECT DISTINCT ?districtUri ?district ?parishUri ?parish ?countryUri ?country ?lat ?long ?gpsUri
+        WHERE {
+            # Try both direct properties and GPS references
+            OPTIONAL { 
+                <$locationUri> dbo:District ?districtUri .
+                OPTIONAL { ?districtUri rdfs:label ?district }
+            }
+            OPTIONAL { 
+                <$locationUri> dbo:Parish ?parishUri .
+                OPTIONAL { ?parishUri rdfs:label ?parish }
+            }
+            OPTIONAL { 
+                <$locationUri> dbo:Country ?countryUri .
+                OPTIONAL { ?countryUri rdfs:label ?country }
+            }
+            
+            # Try direct geo coordinates
+            OPTIONAL { <$locationUri> geo:lat ?lat }
+            OPTIONAL { <$locationUri> geo:long ?long }
+            
+            # Try referenced GPS coordinates
+            OPTIONAL {
+                <$locationUri> excav:hasGPSCoordinates ?gpsUri .
+                OPTIONAL { ?gpsUri geo:lat ?lat }
+                OPTIONAL { ?gpsUri geo:long ?long }
+            }
+        }
+        LIMIT 1";
+        
+        $results = $this->querySparql($query);
+        $locationInfo = "";
+        $typesToDeclare = [];
+        
+        if (!empty($results)) {
+            $result = $results[0];
+            
+            if (isset($result['districtUri'])) {
+                $districtUri = $result['districtUri']['value'];
+                $districtLabel = isset($result['district']) ? $result['district']['value'] : basename($districtUri);
+                $locationInfo .= "    dbo:District <$districtUri> ;\n";
+                $typesToDeclare['district'] = $districtUri;
+            }
+            
+            if (isset($result['parishUri'])) {
+                $parishUri = $result['parishUri']['value'];
+                $parishLabel = isset($result['parish']) ? $result['parish']['value'] : basename($parishUri);
+                $locationInfo .= "    dbo:Parish <$parishUri> ;\n";
+                $typesToDeclare['parish'] = $parishUri;
+            }
+            
+            if (isset($result['countryUri'])) {
+                $countryUri = $result['countryUri']['value'];
+                $countryLabel = isset($result['country']) ? $result['country']['value'] : basename($countryUri);
+                $locationInfo .= "    dbo:Country <$countryUri> ;\n";
+            }
+            
+            if (isset($result['lat'])) {
+                $locationInfo .= "    geo:lat \"" . $result['lat']['value'] . "\"^^xsd:decimal ;\n";
+            }
+            
+            if (isset($result['long'])) {
+                $locationInfo .= "    geo:long \"" . $result['long']['value'] . "\"^^xsd:decimal ;\n";
+            }
+            
+            if (isset($result['gpsUri'])) {
+                $locationInfo .= "    excav:hasGPSCoordinates <" . $result['gpsUri']['value'] . "> ;\n";
+            }
+            
+            // Add declarations for the referenced resources
+            if (!empty($typesToDeclare)) {
+                $locationInfo .= "\n# Type declarations for referenced resources\n";
+                
+                if (isset($typesToDeclare['district'])) {
+                    $locationInfo .= "<{$typesToDeclare['district']}> a dbo:District .\n";
+                }
+                
+                if (isset($typesToDeclare['parish'])) {
+                    $locationInfo .= "<{$typesToDeclare['parish']}> a dbo:Parish .\n";
+                }
+                
+
+                
+                $locationInfo .= "\n";
+            }
+            
+            return $locationInfo;
+        }
+    } catch (\Exception $e) {
+        error_log("Error querying location info: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/ttl-download.log');
+    }
+    
+    return "";
+}
+/**
+ * Query square coordinates from GraphDB
+ */
+private function querySquareCoordinates($squareUri)
+{
+    try {
+        $query = "
+        PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+        
+        SELECT ?lat ?long
+        WHERE {
+            <$squareUri> geo:lat ?lat ;
+                         geo:long ?long .
+        }
+        LIMIT 1";
+        
+        $results = $this->querySparql($query);
+        
+        if (!empty($results)) {
+            $result = $results[0];
+            $info = "";
+            
+            if (isset($result['lat'])) {
+                $info .= "    geo:lat \"" . $result['lat']['value'] . "\"^^xsd:decimal ;\n";
+            }
+            
+            if (isset($result['long'])) {
+                $info .= "    geo:long \"" . $result['long']['value'] . "\"^^xsd:decimal ;\n";
+            }
+            
+            return $info;
+        }
+    } catch (\Exception $e) {
+        error_log("Error querying square coordinates: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/ttl-download.log');
+    }
+    
+    return "";
+}
+
+/**
+ * Query context description from GraphDB
+ */
+private function queryContextDescription($contextUri)
+{
+    try {
+        $query = "
+        PREFIX dct: <http://purl.org/dc/terms/>
+        
+        SELECT ?description
+        WHERE {
+            <$contextUri> dct:description ?description .
+        }
+        LIMIT 1";
+        
+        $results = $this->querySparql($query);
+        
+        if (!empty($results) && isset($results[0]['description'])) {
+            return $this->escapeTtlString($results[0]['description']['value']);
+        }
+    } catch (\Exception $e) {
+        error_log("Error querying context description: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/ttl-download.log');
+    }
+    
+    return null;
+}
+
+/**
+ * Query SVU description from GraphDB
+ */
+private function querySvuDescription($svuUri)
+{
+    try {
+        $query = "
+        PREFIX dct: <http://purl.org/dc/terms/>
+        
+        SELECT ?description
+        WHERE {
+            <$svuUri> dct:description ?description .
+        }
+        LIMIT 1";
+        
+        $results = $this->querySparql($query);
+        
+        if (!empty($results) && isset($results[0]['description'])) {
+            return $this->escapeTtlString($results[0]['description']['value']);
+        }
+    } catch (\Exception $e) {
+        error_log("Error querying SVU description: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/ttl-download.log');
+    }
+    
+    return null;
+}
+
+/**
+ * Execute a SPARQL query against GraphDB
+ */
+private function querySparql($query)
+{
+    $client = new \Laminas\Http\Client();
+    $client->setUri($this->graphdbQueryEndpoint);
+    $client->setMethod('POST');
+    $client->setHeaders([
+        'Content-Type' => 'application/sparql-query',
+        'Accept' => 'application/sparql-results+json'
+    ]);
+    $client->setRawBody($query);
+    
+    $response = $client->send();
+    
+    if ($response->isSuccess()) {
+        $results = json_decode($response->getBody(), true);
+        
+        if (isset($results['results']['bindings'])) {
+            return $results['results']['bindings'];
+        }
+    }
+    
+    return [];
+}
+
 
 
 // Add this to your IndexController.php class
@@ -8484,10 +8962,8 @@ private function isArrowheadResource($resource)
 }
 
 
-
 private function generateArrowheadTtlWithOriginalUris($resource)
 {
-    $ttl = "";
     $values = $resource->values();
     
     // Extract the original normalized URI from the context references
@@ -8497,7 +8973,10 @@ private function generateArrowheadTtlWithOriginalUris($resource)
     // Use the original normalized URI structure
     $arrowheadUri = "$originalBaseUri/item/$identifier";
     
-    // Main arrowhead declaration with original URI
+    // Start building TTL with single resource comment
+    $ttl = "# Resource: " . $resource->displayTitle() . "\n\n";
+    
+    // Main arrowhead declaration
     $ttl .= "<$arrowheadUri> a excav:Item, ah:Arrowhead ;\n";
     
     // Add identifier
@@ -8505,15 +8984,18 @@ private function generateArrowheadTtlWithOriginalUris($resource)
         $ttl .= "    dct:identifier \"$identifier\"^^xsd:literal ;\n";
     }
     
-    // Process core properties with original URI references
+    // Add basic properties
     $ttl .= $this->processArrowheadCorePropertiesWithOriginalUris($values, $arrowheadUri, $originalBaseUri);
+    
+    // Add measurement references
+    $ttl .= $this->addMeasurementReferences($values, $arrowheadUri, $identifier);
     
     // Add morphology reference
     if ($this->hasMorphologyData($values)) {
         $ttl .= "    ah:hasMorphology <$arrowheadUri/morphology/$identifier-morphology> ;\n";
     }
     
-    // Add chipping reference
+    // Add chipping reference  
     if ($this->hasChippingData($values)) {
         $ttl .= "    ah:hasChipping <$arrowheadUri/chipping/$identifier-chipping> ;\n";
     }
@@ -8523,62 +9005,53 @@ private function generateArrowheadTtlWithOriginalUris($resource)
         $ttl .= "    excav:hasCoordinatesInSquare <$arrowheadUri/coordinates/$identifier-coordinates> ;\n";
     }
     
-    // Add GPS reference if present
+    // Add GPS coordinates reference
     if ($this->hasGpsData($values)) {
         $excavationId = $this->extractExcavationId($values);
         $ttl .= "    excav:hasGPSCoordinates <$originalBaseUri/excavation/$excavationId/gps/$identifier-gps> ;\n";
     }
     
-    // Add height measurement reference
-    if (isset($values['schema:height'])) {
-        $ttl .= "    schema:height <$arrowheadUri/typometry/$identifier-height> ;\n";
-    }
+    // Close main resource (remove trailing semicolon and add period)
+    $ttl = rtrim($ttl, " ;\n") . " .\n\n";
     
-    // Add width measurement reference
-    if (isset($values['schema:width'])) {
-        $ttl .= "    schema:width <$arrowheadUri/typometry/$identifier-width> ;\n";
-    }
-    
-    // Add weight measurement reference
-    if (isset($values['schema:weight'])) {
-        $ttl .= "    schema:weight <$arrowheadUri/weight/$identifier-weight> ;\n";
-    }
-    
-    // Add depth/thickness measurement reference
-    if (isset($values['schema:depth']) || isset($values['sdo:depth'])) {
-        $ttl .= "    schema:depth <$arrowheadUri/typometry/$identifier-depth> ;\n";
-    }
-    
-    // Add body length measurement reference
-    if (isset($values['ah:hasBodyLength'])) {
-        $ttl .= "    ah:hasBodyLength <$arrowheadUri/bodylength/$identifier-bodylength> ;\n";
-    }
-    
-    // Add base length measurement reference
-    if (isset($values['ah:hasBaseLength'])) {
-        $ttl .= "    ah:hasBaseLength <$arrowheadUri/baselength/$identifier-baselength> ;\n";
-    }
-    
-    // Close main arrowhead entity - remove trailing semicolon and add period
-    $ttl = rtrim($ttl, ";\n") . " .\n\n";
-    
-    // Process measurements with original URI structure
+    // Now add all the separate objects in order
     $ttl .= $this->processMeasurementsWithOriginalUris($values, $arrowheadUri, $identifier);
-    
-    // Process morphology as separate object
     $ttl .= $this->processMorphologyWithOriginalUris($values, $arrowheadUri, $identifier);
-    
-    // Process chipping as separate object
     $ttl .= $this->processChippingWithOriginalUris($values, $arrowheadUri, $identifier);
-    
-    // Process coordinates with original structure
     $ttl .= $this->processCoordinatesWithOriginalUris($values, $arrowheadUri, $identifier);
-    
-    // Process GPS coordinates with original excavation structure
     $ttl .= $this->processGPSWithOriginalUris($values, $originalBaseUri, $identifier);
     
-    // Add any referenced excavation context objects
-    $ttl .= $this->addReferencedContextObjects($values);
+    return $ttl;
+}
+
+private function addMeasurementReferences($values, $arrowheadUri, $identifier)
+{
+    $ttl = "";
+    
+    $measurements = [
+        'Height' => ['height', 'schema:height'],
+        'Width' => ['width', 'schema:width'],
+        'Weight' => ['weight', 'schema:weight'], 
+        'Thickness' => ['depth', 'schema:depth'],
+        'Body Length' => ['bodylength', 'ah:hasBodyLength'],
+        'Base Length' => ['baselength', 'ah:hasBaseLength']
+    ];
+    
+    foreach ($measurements as $label => $config) {
+        $suffix = $config[0];
+        $property = $config[1];
+        
+        if (isset($values[$label]) && !empty($values[$label]['values'])) {
+            if ($property === 'schema:weight') {
+                $ttl .= "    schema:weight <$arrowheadUri/weight/$identifier-weight> ;\n";
+            } elseif (strpos($property, 'ah:') === 0) {
+                $ttl .= "    $property <$arrowheadUri/$suffix/$identifier-$suffix> ;\n";
+            } else {
+                $propertyName = str_replace('schema:', '', $property);
+                $ttl .= "    schema:$propertyName <$arrowheadUri/typometry/$identifier-$suffix> ;\n";
+            }
+        }
+    }
     
     return $ttl;
 }
@@ -8602,10 +9075,6 @@ private function hasChippingData($values)
     return false;
 }
 
-private function hasCoordinatesData($values)
-{
-    return isset($values['excavation:hasCoordinatesInSquare']);
-}
 
 private function hasGpsData($values)
 {
@@ -8742,6 +9211,43 @@ private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowh
             }
         }
     }
+
+    // Process district, parish and country references
+    if (isset($values['District'])) {
+        foreach ($values['District']['values'] as $value) {
+            $districtName = $value->value();
+            $districtSlug = str_replace(' ', '_', $districtName);
+            $districtUri = "http://dbpedia.org/resource/$districtSlug";
+            $ttl .= "    dbo:District <$districtUri> ;\n";
+            $entitiesToDeclare['district'] = [
+                'uri' => $districtUri,
+                'name' => $districtName
+            ];
+        }
+    }
+    
+    if (isset($values['Parish'])) {
+        foreach ($values['Parish']['values'] as $value) {
+            $parishName = $value->value();
+            $parishSlug = str_replace(' ', '_', $parishName);
+            $parishUri = "http://dbpedia.org/resource/$parishSlug";
+            $ttl .= "    dbo:Parish <$parishUri> ;\n";
+            $entitiesToDeclare['parish'] = [
+                'uri' => $parishUri,
+                'name' => $parishName
+            ];
+        }
+    }
+    
+    if (isset($values['Country'])) {
+        foreach ($values['Country']['values'] as $value) {
+            $countryName = $value->value();
+            $countrySlug = str_replace(' ', '_', $countryName);
+            $countryUri = "http://dbpedia.org/resource/$countrySlug";
+            $ttl .= "    dbo:Country <$countryUri> ;\n";
+
+        }
+    }
     
     // Process date if available
     if (isset($values['dcterms:date'])) {
@@ -8758,6 +9264,23 @@ private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowh
             }
         }
     }
+
+    // Add declarations for referenced entities if any
+    if (!empty($entitiesToDeclare)) {
+        $ttl .= "\n# Type declarations for referenced resources\n";
+        
+        if (isset($entitiesToDeclare['district'])) {
+            $ttl .= "<{$entitiesToDeclare['district']['uri']}> a dbo:District .\n";
+        }
+        
+        if (isset($entitiesToDeclare['parish'])) {
+            $ttl .= "<{$entitiesToDeclare['parish']['uri']}> a dbo:Parish .\n";
+        }
+        
+
+        
+        $ttl .= "\n";
+    }
     
     return $ttl;
 }
@@ -8765,59 +9288,61 @@ private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowh
 private function processMeasurementsWithOriginalUris($values, $arrowheadUri, $identifier)
 {
     $ttl = "";
-    $measurementObjects = "";
+    $hasAnyMeasurements = false;
     
     $measurements = [
-        'schema:height' => 'height',
-        'schema:width' => 'width',
-        'schema:weight' => 'weight',
-        'sdo:depth' => 'depth',
-        'ah:hasBodyLength' => 'bodylength',
-        'ah:hasBaseLength' => 'baselength'
+        'Height' => ['height', 'schema:height', 'CMT'],
+        'Width' => ['width', 'schema:width', 'CMT'],
+        'Weight' => ['weight', 'schema:weight', 'GRM'], 
+        'Thickness' => ['depth', 'schema:depth', 'CMT'],
+        'Body Length' => ['bodylength', 'ah:hasBodyLength', 'CMT'],
+        'Base Length' => ['baselength', 'ah:hasBaseLength', 'CMT']
     ];
     
-    foreach ($measurements as $property => $suffix) {
-        if (isset($values[$property])) {
-            foreach ($values[$property]['values'] as $value) {
+    $measurementObjects = "";
+    
+    foreach ($measurements as $label => $config) {
+        $suffix = $config[0];
+        $property = $config[1];
+        $defaultUnit = $config[2];
+        
+        if (isset($values[$label]) && !empty($values[$label]['values'])) {
+            foreach ($values[$label]['values'] as $value) {
                 $measurementValue = $value->value();
+                $hasAnyMeasurements = true;
                 
-                // Parse value and unit
-                if (preg_match('/^([0-9.]+)\s*([A-Z]+)$/', $measurementValue, $matches)) {
+                // Parse value and unit (e.g., "5.1 CMT" or just "5.1")
+                if (preg_match('/^([0-9.]+)\s*([A-Z]+)?/', $measurementValue, $matches)) {
                     $numericValue = $matches[1];
-                    $unit = $matches[2];
+                    $unit = isset($matches[2]) && !empty($matches[2]) ? $matches[2] : $defaultUnit;
                     
-                    // Use original URI structure
                     if ($property === 'schema:weight') {
                         $measurementUri = "$arrowheadUri/weight/$identifier-weight";
-                        $ttl .= "    schema:weight <$measurementUri> ;\n";
                         $measurementObjects .= "<$measurementUri> a excav:Weight ;\n";
-                    } elseif ($property === 'ah:hasBodyLength') {
+                        $measurementObjects .= "    schema:value \"$numericValue\"^^xsd:decimal ;\n";
+                        $measurementObjects .= "    schema:UnitCode <http://qudt.org/vocab/unit/$unit> .\n\n";
+                    } elseif (strpos($property, 'ah:') === 0) {
+                        // Special handling for body length and base length
+                        $propName = str_replace('ah:has', '', $property);
                         $measurementUri = "$arrowheadUri/$suffix/$identifier-$suffix";
-                        $ttl .= "    ah:hasBodyLength <$measurementUri> ;\n";
                         $measurementObjects .= "<$measurementUri> a excav:TypometryValue ;\n";
-                    } elseif ($property === 'ah:hasBaseLength') {
-                        $measurementUri = "$arrowheadUri/$suffix/$identifier-$suffix";
-                        $ttl .= "    ah:hasBaseLength <$measurementUri> ;\n";
-                        $measurementObjects .= "<$measurementUri> a excav:TypometryValue ;\n";
+                        $measurementObjects .= "    schema:value \"$numericValue\"^^xsd:decimal ;\n";
+                        $measurementObjects .= "    schema:UnitCode <http://qudt.org/vocab/unit/$unit> .\n\n";
                     } else {
-                        $measurementUri = "$arrowheadUri/typometry/$identifier-$suffix";
-                        $propertyName = str_replace(['schema:', 'sdo:'], '', $property);
-                        $ttl .= "    schema:$propertyName <$measurementUri> ;\n";
+                        // Regular typometry values like height, width, depth
+                        $propName = str_replace('schema:', '', $property);
+                        $measurementUri = "$arrowheadUri/typometry/$identifier-$propName";
                         $measurementObjects .= "<$measurementUri> a excav:TypometryValue ;\n";
+                        $measurementObjects .= "    schema:value \"$numericValue\"^^xsd:decimal ;\n";
+                        $measurementObjects .= "    schema:UnitCode <http://qudt.org/vocab/unit/$unit> .\n\n";
                     }
-                    
-                    // Add measurement details with proper unit URIs
-                    $measurementObjects .= "    schema:value \"$numericValue\"^^xsd:decimal ;\n";
-                    $measurementObjects .= "    schema:UnitCode <http://qudt.org/vocab/unit/$unit> ;\n";
-                    $measurementObjects .= "    .\n\n";
                 }
             }
         }
     }
     
-    // Add measurement objects at the end
-    if ($measurementObjects) {
-        $ttl .= "\n# =========== TYPOMETRY VALUES ===========\n\n";
+    if ($hasAnyMeasurements && $measurementObjects) {
+        $ttl .= "# =========== TYPOMETRY VALUES ===========\n\n";
         $ttl .= $measurementObjects;
     }
     
@@ -8825,44 +9350,79 @@ private function processMeasurementsWithOriginalUris($values, $arrowheadUri, $id
 }
 
 
+/**
+ * Process morphology properties and generate TTL with original URIs
+ */
 private function processMorphologyWithOriginalUris($values, $arrowheadUri, $identifier)
 {
     $ttl = "";
     $morphologyUri = "$arrowheadUri/morphology/$identifier-morphology";
     
     // Check if we have morphology data
-    if ($this->hasMorphologyData($values)) {
-        // DON'T add the predicate here, it's already added in the main resource
-        
-        // Add morphology object
-        $ttl .= "\n# =========== MORPHOLOGY ===========\n\n";
+    $morphologyProperties = ['ah:point', 'ah:body', 'ah:base', 'Point Definition (Sharp/Fractured)', 
+                          'Body Symmetry (Symmetrical/Non-symmetrical)', 'Base Type'];
+    
+    $hasMorphologyData = false;
+    foreach ($morphologyProperties as $prop) {
+        if (isset($values[$prop])) {
+            $hasMorphologyData = true;
+            break;
+        }
+    }
+    
+    if ($hasMorphologyData) {
+        $ttl .= "# =========== MORPHOLOGY ===========\n\n";
         $ttl .= "<$morphologyUri> a ah:Morphology ;\n";
         
-        // Process point
+        $morphologyStatements = [];
+        
+        // Process point - try different property names
         if (isset($values['ah:point'])) {
             foreach ($values['ah:point']['values'] as $value) {
-                $boolValue = (strtolower($value->value()) === 'true') ? 'true' : 'false';
-                $ttl .= "    ah:point $boolValue ;\n";
+                $boolValue = (strtolower($value->value()) === 'true' || strtolower($value->value()) === 'sharp') ? 'true' : 'false';
+                $morphologyStatements[] = "    ah:point $boolValue";
+            }
+        } else if (isset($values['Point Definition (Sharp/Fractured)'])) {
+            foreach ($values['Point Definition (Sharp/Fractured)']['values'] as $value) {
+                $boolValue = (strtolower($value->value()) === 'true' || strtolower($value->value()) === 'sharp') ? 'true' : 'false';
+                $morphologyStatements[] = "    ah:point $boolValue";
             }
         }
         
-        // Process body
+        // Process body - try different property names
         if (isset($values['ah:body'])) {
             foreach ($values['ah:body']['values'] as $value) {
-                $boolValue = (strtolower($value->value()) === 'true') ? 'true' : 'false';
-                $ttl .= "    ah:body $boolValue ;\n";
+                $boolValue = (strtolower($value->value()) === 'true' || strtolower($value->value()) === 'symmetrical') ? 'true' : 'false';
+                $morphologyStatements[] = "    ah:body $boolValue";
+            }
+        } else if (isset($values['Body Symmetry (Symmetrical/Non-symmetrical)'])) {
+            foreach ($values['Body Symmetry (Symmetrical/Non-symmetrical)']['values'] as $value) {
+                $boolValue = (strtolower($value->value()) === 'true' || strtolower($value->value()) === 'symmetrical') ? 'true' : 'false';
+                $morphologyStatements[] = "    ah:body $boolValue";
             }
         }
         
-        // Process base with original KOS URI
+        // Process base - try different property names
         if (isset($values['ah:base'])) {
             foreach ($values['ah:base']['values'] as $value) {
                 $baseValue = strtolower($value->value());
-                $ttl .= "    ah:base <https://purl.org/megalod/kos/ah-base/$baseValue> ;\n";
+                $baseValue = preg_replace('/\s+/', '-', $baseValue); // Replace spaces with hyphens
+                $morphologyStatements[] = "    ah:base <https://purl.org/megalod/kos/ah-base/$baseValue>";
+            }
+        } else if (isset($values['Base Type'])) {
+            foreach ($values['Base Type']['values'] as $value) {
+                $baseValue = strtolower($value->value());
+                $baseValue = preg_replace('/\s+/', '-', $baseValue); // Replace spaces with hyphens
+                $morphologyStatements[] = "    ah:base <https://purl.org/megalod/kos/ah-base/$baseValue>";
             }
         }
         
-        $ttl = rtrim($ttl, ";\n") . " .\n\n";
+        // Add the morphology statements to the TTL
+        if (!empty($morphologyStatements)) {
+            $ttl .= implode(" ;\n", $morphologyStatements) . " .\n\n";
+        } else {
+            $ttl .= "    .\n\n"; // Just close the statement if no properties found
+        }
     }
     
     return $ttl;
@@ -8887,7 +9447,6 @@ private function processChippingWithOriginalUris($values, $arrowheadUri, $identi
     }
     
     if ($hasChippingData) {
-        $ttl .= "    ah:hasChipping <$chippingUri> ;\n";
         
         // Add chipping object
         $ttl .= "\n# =========== CHIPPING ===========\n\n";
@@ -8956,50 +9515,58 @@ private function processChippingWithOriginalUris($values, $arrowheadUri, $identi
     return $ttl;
 }
 
+private function hasCoordinatesData($values)
+{
+    return isset($values['Coordinates']) || isset($values['excavation:hasCoordinatesInSquare']);
+}
+
 private function processCoordinatesWithOriginalUris($values, $arrowheadUri, $identifier)
 {
     $ttl = "";
     
-    if (isset($values['excavation:hasCoordinatesInSquare'])) {
-        foreach ($values['excavation:hasCoordinatesInSquare']['values'] as $value) {
-            $coordString = $value->value();
-            
-            // Parse coordinates string "X: 15.3 CMT, Y: 88.9 CMT, Z: 0.9 CMT"
-            if (preg_match_all('/([XYZ]):\s*([0-9.]+)\s*([A-Z]+)/', $coordString, $matches, PREG_SET_ORDER)) {
-                $coordinatesUri = "$arrowheadUri/coordinates/$identifier-coordinates";
-                $ttl .= "    excav:hasCoordinatesInSquare <$coordinatesUri> ;\n";
+    // Check for coordinate data in different possible property names
+    $coordinateProperties = ['Coordinates', 'excavation:hasCoordinatesInSquare'];
+    
+    foreach ($coordinateProperties as $property) {
+        if (isset($values[$property])) {
+            foreach ($values[$property]['values'] as $value) {
+                $coordString = $value->value();
                 
-                $ttl .= "\n# =========== COORDINATES IN SQUARE ===========\n\n";
-                $ttl .= "<$coordinatesUri> a excav:Coordinates ;\n";
-                
-                foreach ($matches as $match) {
-                    $axis = strtolower($match[1]);
-                    $value = $match[2];
-                    $unit = $match[3];
+                // Parse coordinates string "X: 15.3, Y: 88.9, Z: 0.9"
+                if (preg_match_all('/([XYZ]):\s*([0-9.]+)/', $coordString, $matches, PREG_SET_ORDER)) {
+                    $coordinatesUri = "$arrowheadUri/coordinates/$identifier-coordinates";
                     
-                    $typometryUri = "$arrowheadUri/typometry/$identifier-$axis";
+                    $ttl .= "\n# =========== COORDINATES IN SQUARE ===========\n\n";
+                    $ttl .= "<$coordinatesUri> a excav:Coordinates ;\n";
                     
-                    if ($axis === 'x') {
-                        $ttl .= "    geo:long <$typometryUri> ;\n";
-                    } elseif ($axis === 'y') {
-                        $ttl .= "    geo:lat <$typometryUri> ;\n";
-                    } else {
-                        $ttl .= "    schema:depth <$typometryUri> ;\n";
+                    foreach ($matches as $match) {
+                        $axis = strtolower($match[1]);
+                        $value = $match[2];
+                        
+                        $typometryUri = "$arrowheadUri/typometry/$identifier-$axis";
+                        
+                        if ($axis === 'x') {
+                            $ttl .= "    geo:long <$typometryUri> ;\n";
+                        } elseif ($axis === 'y') {
+                            $ttl .= "    geo:lat <$typometryUri> ;\n";
+                        } else {
+                            $ttl .= "    schema:depth <$typometryUri> ;\n";
+                        }
                     }
-                }
-                
-                $ttl = rtrim($ttl, ";\n") . " .\n\n";
-                
-                // Add coordinate typometry objects
-                foreach ($matches as $match) {
-                    $axis = strtolower($match[1]);
-                    $value = $match[2];
-                    $unit = $match[3];
                     
-                    $typometryUri = "$arrowheadUri/typometry/$identifier-$axis";
-                    $ttl .= "<$typometryUri> a excav:TypometryValue ;\n";
-                    $ttl .= "    schema:value \"$value\"^^xsd:decimal ;\n";
-                    $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/$unit> .\n\n";
+                    $ttl = rtrim($ttl, ";\n") . " .\n\n";
+                    
+                    // Add coordinate typometry objects
+                    foreach ($matches as $match) {
+                        $axis = strtolower($match[1]);
+                        $value = $match[2];
+                        
+                        $typometryUri = "$arrowheadUri/typometry/$identifier-$axis";
+                        $ttl .= "<$typometryUri> a excav:TypometryValue ;\n";
+                        $ttl .= "    schema:value \"$value\"^^xsd:decimal ;\n";
+                        $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .\n\n";
+                    }
+                    break;
                 }
             }
         }
@@ -9024,9 +9591,7 @@ private function processGPSWithOriginalUris($values, $originalBaseUri, $identifi
                 // Extract excavation ID from one of the context references
                 $excavationId = $this->extractExcavationId($values);
                 $gpsUri = "$originalBaseUri/excavation/$excavationId/gps/$identifier-gps";
-                
-                $ttl .= "    excav:hasGPSCoordinates <$gpsUri> ;\n";
-                
+                                
                 $ttl .= "\n# =========== GPS COORDINATES ===========\n\n";
                 $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
                 $ttl .= "    geo:lat \"$lat\"^^xsd:decimal ;\n";
@@ -9077,8 +9642,8 @@ private function addReferencedContextObjects($values)
                 $ttl .= "\n# =========== LOCATION ===========\n\n";
                 $ttl .= "<$locationUri> a excav:Location ;\n";
                 $ttl .= "    dbo:informationName \"Alto do Castelinho Archaeological Site\"^^xsd:literal ;\n";
-                $ttl .= "    dbo:district <http://dbpedia.org/resource/Porto> ;\n";
-                $ttl .= "    dbo:parish <http://dbpedia.org/resource/Penafiel> ;\n";
+                $ttl .= "    dbo:District <http://dbpedia.org/resource/Porto> ;\n";
+                $ttl .= "    dbo:Parish <http://dbpedia.org/resource/Penafiel> ;\n";
                 $ttl .= "    dbo:Country <http://dbpedia.org/resource/Portugal> .\n\n";
                 break;
             }

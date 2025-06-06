@@ -93,10 +93,12 @@
         sh:maxCount 1 ;
     ] ;
     sh:property [
-        sh:path dbo:Country ;
-        sh:name "Country" ;
-        sh:nodeKind sh:IRI ;
-    ] ;
+            sh:path dbo:Country ;
+            sh:name "Country" ;
+            sh:nodeKind sh:IRI ;
+            sh:minCount 0 ;         # Added minCount based on requirements
+            sh:maxCount 1 ;         # Added maxCount based on requirements
+        ] ;
     sh:property [
         sh:path excav:hasGPSCoordinates ;
         sh:name "Location GPS Coordinates" ;

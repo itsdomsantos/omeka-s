@@ -37,10 +37,15 @@
 
 <https://purl.org/megalod/location/alto-castelinho> a excav:Location ;
     dbo:informationName "Alto do Castelinho Archaeological Site"^^xsd:literal;
-    dbo:district <http://dbpedia.org/resource/Porto> ;
-    dbo:parish <http://dbpedia.org/resource/Penafiel> ;
+    dbo:District <http://dbpedia.org/resource/Porto> ;
+    dbo:Parish <http://dbpedia.org/resource/Penafiel> ;
     dbo:Country <http://dbpedia.org/resource/Portugal> ;
     excav:hasGPSCoordinates <https://purl.org/megalod/gps/alto-castelinho> .
+
+# Type declarations for referenced resources
+<http://dbpedia.org/resource/Porto> a dbo:District .
+<http://dbpedia.org/resource/Penafiel> a dbo:Parish .
+<http://dbpedia.org/resource/Portugal> a dbo:Country .
 
 <https://purl.org/megalod/gps/alto-castelinho> a excav:GPSCoordinates ;
     geo:lat "41.2081"^^xsd:decimal ;
