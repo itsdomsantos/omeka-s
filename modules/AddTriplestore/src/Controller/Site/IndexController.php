@@ -1151,40 +1151,6 @@ private function generateSquareTtl($squareUri, $square)
 }
 
 
-private function generateEncounterTtl($encounterUri, $encounter, $excavationUri, $itemUri)
-{
-    $ttl = "<$encounterUri> a excav:EncounterEvent;\n";
-    
-    if (!empty($encounter['encounter_date'])) {
-        $ttl .= "    dct:date \"" . $encounter['encounter_date'] . "\"^^xsd:literal;\n";
-    }
-    
-    $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
-    error_log('Encounter URI: ' . $excavationUri, 3, OMEKA_PATH . '/logs/form.log');
-    
-    // Add link to the location if available
-    if (isset($encounter['location_uri']) && $encounter['location_uri']) {
-        $ttl .= "    excav:foundInLocation <" . $encounter['location_uri'] . ">;\n";
-    }
-    
-    // Add link to selected context if available
-    if (!empty($encounter['context_uri'])) {
-        $ttl .= "    excav:foundInContext <" . $encounter['context_uri'] . ">;\n";
-    }
-    
-    // Add link to the encountered object (arrowhead)
-    if ($itemUri) {
-        $ttl .= "    crmsci:O19_encountered_object <$itemUri>;\n";
-    }
-    
-    if (!empty($encounter['encounter_depth'])) {
-        $ttl .= "    dbo:depth \"" . $encounter['encounter_depth'] . "\"^^xsd:decimal;\n";
-    }
-    
-    $ttl .= "    .\n\n";
-    
-    return $ttl;
-}
 
 /**
  * Create item set data for excavation
@@ -1246,9 +1212,13 @@ private function createExcavationItemSetData($excavationIdentifier, $excavationD
 private function processArchaeologicalContextSelections($formData, $itemSetId, $baseUri)
 {
     $linkedResources = [];
-    $declarations = []; // Store resource declarations if needed
+    $declarations = []; 
     
     error_log('=== PROCESSING CONTEXT SELECTIONS ===', 3, OMEKA_PATH . '/logs/context-debug.log');
+    
+    // Get excavation identifier for consistent URIs
+    $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId) ?: "excavation";
+    $excavationBaseUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier";
     
     // Process selected square
     if (!empty($formData['selected_square'])) {
@@ -1258,8 +1228,8 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
         // Get the real identifier from the Omeka item
         $realSquareId = $this->getRealIdentifierFromOmekaItem($squareItemId);
         if ($realSquareId) {
-            // Create URI using the real identifier
-            $squareUri = "$baseUri/square/$realSquareId";
+            // Create URI using excavation-based path instead of item-based path
+            $squareUri = "$excavationBaseUri/square/$realSquareId";
             $linkedResources['excav:foundInSquare'] = $squareUri;
             
             error_log("Linked to square: $squareUri (real ID: $realSquareId)", 3, OMEKA_PATH . '/logs/context-debug.log');
@@ -1268,87 +1238,25 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
         }
     }
     
-    // Process selected context
+    // Similar changes for context and SVU processing...
     if (!empty($formData['selected_context'])) {
         $contextItemId = $formData['selected_context'];
-        error_log("Processing selected context: $contextItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
-        
         $realContextId = $this->getRealIdentifierFromOmekaItem($contextItemId);
         if ($realContextId) {
-            $contextUri = "$baseUri/context/$realContextId";
+            $contextUri = "$excavationBaseUri/context/$realContextId";
             $linkedResources['excav:foundInContext'] = $contextUri;
-            
-            error_log("Linked to context: $contextUri (real ID: $realContextId)", 3, OMEKA_PATH . '/logs/context-debug.log');
-        } else {
-            error_log("Could not get real identifier for context item $contextItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
-            
-            // FALLBACK: Try to get context info directly and generate a reasonable identifier
-            try {
-                $contextItem = $this->api()->read('items', $contextItemId)->getContent();
-                $contextTitle = $contextItem->displayTitle();
-                
-                // Extract identifier from title if possible
-                if (preg_match('/\b(CV-\d+(?:-\d+)?)\b/', $contextTitle, $matches)) {
-                    $fallbackContextId = $matches[1];
-                    $contextUri = "$baseUri/context/$fallbackContextId";
-                    $linkedResources['excav:foundInContext'] = $contextUri;
-                    
-                    error_log("Used fallback context ID from title: $fallbackContextId", 3, OMEKA_PATH . '/logs/context-debug.log');
-                } else {
-                    // Generate a basic context identifier
-                    $fallbackContextId = "CTX-" . str_pad($contextItemId % 1000, 3, '0', STR_PAD_LEFT);
-                    $contextUri = "$baseUri/context/$fallbackContextId";
-                    $linkedResources['excav:foundInContext'] = $contextUri;
-                    
-                    error_log("Generated fallback context ID: $fallbackContextId", 3, OMEKA_PATH . '/logs/context-debug.log');
-                }
-            } catch (\Exception $e) {
-                error_log("Error processing context item $contextItemId: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/context-debug.log');
-            }
         }
     }
     
-    // Process selected SVU
+    // SVU processing with consistent URI pattern
     if (!empty($formData['selected_svu'])) {
         $svuItemId = $formData['selected_svu'];
-        error_log("Processing selected SVU: $svuItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
-        
         $realSvuId = $this->getRealIdentifierFromOmekaItem($svuItemId);
         if ($realSvuId) {
-            $svuUri = "$baseUri/svu/$realSvuId";
+            $svuUri = "$excavationBaseUri/svu/$realSvuId";
             $linkedResources['excav:foundInSVU'] = $svuUri;
-            
-            error_log("Linked to SVU: $svuUri (real ID: $realSvuId)", 3, OMEKA_PATH . '/logs/context-debug.log');
-        } else {
-            error_log("Could not get real identifier for SVU item $svuItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
-            
-            // FALLBACK: Try to get SVU info directly and generate a reasonable identifier
-            try {
-                $svuItem = $this->api()->read('items', $svuItemId)->getContent();
-                $svuTitle = $svuItem->displayTitle();
-                
-                // Extract identifier from title if possible
-                if (preg_match('/\b(CV-\d+-\d+)\b/', $svuTitle, $matches)) {
-                    $fallbackSvuId = $matches[1];
-                    $svuUri = "$baseUri/svu/$fallbackSvuId";
-                    $linkedResources['excav:foundInSVU'] = $svuUri;
-                    
-                    error_log("Used fallback SVU ID from title: $fallbackSvuId", 3, OMEKA_PATH . '/logs/context-debug.log');
-                } else {
-                    // Generate a basic SVU identifier
-                    $fallbackSvuId = "SVU-" . str_pad($svuItemId % 1000, 3, '0', STR_PAD_LEFT);
-                    $svuUri = "$baseUri/svu/$fallbackSvuId";
-                    $linkedResources['excav:foundInSVU'] = $svuUri;
-                    
-                    error_log("Generated fallback SVU ID: $fallbackSvuId", 3, OMEKA_PATH . '/logs/context-debug.log');
-                }
-            } catch (\Exception $e) {
-                error_log("Error processing SVU item $svuItemId: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/context-debug.log');
-            }
         }
     }
-    
-    error_log('Final linked resources: ' . print_r($linkedResources, true), 3, OMEKA_PATH . '/logs/context-debug.log');
     
     return [
         'references' => $linkedResources, 
@@ -1410,8 +1318,6 @@ if ($locationUri) {
         error_log("Added reference: $property -> $resourceUri", 3, OMEKA_PATH . '/logs/form-debug.log');
     }
 
-    // link to the encounter event
-    $ttl .= "    crmsci:O19i_was_object_encountered_through <$encounterUri>;\n";
     
     // Add annotation if provided
     if (!empty($formData['arrowhead_annotation'])) {
@@ -1461,6 +1367,18 @@ if ($locationUri) {
         $variantSafe = strtolower($formData['arrowhead_variant']);
         $ttl .= "    ah:variant <https://purl.org/megalod/kos/ah-variant/$variantSafe>;\n";
     }
+
+    // process gps coordinates lat and long
+    if (!empty($formData['gps_latitude']) && !empty($formData['gps_longitude'])) {
+        $gpsUri = "$baseUri/gps/$arrowheadId";
+        $ttl .= "    excav:hasGPSCoordinates <$gpsUri>;\n";
+    }
+
+    // add encounter_date
+    if (!empty($formData['encounter_date'])) {
+        $ttl .= "    dct:date \"" . $formData['encounter_date'] . "\"^^xsd:literal;\n";
+    }
+    
 
     // Process measurements...
     $measurementBlocks = "";
@@ -1605,7 +1523,15 @@ if ($locationUri) {
         
         $ttl .= "    .\n\n";
     }
-    
+
+    // Add GPS coordinates if available
+    if(!empty($formData['gps_latitude']) && !empty($formData['gps_longitude'])) {
+        $ttl .= "<$gpsUri> a excav:GPSCoordinates;\n";
+        $ttl .= "    geo:lat \"" . $formData['gps_latitude'] . "\"^^xsd:decimal;\n";
+        $ttl .= "    geo:long \"" . $formData['gps_longitude'] . "\"^^xsd:decimal;\n";
+        $ttl .= "    .\n\n";
+    }
+
     // Add morphology
     $ttl .= "<$morphologyUri> a ah:Morphology;\n";
     
@@ -1680,7 +1606,7 @@ if ($locationUri) {
         
         $ttl .= "    .\n\n";
     }
-    
+    /*
     // FIXED: Add encounter event with ALL context references
     $ttl .= "<$encounterUri> a excav:EncounterEvent;\n";
     $ttl .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal;\n";
@@ -1693,12 +1619,12 @@ if ($locationUri) {
         error_log("Added $property to encounter event: $resourceUri", 3, OMEKA_PATH . '/logs/form-debug.log');
     }
     
-    $ttl .= "    .\n\n";
+    $ttl .= "    .\n\n";*/
     
     // Add all measurement resource blocks
     $ttl .= $measurementBlocks;
     
-    // FIXED: Add proper location declaration to satisfy SHACL
+    /* FIXED: Add proper location declaration to satisfy SHACL
     if (strpos($ttl, 'excav:foundInLocation') !== false) {
         $ttl .= "<$locationUri> a excav:Location;\n";
         $ttl .= "    rdfs:label \"Excavation Location\"^^xsd:string;\n";
@@ -1706,7 +1632,7 @@ if ($locationUri) {
         
         error_log("Added location type declaration for $locationUri", 3, OMEKA_PATH . '/logs/ttl-fixes.log');
     }
-    
+    */
     error_log('FINAL TTL GENERATED: ' . $ttl, 3, OMEKA_PATH . '/logs/final-ttl-debug.log');    
 
     return $ttl;
@@ -1893,6 +1819,9 @@ $fieldMappings = [
     'prompt_94' => 'x_coordinate_unit',       // X coordinate unit
     'prompt_95' => 'y_coordinate_unit',       // Y coordinate unit  
     'prompt_96' => 'z_coordinate_unit',       // Z coordinate unit
+
+    // ENCOUNTER DATe
+    'prompt_99' => 'encounter_date',          // Encounter date mm-dd-aa
 ];
     
     // Process the mapping
@@ -4922,6 +4851,7 @@ private function extractArrowheadContextFromTtl($ttlData) {
     if (preg_match('/excav:foundInSquare\s+<([^>]+)>/i', $ttlData, $matches)) {
         $squareUri = $matches[1];
         $context['square'] = $this->extractIdentifierFromUri($squareUri);
+        error_log("square uri: $squareUri", 3, OMEKA_PATH . '/logs/encounterlllll.log');  
         error_log("Found square reference: {$context['square']}", 3, OMEKA_PATH . '/logs/encounter-validation.log');
     }
     
@@ -4950,7 +4880,7 @@ private function validateContextRelationships($arrowheadContext, $itemSetId) {
     
     // Get excavation data from GraphDB
     $excavationRelationships = $this->getExcavationRelationshipsFromGraphDB($itemSetId);
-    
+    error_log("Excavation relationships retrieved: " . json_encode($excavationRelationships), 3, OMEKA_PATH . '/logs/encounter-resource.log');
     $errors = [];
     $details = [];
     
@@ -5126,12 +5056,13 @@ private function generateEncounterSignature($context) {
     return md5(json_encode($signature));
 }
 
+
 /**
- * Find existing encounter event by signature
+ * Find existing encounter event by signature or title
  */
 private function findExistingEncounterEvent($signature, $itemSetId) {
     try {
-        // Search for encounter events in this item set with matching signature
+        // First search for encounter events in this item set with matching signature
         $searchParams = [
             'resource_class_id' => $this->getEncounterEventResourceClassId(),
             'item_set_id' => $itemSetId,
@@ -5149,9 +5080,38 @@ private function findExistingEncounterEvent($signature, $itemSetId) {
         
         if (!empty($encounters)) {
             $encounter = $encounters[0];
+            error_log("Found existing encounter by signature: {$encounter->id()}", 3, OMEKA_PATH . '/logs/encounter-creation.log');
             return [
                 'id' => $encounter->id(),
                 'signature' => $signature,
+                'omeka_id' => $encounter->id()
+            ];
+        }
+        
+        // If no encounter found by signature, try by title
+        $title = $this->generateEncounterTitle($this->contextFromSignature($signature));
+        
+        $titleSearchParams = [
+            'resource_class_id' => $this->getEncounterEventResourceClassId(),
+            'item_set_id' => $itemSetId,
+            'property' => [
+                [
+                    'property' => 1, // dcterms:title property ID
+                    'type' => 'eq',
+                    'text' => $title
+                ]
+            ]
+        ];
+        
+        $response = $this->api()->search('items', $titleSearchParams);
+        $encounters = $response->getContent();
+        
+        if (!empty($encounters)) {
+            $encounter = $encounters[0];
+            error_log("Found existing encounter by title: {$encounter->id()}", 3, OMEKA_PATH . '/logs/encounter-creation.log');
+            return [
+                'id' => $encounter->id(),
+                'signature' => $signature, 
                 'omeka_id' => $encounter->id()
             ];
         }
@@ -5163,9 +5123,104 @@ private function findExistingEncounterEvent($signature, $itemSetId) {
 }
 
 /**
+ * Extract context data from signature
+ */
+private function contextFromSignature($signature) {
+    // Create a cache for this method 
+    static $signatureCache = [];
+    
+    // Return from cache if already processed
+    if (isset($signatureCache[$signature])) {
+        return $signatureCache[$signature];
+    }
+    
+    // Try to reverse engineer the context from the signature 
+    // This is an approximation as the original context was hashed using md5
+    // We'll provide a reasonable default
+    $context = [
+        'excavation' => 'unknown',
+        'context' => 'unknown',
+        'svu' => 'unknown',
+        'date' => date('Y-m-d'),
+        'square' => 'unknown'
+    ];
+    
+    // Look up in the database if we can find the encounter with this signature
+    try {
+        $searchParams = [
+            'property' => [
+                [
+                    'property' => 10, // dcterms:identifier property ID 
+                    'type' => 'eq',
+                    'text' => $signature
+                ]
+            ]
+        ];
+        
+        $response = $this->api()->search('items', $searchParams);
+        $encounters = $response->getContent();
+        
+        if (!empty($encounters)) {
+            $encounter = $encounters[0];
+            
+            // Try to extract context details from the encounter
+            $values = $encounter->values();
+            
+            // Get excavation
+            if (isset($values['excav:foundInExcavation'])) {
+                foreach ($values['excav:foundInExcavation'] as $value) {
+                    $context['excavation'] = $value->value();
+                    break;
+                }
+            }
+            
+            // Get context
+            if (isset($values['excav:foundInContext'])) {
+                foreach ($values['excav:foundInContext'] as $value) {
+                    $context['context'] = $value->value();
+                    break;
+                }
+            }
+            
+            // Get SVU
+            if (isset($values['excav:foundInSVU'])) {
+                foreach ($values['excav:foundInSVU'] as $value) {
+                    $context['svu'] = $value->value();
+                    break;
+                }
+            }
+            
+            // Get date
+            if (isset($values['dcterms:date'])) {
+                foreach ($values['dcterms:date'] as $value) {
+                    $context['date'] = $value->value();
+                    break;
+                }
+            }
+            
+            // Get square
+            if (isset($values['excav:foundInSquare'])) {
+                foreach ($values['excav:foundInSquare'] as $value) {
+                    $context['square'] = $value->value();
+                    break;
+                }
+            }
+        }
+    } catch (\Exception $e) {
+        error_log("Error extracting context from encounter: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/encounter-creation.log');
+    }
+    
+    // Cache the result
+    $signatureCache[$signature] = $context;
+    
+    return $context;
+}
+/**
  * Create new encounter event in Omeka
  */
 private function createNewEncounterEvent($context, $itemSetId, $signature) {
+    error_log("Creating new encounter event with signature: $signature", 3, OMEKA_PATH . '/logs/encounter-c.log');
+    error_log("Context data: " . json_encode($context), 3, OMEKA_PATH . '/logs/encounter-c.log');
     $encounterData = [
         'o:resource_class' => ['o:id' => $this->getEncounterEventResourceClassId()],
         'o:item_set' => [['o:id' => $itemSetId]],
@@ -5372,9 +5427,9 @@ LIMIT 1";
  */
 private function generateEncounterTitle($context) {
     $parts = [];
-    
+    $parts[] = "Archaeological Encounter Event ";
     if ($context['date']) {
-        $parts[] = "Excavation Session " . $context['date'];
+        $parts[] = $context['date'];
     }
     
     if ($context['context'] && $context['svu']) {
