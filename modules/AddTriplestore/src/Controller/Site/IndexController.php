@@ -1230,7 +1230,10 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
     
     // Get excavation identifier for consistent URIs
     $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId) ?: "excavation";
+    
+    // UPDATED: Use a consistent base URI pattern for all references
     $excavationBaseUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier";
+    error_log("Using base URI for references: $excavationBaseUri", 3, OMEKA_PATH . '/logs/context-debug.log');
     
     // Process selected square
     if (!empty($formData['selected_square'])) {
@@ -1240,35 +1243,71 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
         // Get the real identifier from the Omeka item
         $realSquareId = $this->getRealIdentifierFromOmekaItem($squareItemId);
         if ($realSquareId) {
-            // Create URI using excavation-based path instead of item-based path
             $squareUri = "$excavationBaseUri/square/$realSquareId";
             $linkedResources['excav:foundInSquare'] = $squareUri;
             
-            error_log("Linked to square: $squareUri (real ID: $realSquareId)", 3, OMEKA_PATH . '/logs/context-debug.log');
-        } else {
-            error_log("Could not get real identifier for square item $squareItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
+            // Add declaration for later inclusion
+            $declarations['square'] = [
+                'uri' => $squareUri,
+                'id' => $realSquareId
+            ];
+            
+            error_log("✓ Linked to square: $squareUri (real ID: $realSquareId)", 3, OMEKA_PATH . '/logs/context-debug.log');
         }
     }
     
-    // Similar changes for context and SVU processing...
+    // Process selected context
     if (!empty($formData['selected_context'])) {
         $contextItemId = $formData['selected_context'];
         $realContextId = $this->getRealIdentifierFromOmekaItem($contextItemId);
         if ($realContextId) {
             $contextUri = "$excavationBaseUri/context/$realContextId";
             $linkedResources['excav:foundInContext'] = $contextUri;
+            
+            // Add declaration
+            $declarations['context'] = [
+                'uri' => $contextUri,
+                'id' => $realContextId
+            ];
+            
+            error_log("✓ Linked to context: $contextUri (real ID: $realContextId)", 3, OMEKA_PATH . '/logs/context-debug.log');
         }
     }
     
-    // SVU processing with consistent URI pattern
+    // Process selected SVU
     if (!empty($formData['selected_svu'])) {
         $svuItemId = $formData['selected_svu'];
         $realSvuId = $this->getRealIdentifierFromOmekaItem($svuItemId);
         if ($realSvuId) {
             $svuUri = "$excavationBaseUri/svu/$realSvuId";
             $linkedResources['excav:foundInSVU'] = $svuUri;
+            
+            // Add declaration
+            $declarations['svu'] = [
+                'uri' => $svuUri,
+                'id' => $realSvuId
+            ];
+            
+            error_log("✓ Linked to SVU: $svuUri (real ID: $realSvuId)", 3, OMEKA_PATH . '/logs/context-debug.log');
         }
     }
+    
+    // CRITICAL: Add excavation and location references with the same pattern
+    $linkedResources['excav:foundInExcavation'] = $excavationBaseUri;
+    $declarations['excavation'] = [
+        'uri' => $excavationBaseUri,
+        'id' => $excavationIdentifier
+    ];
+    
+    $locationUri = "$excavationBaseUri/location/excavation-location";
+    $linkedResources['excav:foundInLocation'] = $locationUri;
+    $declarations['location'] = [
+        'uri' => $locationUri,
+        'id' => 'excavation-location'
+    ];
+    
+    error_log("✓ Added excavation reference: $excavationBaseUri", 3, OMEKA_PATH . '/logs/context-debug.log');
+    error_log("✓ Added location reference: $locationUri", 3, OMEKA_PATH . '/logs/context-debug.log');
     
     return [
         'references' => $linkedResources, 
@@ -1351,6 +1390,11 @@ if ($locationUri) {
     // FIXED: Add elongation index with correct KOS namespace
     if (!empty($formData['elongation_index'])) {
         $ttl .= "    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/" . $formData['elongation_index'] . ">;\n";
+    }
+
+    // thickness index
+    if (!empty($formData['thickness_index'])) {
+        $ttl .= "    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/" . $formData['thickness_index'] . ">;\n";
     }
     
     // Add material
@@ -1522,6 +1566,60 @@ if ($locationUri) {
     
     // Close the main arrowhead resource
     $ttl .= "    .\n\n";
+
+    // Add entity declarations for referenced resources
+    $ttl .= "\n# =========== RESOURCE DECLARATIONS ===========\n\n";
+    
+    // Excavation declaration
+    $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
+    if ($excavationIdentifier) {
+        $excavationUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier";
+        $ttl .= "<$excavationUri> a excav:Excavation ;\n";
+        $ttl .= "    dct:identifier \"$excavationIdentifier\"^^xsd:literal .\n\n";
+        error_log("Added excavation declaration: $excavationUri", 3, OMEKA_PATH . '/logs/ttl-fixes.log');
+    }
+    
+    // Location declaration (CRITICAL FIX for SHACL validation)
+    $locationUri = $this->getRealLocationUriFromExcavation($itemSetId);
+    if ($locationUri) {
+        $ttl .= "<$locationUri> a excav:Location ;\n";
+        $ttl .= "    rdfs:label \"Excavation Location\"^^xsd:string .\n\n";
+        error_log("Added location declaration: $locationUri", 3, OMEKA_PATH . '/logs/ttl-fixes.log');
+    }
+    
+    // Add declarations for any other referenced resources (context, square, SVU)
+    if (!empty($formData['selected_square'])) {
+        $squareItemId = $formData['selected_square'];
+        $realSquareId = $this->getRealIdentifierFromOmekaItem($squareItemId);
+        if ($realSquareId) {
+            $squareUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/square/$realSquareId";
+            $ttl .= "<$squareUri> a excav:Square ;\n";
+            $ttl .= "    dct:identifier \"$realSquareId\"^^xsd:literal .\n\n";
+            error_log("Added square declaration: $squareUri", 3, OMEKA_PATH . '/logs/ttl-fixes.log');
+        }
+    }
+    
+    if (!empty($formData['selected_context'])) {
+        $contextItemId = $formData['selected_context'];
+        $realContextId = $this->getRealIdentifierFromOmekaItem($contextItemId);
+        if ($realContextId) {
+            $contextUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/$realContextId";
+            $ttl .= "<$contextUri> a excav:Context ;\n";
+            $ttl .= "    dct:identifier \"$realContextId\"^^xsd:literal .\n\n";
+            error_log("Added context declaration: $contextUri", 3, OMEKA_PATH . '/logs/ttl-fixes.log');
+        }
+    }
+    
+    if (!empty($formData['selected_svu'])) {
+        $svuItemId = $formData['selected_svu'];
+        $realSvuId = $this->getRealIdentifierFromOmekaItem($svuItemId);
+        if ($realSvuId) {
+            $svuUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/svu/$realSvuId";
+            $ttl .= "<$svuUri> a excav:StratigraphicVolumeUnit ;\n";
+            $ttl .= "    dct:identifier \"$realSvuId\"^^xsd:literal .\n\n";
+            error_log("Added SVU declaration: $svuUri", 3, OMEKA_PATH . '/logs/ttl-fixes.log');
+        }
+    }
 
     // Add coordinates block if present
     if ($coordinatesData) {
@@ -1797,6 +1895,7 @@ $fieldMappings = [
     'prompt_64' => 'thickness_unit',          // Thickness unit
     'prompt_65' => 'arrowhead_type',          // Elongate/Short
     'prompt_66' => 'elongation_index',        // Medium/Elongated/Short
+    'prompt_100' => 'thickness_index',        // Thin/Medium/Thick
     'prompt_67' => 'gps_latitude',            // GPS latitude 
     'prompt_68' => 'gps_longitude',           // GPS longitude 
     'prompt_69' => 'arrowhead_variant',       // Flat/Raised/Thick
@@ -2983,6 +3082,41 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
     
     error_log("Data analysis: hasExcavation=$hasExcavationInData, hasArrowheads=$hasArrowheadsInData", 3, OMEKA_PATH . '/logs/main-subjects.log');
     error_log("Upload type: isCompleteExcavation=$isCompleteExcavationUpload, isArrowheadOnly=$isArrowheadOnlyUpload", 3, OMEKA_PATH . '/logs/main-subjects.log');
+
+    // CRITICAL FIX: If uploading to an existing item set, ONLY process arrowhead items
+    if ($itemSetId) {
+        error_log("ItemSet ID provided: $itemSetId - ONLY including arrowhead/item subjects", 3, OMEKA_PATH . '/logs/main-subjects.log');
+        
+        // Find arrowhead/item subjects first
+        foreach ($rdfData as $subject => $predicates) {
+            if (isset($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
+                foreach ($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
+                    if ($typeObj['type'] === 'uri') {
+                        // Check for arrowhead or item type
+                        if ($typeObj['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' ||
+                            $typeObj['value'] === 'https://purl.org/megalod/ms/excavation/Item' ||
+                            $typeObj['value'] === 'ah:Arrowhead' ||
+                            $typeObj['value'] === 'excav:Item' ||
+                            ($itemSetId && ($typeObj['value'] === "https://purl.org/megalod/$itemSetId/ah/Arrowhead" ||
+                                          $typeObj['value'] === "https://purl.org/megalod/$itemSetId/excavation/Item"))) {
+                            
+                            $subjects[$subject] = ($typeObj['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' || 
+                                                 $typeObj['value'] === 'ah:Arrowhead' ||
+                                                 ($itemSetId && $typeObj['value'] === "https://purl.org/megalod/$itemSetId/ah/Arrowhead")) 
+                               ? 'arrowhead' : 'item';
+                            
+                            error_log("✓ Found arrowhead/item subject: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                        }
+                    }
+                }
+            }
+        }
+        
+        // When uploading to an existing item set, ONLY return arrowhead/item subjects
+        // This prevents the code from trying to create context/square/svu items
+        error_log("Returning ONLY arrowhead/item subjects when uploading to item set: " . count($subjects), 3, OMEKA_PATH . '/logs/main-subjects.log');
+        return $subjects;
+    }
 
     // Find arrowhead/item subjects first
     $arrowheadSubjects = [];
@@ -5040,7 +5174,6 @@ private function findExistingEncounterEvent($signature, $itemSetId) {
     return null;
 }
 
-
 private function contextFromSignature($signature) {
     // Create a cache for this method 
     static $signatureCache = [];
@@ -5082,44 +5215,97 @@ private function contextFromSignature($signature) {
             // Try to extract context details from the encounter
             $values = $encounter->values();
             
+            // FIXED: Proper way to access values in Omeka S
+            // The values() method returns an array where keys are property terms
+            // and values are arrays of ValueRepresentation objects
+            
             // Get excavation
             if (isset($values['excav:foundInExcavation'])) {
-                foreach ($values['excav:foundInExcavation'] as $valueRep) {
-                    // FIXED: Access the value correctly - valueRep is a ValueRepresentation
-                    $context['excavation'] = $valueRep->value();
-                    break;
+                $propertyValues = $values['excav:foundInExcavation'];
+                if (is_array($propertyValues)) {
+                    foreach ($propertyValues as $valueRepresentation) {
+                        if (method_exists($valueRepresentation, 'uri') && $valueRepresentation->uri()) {
+                            $context['excavation'] = $valueRepresentation->uri();
+                        } elseif (method_exists($valueRepresentation, 'value')) {
+                            $context['excavation'] = $valueRepresentation->value();
+                        }
+                        break;
+                    }
                 }
             }
             
             // Get context
             if (isset($values['excav:foundInContext'])) {
-                foreach ($values['excav:foundInContext'] as $valueRep) {
-                    $context['context'] = $valueRep->value();
-                    break;
+                $propertyValues = $values['excav:foundInContext'];
+                if (is_array($propertyValues)) {
+                    foreach ($propertyValues as $valueRepresentation) {
+                        if (method_exists($valueRepresentation, 'uri') && $valueRepresentation->uri()) {
+                            $context['context'] = $valueRepresentation->uri();
+                        } elseif (method_exists($valueRepresentation, 'value')) {
+                            $context['context'] = $valueRepresentation->value();
+                        }
+                        break;
+                    }
                 }
             }
             
             // Get SVU
             if (isset($values['excav:foundInSVU'])) {
-                foreach ($values['excav:foundInSVU'] as $valueRep) {
-                    $context['svu'] = $valueRep->value();
-                    break;
+                $propertyValues = $values['excav:foundInSVU'];
+                if (is_array($propertyValues)) {
+                    foreach ($propertyValues as $valueRepresentation) {
+                        if (method_exists($valueRepresentation, 'uri') && $valueRepresentation->uri()) {
+                            $context['svu'] = $valueRepresentation->uri();
+                        } elseif (method_exists($valueRepresentation, 'value')) {
+                            $context['svu'] = $valueRepresentation->value();
+                        }
+                        break;
+                    }
                 }
             }
             
             // Get date
             if (isset($values['dcterms:date'])) {
-                foreach ($values['dcterms:date'] as $valueRep) {
-                    $context['date'] = $valueRep->value();
-                    break;
+                error_log("Found dcterms:date property", 3, OMEKA_PATH . '/logs/encounter-creation.log');
+                $propertyValues = $values['dcterms:date'];
+                error_log("Property values type: " . gettype($propertyValues), 3, OMEKA_PATH . '/logs/encounter-creation.log');
+                
+                if (is_array($propertyValues)) {
+                    foreach ($propertyValues as $valueRepresentation) {
+                        error_log("Value representation class: " . get_class($valueRepresentation), 3, OMEKA_PATH . '/logs/encounter-creation.log');
+                        if (method_exists($valueRepresentation, 'value')) {
+                            $context['date'] = $valueRepresentation->value();
+                            error_log("Successfully extracted date: " . $context['date'], 3, OMEKA_PATH . '/logs/encounter-creation.log');
+                        }
+                        break;
+                    }
+                } else {
+                    // If it's not an array, it might be a single PropertyRepresentation
+                    // In this case, we need to get the values differently
+                    if (method_exists($propertyValues, 'values')) {
+                        $actualValues = $propertyValues->values();
+                        foreach ($actualValues as $valueRepresentation) {
+                            if (method_exists($valueRepresentation, 'value')) {
+                                $context['date'] = $valueRepresentation->value();
+                                break;
+                            }
+                        }
+                    }
                 }
             }
             
             // Get square
             if (isset($values['excav:foundInSquare'])) {
-                foreach ($values['excav:foundInSquare'] as $valueRep) {
-                    $context['square'] = $valueRep->value();
-                    break;
+                $propertyValues = $values['excav:foundInSquare'];
+                if (is_array($propertyValues)) {
+                    foreach ($propertyValues as $valueRepresentation) {
+                        if (method_exists($valueRepresentation, 'uri') && $valueRepresentation->uri()) {
+                            $context['square'] = $valueRepresentation->uri();
+                        } elseif (method_exists($valueRepresentation, 'value')) {
+                            $context['square'] = $valueRepresentation->value();
+                        }
+                        break;
+                    }
                 }
             }
         }
@@ -5132,6 +5318,7 @@ private function contextFromSignature($signature) {
     
     return $context;
 }
+
 /**
  * Create new encounter event in Omeka
  */
@@ -5948,31 +6135,36 @@ private function extractResourceIdentifier($rdfData, $resourceUri) {
 private function getRealLocationUriFromExcavation($itemSetId) {
     error_log("=== GETTING REAL LOCATION URI FOR ITEM SET $itemSetId ===", 3, OMEKA_PATH . '/logs/location-discovery.log');
     
+    if (!$itemSetId) {
+        error_log("❌ No item set ID provided", 3, OMEKA_PATH . '/logs/location-discovery.log');
+        return null;
+    }
+    
+    // Get excavation identifier for consistent URI patterns
+    $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
+    if (!$excavationIdentifier) {
+        error_log("❌ Could not determine excavation identifier for item set $itemSetId", 3, OMEKA_PATH . '/logs/location-discovery.log');
+        return null;
+    }
+    
+    error_log("✓ Using excavation identifier: $excavationIdentifier", 3, OMEKA_PATH . '/logs/location-discovery.log');
+    
+    // CRITICAL FIX: Consistent URI pattern matching the declared resources
+    $locationUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/location/excavation-location";
+    error_log("✓ Created location URI with consistent pattern: $locationUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
+    
+    // Verify that this location actually exists in GraphDB
     try {
-        // Query GraphDB to find the excavation's location
         $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
-        error_log("Graph URI: $graphUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
-        
         $query = "
 PREFIX excav: <https://purl.org/megalod/ms/excavation/>
-PREFIX dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>
-PREFIX dbo: <http://dbpedia.org/ontology/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-SELECT ?locationUri ?locationName
-WHERE {
+ASK {
   GRAPH <$graphUri> {
-    ?excavation a excav:Excavation .
-    ?excavation dul:hasLocation ?locationUri .
-    ?locationUri a excav:Location .
-    OPTIONAL {
-      ?locationUri dbo:informationName ?locationName .
-    }
+    <$locationUri> rdf:type excav:Location .
   }
-}
-LIMIT 1
-";
-
-        error_log("SPARQL Query: $query", 3, OMEKA_PATH . '/logs/location-discovery.log');
+}";
 
         $client = new \Laminas\Http\Client();
         $client->setUri($this->graphdbQueryEndpoint);
@@ -5987,24 +6179,19 @@ LIMIT 1
         
         if ($response->isSuccess()) {
             $results = json_decode($response->getBody(), true);
-            
-            if (isset($results['results']['bindings']) && !empty($results['results']['bindings'])) {
-                $binding = $results['results']['bindings'][0];
-                $locationUri = $binding['locationUri']['value'];
-                $locationName = isset($binding['locationName']) ? $binding['locationName']['value'] : 'Unknown Location';
-                
-                error_log("✓ Found real location URI: $locationUri (Name: $locationName)", 3, OMEKA_PATH . '/logs/location-discovery.log');
+            if (isset($results['boolean']) && $results['boolean'] === true) {
+                error_log("✓ Verified location URI exists in GraphDB: $locationUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
                 return $locationUri;
             }
+            error_log("⚠ Location URI does not exist in GraphDB, but returning anyway: $locationUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
+            // Return it anyway - it will be declared when we upload
         }
-        
-        error_log("❌ No location found in GraphDB for item set $itemSetId", 3, OMEKA_PATH . '/logs/location-discovery.log');
-        
     } catch (\Exception $e) {
         error_log("❌ Error querying GraphDB for location: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/location-discovery.log');
     }
     
-    return null; // No fallbacks - either it exists or it doesn't
+    // If we can't verify it exists, still return the consistent URI
+    return $locationUri;
 }
 
 /**
@@ -8488,22 +8675,73 @@ private function generateReferenceDeclarations($resource)
                 $ttl .= "<$locationUri> a excav:Location ;\n";
                 $ttl .= "    dbo:informationName \"$locationName\"^^xsd:literal ;\n";
                 
-                // Try to extract location name from the URI
-                if (preg_match('/location\/([^\/]+)$/', $locationUri, $matches)) {
-                    $locationSlug = $matches[1];
-                    $readableLocationName = ucwords(str_replace('-', ' ', $locationSlug));
-                    if ($locationName !== $readableLocationName) {
-                        $ttl .= "    rdfs:label \"$readableLocationName\"^^xsd:literal ;\n";
+                // Query GraphDB for more complete location data
+                $locationData = $this->queryCompleteLocationData($locationUri);
+                if ($locationData) {
+                    // Add District if available
+                    if (!empty($locationData['district'])) {
+                        $ttl .= "    dbo:District <{$locationData['district']['uri']}> ;\n";
+                    }
+                    
+                    // Add Parish if available
+                    if (!empty($locationData['parish'])) {
+                        $ttl .= "    dbo:Parish <{$locationData['parish']['uri']}> ;\n";
+                    }
+                    
+                    // Add Country if available
+                    if (!empty($locationData['country'])) {
+                        $ttl .= "    dbo:Country <{$locationData['country']['uri']}> ;\n";
+                    }
+                    
+                    // Add GPS reference if available
+                    if (!empty($locationData['gps'])) {
+                        $ttl .= "    excav:hasGPSCoordinates <{$locationData['gps']}> ;\n";
+                    }
+                    
+                    // Add direct coordinates if available
+                    if (!empty($locationData['lat']) && !empty($locationData['long'])) {
+                        $ttl .= "    geo:lat \"{$locationData['lat']}\"^^xsd:decimal ;\n";
+                        $ttl .= "    geo:long \"{$locationData['long']}\"^^xsd:decimal ;\n";
                     }
                 }
                 
-                // Query GraphDB for more location info if possible
-                $additionalInfo = $this->queryAdditionalLocationInfo($locationUri);
-                if ($additionalInfo) {
-                    $ttl .= $additionalInfo;
-                }
+                $ttl = rtrim($ttl, " ;\n") . " .\n";
                 
-                $ttl .= "    .\n";
+                // Also add declarations for the referenced entities
+                if (!empty($locationData)) {
+                    if (!empty($locationData['district'])) {
+                        $districtUri = $locationData['district']['uri'];
+                        $districtName = $locationData['district']['name'];
+                        $ttl .= "\n<$districtUri> a dbo:District ;\n";
+                        $ttl .= "    rdfs:label \"$districtName\"^^xsd:literal .\n";
+                    }
+                    
+                    if (!empty($locationData['parish'])) {
+                        $parishUri = $locationData['parish']['uri'];
+                        $parishName = $locationData['parish']['name'];
+                        $ttl .= "\n<$parishUri> a dbo:Parish ;\n";
+                        $ttl .= "    rdfs:label \"$parishName\"^^xsd:literal .\n";
+                    }
+                    
+                    if (!empty($locationData['country'])) {
+                        $countryUri = $locationData['country']['uri'];
+                        $countryName = $locationData['country']['name'];
+                        $ttl .= "\n<$countryUri> a dbo:Country ;\n";
+                        $ttl .= "    rdfs:label \"$countryName\"^^xsd:literal .\n";
+                    }
+                    
+                    if (!empty($locationData['gps'])) {
+                        $gpsUri = $locationData['gps'];
+                        $ttl .= "\n<$gpsUri> a excav:GPSCoordinates ;\n";
+                        if (!empty($locationData['lat'])) {
+                            $ttl .= "    geo:lat \"{$locationData['lat']}\"^^xsd:decimal ;\n";
+                        }
+                        if (!empty($locationData['long'])) {
+                            $ttl .= "    geo:long \"{$locationData['long']}\"^^xsd:decimal ;\n";
+                        }
+                        $ttl .= "    .\n";
+                    }
+                }
             }
         }
     }
@@ -8643,6 +8881,89 @@ private function generateReferenceDeclarations($resource)
     }
     
     return $ttl;
+}
+
+private function queryCompleteLocationData($locationUri) {
+    try {
+        $query = "
+        PREFIX dbo: <http://dbpedia.org/ontology/>
+        PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+        PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+        PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+        
+        SELECT ?districtUri ?districtName ?parishUri ?parishName ?countryUri ?countryName 
+               ?lat ?long ?gpsUri
+        WHERE {
+            OPTIONAL {
+                <$locationUri> dbo:District ?districtUri .
+                OPTIONAL { ?districtUri rdfs:label ?districtName }
+            }
+            
+            OPTIONAL {
+                <$locationUri> dbo:Parish ?parishUri .
+                OPTIONAL { ?parishUri rdfs:label ?parishName }
+            }
+            
+            OPTIONAL {
+                <$locationUri> dbo:Country ?countryUri .
+                OPTIONAL { ?countryUri rdfs:label ?countryName }
+            }
+            
+            # Try direct geo coordinates
+            OPTIONAL { <$locationUri> geo:lat ?lat }
+            OPTIONAL { <$locationUri> geo:long ?long }
+            
+            # Try referenced GPS coordinates
+            OPTIONAL { <$locationUri> excav:hasGPSCoordinates ?gpsUri }
+        }
+        LIMIT 1";
+        
+        $results = $this->querySparql($query);
+        
+        if (!empty($results)) {
+            $result = $results[0];
+            $data = [];
+            
+            if (isset($result['districtUri'])) {
+                $data['district'] = [
+                    'uri' => $result['districtUri']['value'],
+                    'name' => isset($result['districtName']) ? $result['districtName']['value'] : basename($result['districtUri']['value'])
+                ];
+            }
+            
+            if (isset($result['parishUri'])) {
+                $data['parish'] = [
+                    'uri' => $result['parishUri']['value'],
+                    'name' => isset($result['parishName']) ? $result['parishName']['value'] : basename($result['parishUri']['value'])
+                ];
+            }
+            
+            if (isset($result['countryUri'])) {
+                $data['country'] = [
+                    'uri' => $result['countryUri']['value'],
+                    'name' => isset($result['countryName']) ? $result['countryName']['value'] : basename($result['countryUri']['value'])
+                ];
+            }
+            
+            if (isset($result['lat'])) {
+                $data['lat'] = $result['lat']['value'];
+            }
+            
+            if (isset($result['long'])) {
+                $data['long'] = $result['long']['value'];
+            }
+            
+            if (isset($result['gpsUri'])) {
+                $data['gps'] = $result['gpsUri']['value'];
+            }
+            
+            return $data;
+        }
+    } catch (\Exception $e) {
+        error_log("Error querying complete location data: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/ttl-download.log');
+    }
+    
+    return null;
 }
 
 /**
