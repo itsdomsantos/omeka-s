@@ -8444,19 +8444,658 @@ private function getHumanReadableLabel($term)
     }
 }
 
+
+// Add this to your IndexController.php class
+
 private function generateTtlForResource($resource, $type)
 {
-    $ttl = '';
+    // Add proper prefixes
+    $ttl = $this->getTtlPrefixes();
     
+    $ttl .= "# Resource: " . $resource->displayTitle() . "\n";
+    
+    // Check if this is an arrowhead by looking for archaeological properties
+    $isArrowhead = $this->isArrowheadResource($resource);
+    
+    if ($isArrowhead) {
+        $ttl .= $this->generateArrowheadTtlWithOriginalUris($resource);
+    } else {
+        $ttl .= $this->generateGenericResourceTtlWithOriginalUris($resource, $type);
+    }
+    
+    return $ttl;
+}
+
+private function isArrowheadResource($resource)
+{
+    $values = $resource->values();
+    
+    // Check for arrowhead-specific properties
+    $arrowheadProperties = ['ah:shape', 'ah:variant', 'ah:hasMorphology', 'ah:hasChipping', 
+                           'ah:point', 'ah:body', 'ah:base'];
+    
+    foreach ($arrowheadProperties as $property) {
+        if (isset($values[$property])) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+
+
+private function generateArrowheadTtlWithOriginalUris($resource)
+{
+    $ttl = "";
+    $values = $resource->values();
+    
+    // Extract the original normalized URI from the context references
+    $originalBaseUri = $this->extractOriginalBaseUri($values, $resource);
+    $identifier = $this->extractIdentifierFromResource($resource);
+    
+    // Use the original normalized URI structure
+    $arrowheadUri = "$originalBaseUri/item/$identifier";
+    
+    // Main arrowhead declaration with original URI
+    $ttl .= "<$arrowheadUri> a excav:Item, ah:Arrowhead ;\n";
+    
+    // Add identifier
+    if ($identifier) {
+        $ttl .= "    dct:identifier \"$identifier\"^^xsd:literal ;\n";
+    }
+    
+    // Process core properties with original URI references
+    $ttl .= $this->processArrowheadCorePropertiesWithOriginalUris($values, $arrowheadUri, $originalBaseUri);
+    
+    // Add morphology reference
+    if ($this->hasMorphologyData($values)) {
+        $ttl .= "    ah:hasMorphology <$arrowheadUri/morphology/$identifier-morphology> ;\n";
+    }
+    
+    // Add chipping reference
+    if ($this->hasChippingData($values)) {
+        $ttl .= "    ah:hasChipping <$arrowheadUri/chipping/$identifier-chipping> ;\n";
+    }
+    
+    // Add coordinates reference
+    if ($this->hasCoordinatesData($values)) {
+        $ttl .= "    excav:hasCoordinatesInSquare <$arrowheadUri/coordinates/$identifier-coordinates> ;\n";
+    }
+    
+    // Add GPS reference if present
+    if ($this->hasGpsData($values)) {
+        $excavationId = $this->extractExcavationId($values);
+        $ttl .= "    excav:hasGPSCoordinates <$originalBaseUri/excavation/$excavationId/gps/$identifier-gps> ;\n";
+    }
+    
+    // Add height measurement reference
+    if (isset($values['schema:height'])) {
+        $ttl .= "    schema:height <$arrowheadUri/typometry/$identifier-height> ;\n";
+    }
+    
+    // Add width measurement reference
+    if (isset($values['schema:width'])) {
+        $ttl .= "    schema:width <$arrowheadUri/typometry/$identifier-width> ;\n";
+    }
+    
+    // Add weight measurement reference
+    if (isset($values['schema:weight'])) {
+        $ttl .= "    schema:weight <$arrowheadUri/weight/$identifier-weight> ;\n";
+    }
+    
+    // Add depth/thickness measurement reference
+    if (isset($values['schema:depth']) || isset($values['sdo:depth'])) {
+        $ttl .= "    schema:depth <$arrowheadUri/typometry/$identifier-depth> ;\n";
+    }
+    
+    // Add body length measurement reference
+    if (isset($values['ah:hasBodyLength'])) {
+        $ttl .= "    ah:hasBodyLength <$arrowheadUri/bodylength/$identifier-bodylength> ;\n";
+    }
+    
+    // Add base length measurement reference
+    if (isset($values['ah:hasBaseLength'])) {
+        $ttl .= "    ah:hasBaseLength <$arrowheadUri/baselength/$identifier-baselength> ;\n";
+    }
+    
+    // Close main arrowhead entity - remove trailing semicolon and add period
+    $ttl = rtrim($ttl, ";\n") . " .\n\n";
+    
+    // Process measurements with original URI structure
+    $ttl .= $this->processMeasurementsWithOriginalUris($values, $arrowheadUri, $identifier);
+    
+    // Process morphology as separate object
+    $ttl .= $this->processMorphologyWithOriginalUris($values, $arrowheadUri, $identifier);
+    
+    // Process chipping as separate object
+    $ttl .= $this->processChippingWithOriginalUris($values, $arrowheadUri, $identifier);
+    
+    // Process coordinates with original structure
+    $ttl .= $this->processCoordinatesWithOriginalUris($values, $arrowheadUri, $identifier);
+    
+    // Process GPS coordinates with original excavation structure
+    $ttl .= $this->processGPSWithOriginalUris($values, $originalBaseUri, $identifier);
+    
+    // Add any referenced excavation context objects
+    $ttl .= $this->addReferencedContextObjects($values);
+    
+    return $ttl;
+}
+
+private function hasMorphologyData($values)
+{
+    return isset($values['ah:point']) || isset($values['ah:body']) || isset($values['ah:base']);
+}
+
+private function hasChippingData($values)
+{
+    $chippingProperties = ['ah:chippingMode', 'ah:chippingAmplitude', 'ah:chippingDirection', 
+                          'ah:chippingOrientation', 'ah:chippingDelineation', 'ah:chippingLocationSide',
+                          'ah:chippingLocationTransversal', 'ah:chippingShape'];
+    
+    foreach ($chippingProperties as $prop) {
+        if (isset($values[$prop])) {
+            return true;
+        }
+    }
+    return false;
+}
+
+private function hasCoordinatesData($values)
+{
+    return isset($values['excavation:hasCoordinatesInSquare']);
+}
+
+private function hasGpsData($values)
+{
+    return isset($values['excavation:hasGPSCoordinates']);
+}
+private function extractOriginalBaseUri($values, $resource)
+{
+    // Look for any excavation context reference to extract the base pattern
+    $contextProperties = [
+        'excavation:foundInLocation',
+        'excavation:foundInSquare', 
+        'excavation:foundInContext',
+        'excavation:foundInSVU'
+    ];
+    
+    foreach ($contextProperties as $property) {
+        if (isset($values[$property])) {
+            foreach ($values[$property]['values'] as $value) {
+                if ($value->uri()) {
+                    $uri = $value->uri();
+                    // Extract pattern: https://purl.org/megalod/2733/excavation/ALC-2023/...
+                    if (preg_match('/^(https:\/\/purl\.org\/megalod\/\d+)\/excavation\/[^\/]+\//', $uri, $matches)) {
+                        return $matches[1];
+                    }
+                }
+            }
+        }
+    }
+    
+    // Fallback: extract from item set information
+    $itemSets = $resource->itemSets();
+    if (!empty($itemSets)) {
+        $itemSetId = $itemSets[0]->id();
+        return "https://purl.org/megalod/$itemSetId";
+    }
+    
+    // Last resort fallback
+    return "https://purl.org/megalod/unknown";
+}
+
+private function extractIdentifierFromResource($resource)
+{
+    $values = $resource->values();
+    
+    if (isset($values['dcterms:identifier'])) {
+        foreach ($values['dcterms:identifier']['values'] as $value) {
+            return $value->value();
+        }
+    }
+    
+    return 'item-' . $resource->id();
+}
+
+private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowheadUri, $originalBaseUri)
+{
+    $ttl = "";
+    
+    // Process description/annotation
+    if (isset($values['dcterms:description'])) {
+        foreach ($values['dcterms:description']['values'] as $value) {
+            $ttl .= "    dbo:Annotation \"" . $this->escapeTtlString($value->value()) . "\"^^xsd:literal ;\n";
+        }
+    }
+    
+    // Process condition state as boolean
+    if (isset($values['crm:P44_has_condition'])) {
+        foreach ($values['crm:P44_has_condition']['values'] as $value) {
+            $boolValue = (strtolower($value->value()) === 'true') ? 'true' : 'false';
+            $ttl .= "    crm:E3_Condition_State $boolValue ;\n";
+        }
+    }
+    
+    // Process type as boolean
+    if (isset($values['crm:P2_has_type'])) {
+        foreach ($values['crm:P2_has_type']['values'] as $value) {
+            $boolValue = (strtolower($value->value()) === 'true') ? 'true' : 'false';
+            $ttl .= "    crm:E55_Type $boolValue ;\n";
+        }
+    }
+    
+    // Process material with proper URI
+    if (isset($values['schema:material'])) {
+        foreach ($values['schema:material']['values'] as $value) {
+            $materialUri = "http://vocab.getty.edu/page/aat/" . $value->value();
+            $ttl .= "    crm:E57_Material <$materialUri> ;\n";
+        }
+    }
+    
+    // Process shape with controlled vocabulary URI (preserve original)
+    if (isset($values['ah:shape'])) {
+        foreach ($values['ah:shape']['values'] as $value) {
+            $shapeValue = strtolower($value->value());
+            $ttl .= "    ah:shape <https://purl.org/megalod/kos/ah-shape/$shapeValue> ;\n";
+        }
+    }
+    
+    // Process variant with controlled vocabulary URI (preserve original)
+    if (isset($values['ah:variant'])) {
+        foreach ($values['ah:variant']['values'] as $value) {
+            $variantValue = strtolower($value->value());
+            $ttl .= "    ah:variant <https://purl.org/megalod/kos/ah-variant/$variantValue> ;\n";
+        }
+    }
+    
+    // Process elongation index (preserve original KOS URI)
+    if (isset($values['excavation:elongationIndex'])) {
+        foreach ($values['excavation:elongationIndex']['values'] as $value) {
+            $ttl .= "    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/" . $value->value() . "> ;\n";
+        }
+    }
+    
+    // Process thickness index (preserve original KOS URI)
+    if (isset($values['excavation:thicknessIndex'])) {
+        foreach ($values['excavation:thicknessIndex']['values'] as $value) {
+            $ttl .= "    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/" . $value->value() . "> ;\n";
+        }
+    }
+    
+    // Process archaeological context references (preserve original URIs)
+    $contextProperties = [
+        'excavation:foundInLocation' => 'excav:foundInLocation',
+        'excavation:foundInSquare' => 'excav:foundInSquare', 
+        'excavation:foundInContext' => 'excav:foundInContext',
+        'excavation:foundInSVU' => 'excav:foundInSVU'
+    ];
+    
+    foreach ($contextProperties as $omekaProperty => $ttlProperty) {
+        if (isset($values[$omekaProperty])) {
+            foreach ($values[$omekaProperty]['values'] as $value) {
+                if ($value->uri()) {
+                    // Use the original URI as stored
+                    $ttl .= "    $ttlProperty <" . $value->uri() . "> ;\n";
+                }
+            }
+        }
+    }
+    
+    // Process date if available
+    if (isset($values['dcterms:date'])) {
+        foreach ($values['dcterms:date']['values'] as $value) {
+            $ttl .= "    dct:date \"" . $value->value() . "\"^^xsd:literal ;\n";
+        }
+    }
+    
+    // Process web resources
+    if (isset($values['dcterms:hasFormat'])) {
+        foreach ($values['dcterms:hasFormat']['values'] as $value) {
+            if ($value->uri()) {
+                $ttl .= "    edm:Webresource <" . $value->uri() . "> ;\n";
+            }
+        }
+    }
+    
+    return $ttl;
+}
+
+private function processMeasurementsWithOriginalUris($values, $arrowheadUri, $identifier)
+{
+    $ttl = "";
+    $measurementObjects = "";
+    
+    $measurements = [
+        'schema:height' => 'height',
+        'schema:width' => 'width',
+        'schema:weight' => 'weight',
+        'sdo:depth' => 'depth',
+        'ah:hasBodyLength' => 'bodylength',
+        'ah:hasBaseLength' => 'baselength'
+    ];
+    
+    foreach ($measurements as $property => $suffix) {
+        if (isset($values[$property])) {
+            foreach ($values[$property]['values'] as $value) {
+                $measurementValue = $value->value();
+                
+                // Parse value and unit
+                if (preg_match('/^([0-9.]+)\s*([A-Z]+)$/', $measurementValue, $matches)) {
+                    $numericValue = $matches[1];
+                    $unit = $matches[2];
+                    
+                    // Use original URI structure
+                    if ($property === 'schema:weight') {
+                        $measurementUri = "$arrowheadUri/weight/$identifier-weight";
+                        $ttl .= "    schema:weight <$measurementUri> ;\n";
+                        $measurementObjects .= "<$measurementUri> a excav:Weight ;\n";
+                    } elseif ($property === 'ah:hasBodyLength') {
+                        $measurementUri = "$arrowheadUri/$suffix/$identifier-$suffix";
+                        $ttl .= "    ah:hasBodyLength <$measurementUri> ;\n";
+                        $measurementObjects .= "<$measurementUri> a excav:TypometryValue ;\n";
+                    } elseif ($property === 'ah:hasBaseLength') {
+                        $measurementUri = "$arrowheadUri/$suffix/$identifier-$suffix";
+                        $ttl .= "    ah:hasBaseLength <$measurementUri> ;\n";
+                        $measurementObjects .= "<$measurementUri> a excav:TypometryValue ;\n";
+                    } else {
+                        $measurementUri = "$arrowheadUri/typometry/$identifier-$suffix";
+                        $propertyName = str_replace(['schema:', 'sdo:'], '', $property);
+                        $ttl .= "    schema:$propertyName <$measurementUri> ;\n";
+                        $measurementObjects .= "<$measurementUri> a excav:TypometryValue ;\n";
+                    }
+                    
+                    // Add measurement details with proper unit URIs
+                    $measurementObjects .= "    schema:value \"$numericValue\"^^xsd:decimal ;\n";
+                    $measurementObjects .= "    schema:UnitCode <http://qudt.org/vocab/unit/$unit> ;\n";
+                    $measurementObjects .= "    .\n\n";
+                }
+            }
+        }
+    }
+    
+    // Add measurement objects at the end
+    if ($measurementObjects) {
+        $ttl .= "\n# =========== TYPOMETRY VALUES ===========\n\n";
+        $ttl .= $measurementObjects;
+    }
+    
+    return $ttl;
+}
+
+
+private function processMorphologyWithOriginalUris($values, $arrowheadUri, $identifier)
+{
+    $ttl = "";
+    $morphologyUri = "$arrowheadUri/morphology/$identifier-morphology";
+    
+    // Check if we have morphology data
+    if ($this->hasMorphologyData($values)) {
+        // DON'T add the predicate here, it's already added in the main resource
+        
+        // Add morphology object
+        $ttl .= "\n# =========== MORPHOLOGY ===========\n\n";
+        $ttl .= "<$morphologyUri> a ah:Morphology ;\n";
+        
+        // Process point
+        if (isset($values['ah:point'])) {
+            foreach ($values['ah:point']['values'] as $value) {
+                $boolValue = (strtolower($value->value()) === 'true') ? 'true' : 'false';
+                $ttl .= "    ah:point $boolValue ;\n";
+            }
+        }
+        
+        // Process body
+        if (isset($values['ah:body'])) {
+            foreach ($values['ah:body']['values'] as $value) {
+                $boolValue = (strtolower($value->value()) === 'true') ? 'true' : 'false';
+                $ttl .= "    ah:body $boolValue ;\n";
+            }
+        }
+        
+        // Process base with original KOS URI
+        if (isset($values['ah:base'])) {
+            foreach ($values['ah:base']['values'] as $value) {
+                $baseValue = strtolower($value->value());
+                $ttl .= "    ah:base <https://purl.org/megalod/kos/ah-base/$baseValue> ;\n";
+            }
+        }
+        
+        $ttl = rtrim($ttl, ";\n") . " .\n\n";
+    }
+    
+    return $ttl;
+}
+
+private function processChippingWithOriginalUris($values, $arrowheadUri, $identifier)
+{
+    $ttl = "";
+    $chippingUri = "$arrowheadUri/chipping/$identifier-chipping";
+    
+    // Check if we have chipping data
+    $chippingProperties = ['ah:chippingMode', 'ah:chippingAmplitude', 'ah:chippingDirection', 
+                          'ah:chippingOrientation', 'ah:chippingDelineation', 'ah:chippingLocationSide',
+                          'ah:chippingLocationTransversal', 'ah:chippingShape'];
+    
+    $hasChippingData = false;
+    foreach ($chippingProperties as $prop) {
+        if (isset($values[$prop])) {
+            $hasChippingData = true;
+            break;
+        }
+    }
+    
+    if ($hasChippingData) {
+        $ttl .= "    ah:hasChipping <$chippingUri> ;\n";
+        
+        // Add chipping object
+        $ttl .= "\n# =========== CHIPPING ===========\n\n";
+        $ttl .= "<$chippingUri> a ah:Chipping ;\n";
+        
+        // Process each chipping property with original KOS URIs
+        if (isset($values['ah:chippingMode'])) {
+            foreach ($values['ah:chippingMode']['values'] as $value) {
+                $modeValue = strtolower($value->value());
+                $ttl .= "    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/$modeValue> ;\n";
+            }
+        }
+        
+        if (isset($values['ah:chippingAmplitude'])) {
+            foreach ($values['ah:chippingAmplitude']['values'] as $value) {
+                $boolValue = (strtolower($value->value()) === 'true') ? 'true' : 'false';
+                $ttl .= "    ah:chippingAmplitude $boolValue ;\n";
+            }
+        }
+        
+        if (isset($values['ah:chippingDirection'])) {
+            foreach ($values['ah:chippingDirection']['values'] as $value) {
+                $directionValue = strtolower($value->value());
+                $ttl .= "    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/$directionValue> ;\n";
+            }
+        }
+        
+        if (isset($values['ah:chippingOrientation'])) {
+            foreach ($values['ah:chippingOrientation']['values'] as $value) {
+                $boolValue = (strtolower($value->value()) === 'true') ? 'true' : 'false';
+                $ttl .= "    ah:chippingOrientation $boolValue ;\n";
+            }
+        }
+        
+        if (isset($values['ah:chippingDelineation'])) {
+            foreach ($values['ah:chippingDelineation']['values'] as $value) {
+                $delineationValue = strtolower($value->value());
+                $ttl .= "    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/$delineationValue> ;\n";
+            }
+        }
+        
+        if (isset($values['ah:chippingLocationSide'])) {
+            foreach ($values['ah:chippingLocationSide']['values'] as $value) {
+                $locationValue = strtolower($value->value());
+                $ttl .= "    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/$locationValue> ;\n";
+            }
+        }
+        
+        if (isset($values['ah:chippingLocationTransversal'])) {
+            foreach ($values['ah:chippingLocationTransversal']['values'] as $value) {
+                $locationValue = strtolower($value->value());
+                $ttl .= "    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/$locationValue> ;\n";
+            }
+        }
+        
+        if (isset($values['ah:chippingShape'])) {
+            foreach ($values['ah:chippingShape']['values'] as $value) {
+                $shapeValue = strtolower($value->value());
+                $ttl .= "    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/$shapeValue> ;\n";
+            }
+        }
+        
+        $ttl = rtrim($ttl, ";\n") . " .\n\n";
+    }
+    
+    return $ttl;
+}
+
+private function processCoordinatesWithOriginalUris($values, $arrowheadUri, $identifier)
+{
+    $ttl = "";
+    
+    if (isset($values['excavation:hasCoordinatesInSquare'])) {
+        foreach ($values['excavation:hasCoordinatesInSquare']['values'] as $value) {
+            $coordString = $value->value();
+            
+            // Parse coordinates string "X: 15.3 CMT, Y: 88.9 CMT, Z: 0.9 CMT"
+            if (preg_match_all('/([XYZ]):\s*([0-9.]+)\s*([A-Z]+)/', $coordString, $matches, PREG_SET_ORDER)) {
+                $coordinatesUri = "$arrowheadUri/coordinates/$identifier-coordinates";
+                $ttl .= "    excav:hasCoordinatesInSquare <$coordinatesUri> ;\n";
+                
+                $ttl .= "\n# =========== COORDINATES IN SQUARE ===========\n\n";
+                $ttl .= "<$coordinatesUri> a excav:Coordinates ;\n";
+                
+                foreach ($matches as $match) {
+                    $axis = strtolower($match[1]);
+                    $value = $match[2];
+                    $unit = $match[3];
+                    
+                    $typometryUri = "$arrowheadUri/typometry/$identifier-$axis";
+                    
+                    if ($axis === 'x') {
+                        $ttl .= "    geo:long <$typometryUri> ;\n";
+                    } elseif ($axis === 'y') {
+                        $ttl .= "    geo:lat <$typometryUri> ;\n";
+                    } else {
+                        $ttl .= "    schema:depth <$typometryUri> ;\n";
+                    }
+                }
+                
+                $ttl = rtrim($ttl, ";\n") . " .\n\n";
+                
+                // Add coordinate typometry objects
+                foreach ($matches as $match) {
+                    $axis = strtolower($match[1]);
+                    $value = $match[2];
+                    $unit = $match[3];
+                    
+                    $typometryUri = "$arrowheadUri/typometry/$identifier-$axis";
+                    $ttl .= "<$typometryUri> a excav:TypometryValue ;\n";
+                    $ttl .= "    schema:value \"$value\"^^xsd:decimal ;\n";
+                    $ttl .= "    schema:UnitCode <http://qudt.org/vocab/unit/$unit> .\n\n";
+                }
+            }
+        }
+    }
+    
+    return $ttl;
+}
+
+private function processGPSWithOriginalUris($values, $originalBaseUri, $identifier)
+{
+    $ttl = "";
+    
+    if (isset($values['excavation:hasGPSCoordinates'])) {
+        foreach ($values['excavation:hasGPSCoordinates']['values'] as $value) {
+            $gpsString = $value->value();
+            
+            // Parse GPS string "Lat: 41.2081, Long: -8.6150"
+            if (preg_match('/Lat:\s*([0-9.-]+),\s*Long:\s*([0-9.-]+)/', $gpsString, $matches)) {
+                $lat = $matches[1];
+                $long = $matches[2];
+                
+                // Extract excavation ID from one of the context references
+                $excavationId = $this->extractExcavationId($values);
+                $gpsUri = "$originalBaseUri/excavation/$excavationId/gps/$identifier-gps";
+                
+                $ttl .= "    excav:hasGPSCoordinates <$gpsUri> ;\n";
+                
+                $ttl .= "\n# =========== GPS COORDINATES ===========\n\n";
+                $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
+                $ttl .= "    geo:lat \"$lat\"^^xsd:decimal ;\n";
+                $ttl .= "    geo:long \"$long\"^^xsd:decimal .\n\n";
+            }
+        }
+    }
+    
+    return $ttl;
+}
+
+private function extractExcavationId($values)
+{
+    // Extract excavation ID from any context reference URI
+    $contextProperties = [
+        'excavation:foundInLocation',
+        'excavation:foundInSquare', 
+        'excavation:foundInContext',
+        'excavation:foundInSVU'
+    ];
+    
+    foreach ($contextProperties as $property) {
+        if (isset($values[$property])) {
+            foreach ($values[$property]['values'] as $value) {
+                if ($value->uri()) {
+                    $uri = $value->uri();
+                    // Extract pattern: .../excavation/ALC-2023/...
+                    if (preg_match('/\/excavation\/([^\/]+)\//', $uri, $matches)) {
+                        return $matches[1];
+                    }
+                }
+            }
+        }
+    }
+    
+    return 'unknown';
+}
+
+private function addReferencedContextObjects($values)
+{
+    $ttl = "";
+    
+    // Add location object if referenced
+    if (isset($values['excavation:foundInLocation'])) {
+        foreach ($values['excavation:foundInLocation']['values'] as $value) {
+            if ($value->uri()) {
+                $locationUri = $value->uri();
+                $ttl .= "\n# =========== LOCATION ===========\n\n";
+                $ttl .= "<$locationUri> a excav:Location ;\n";
+                $ttl .= "    dbo:informationName \"Alto do Castelinho Archaeological Site\"^^xsd:literal ;\n";
+                $ttl .= "    dbo:district <http://dbpedia.org/resource/Porto> ;\n";
+                $ttl .= "    dbo:parish <http://dbpedia.org/resource/Penafiel> ;\n";
+                $ttl .= "    dbo:Country <http://dbpedia.org/resource/Portugal> .\n\n";
+                break;
+            }
+        }
+    }
+    
+    return $ttl;
+}
+
+private function generateGenericResourceTtlWithOriginalUris($resource, $type)
+{
     // Create the subject URI based on resource type and ID
     $baseUrl = $this->url()->fromRoute('top', [], ['force_canonical' => true]);
     $baseUrl = rtrim($baseUrl, '/');
     $subjectUri = $baseUrl . '/' . ($type === 'item_set' ? 'item-set' : ($type === 'item' ? 'item' : 'media')) . '/' . $resource->id();
     
-    $ttl .= "# Resource: " . $resource->displayTitle() . "\n";
-    $ttl .= "<{$subjectUri}>\n";
-    
-    // Add common properties
+    $ttl = "<$subjectUri>\n";
     $ttl .= "    a <http://www.w3.org/ns/ldp#Resource> ;\n";
     $ttl .= "    <http://purl.org/dc/terms/title> \"" . $this->escapeTtlString($resource->displayTitle()) . "\" ;\n";
     
@@ -8464,74 +9103,21 @@ private function generateTtlForResource($resource, $type)
         $ttl .= "    <http://purl.org/dc/terms/description> \"" . $this->escapeTtlString($resource->displayDescription()) . "\" ;\n";
     }
     
-    // Add all other properties
+    // Add other properties
     $values = $resource->values();
-    $propertiesAdded = false;
-    
     foreach ($values as $term => $propertyValues) {
         foreach ($propertyValues['values'] as $value) {
-            $propertiesAdded = true;
             $val = $value->value();
             $uri = $value->uri();
             
             if ($uri) {
-                $ttl .= "    <{$term}> <{$uri}> ;\n";
+                $ttl .= "    <$term> <$uri> ;\n";
             } else {
-                // Escape special characters in string values
-                $ttl .= "    <{$term}> \"" . $this->escapeTtlString($val) . "\" ;\n";
+                $ttl .= "    <$term> \"" . $this->escapeTtlString($val) . "\" ;\n";
             }
         }
     }
     
-    // Add relationships
-    if ($type === 'item_set') {
-        $ttl .= "    <http://www.w3.org/ns/ldp#contains> ";
-        $api = $this->api();
-        $items = $api->search('items', ['item_set_id' => $resource->id()])->getContent();
-        
-        $itemUris = [];
-        foreach ($items as $item) {
-            $itemUris[] = "<{$baseUrl}/item/{$item->id()}>";
-        }
-        
-        if (count($itemUris) > 0) {
-            $ttl .= implode(", ", $itemUris) . " ;\n";
-        } else {
-            // Remove last semicolon and newline if no items
-            $ttl = rtrim($ttl, ";\n") . " ;\n";
-        }
-    } elseif ($type === 'item') {
-        // Add item set references for items
-        $itemSets = $resource->itemSets();
-        if (!empty($itemSets)) {
-            $ttl .= "    <http://purl.org/dc/terms/isPartOf> ";
-            $setUris = [];
-            foreach ($itemSets as $itemSet) {
-                $setUris[] = "<{$baseUrl}/item-set/{$itemSet->id()}>";
-            }
-            $ttl .= implode(", ", $setUris) . " ;\n";
-        }
-        
-        // Add media references
-        $api = $this->api();
-        $media = $api->search('media', ['item_id' => $resource->id()])->getContent();
-        if (!empty($media)) {
-            $ttl .= "    <http://purl.org/dc/terms/hasPart> ";
-            $mediaUris = [];
-            foreach ($media as $medium) {
-                $mediaUris[] = "<{$baseUrl}/media/{$medium->id()}>";
-            }
-            $ttl .= implode(", ", $mediaUris) . " ;\n";
-        }
-    } elseif ($type === 'media') {
-        // Add reference to parent item
-        $ttl .= "    <http://purl.org/dc/terms/isPartOf> <{$baseUrl}/item/{$resource->item()->id()}> ;\n";
-        
-        // Add media-specific data like file URL
-        $ttl .= "    <http://purl.org/dc/terms/source> <" . $resource->originalUrl() . "> ;\n";
-    }
-    
-    // Replace the last semicolon with a period
     $ttl = rtrim($ttl, ";\n") . " .\n\n";
     
     return $ttl;
