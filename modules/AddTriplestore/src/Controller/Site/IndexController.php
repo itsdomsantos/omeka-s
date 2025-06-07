@@ -7853,105 +7853,40 @@ private function determineItemType($subjectType) {
 
 
 
-private function sendToOmekaS($omekaData, $itemSetId = null) {
-    $omekaBaseUrl = 'http://localhost/api';
-    $omekaKeyIdentity = '2TGK0xT9tEMCUQs1178OyCnyRcIQpv5B';
-    $omekaKeyCredential = '9IFd207Y8D5yG1bmtnCllmbgZweuMfQA';
-    $omekaUser = 1;
 
-    $client = new Client();
-    $client->setMethod('POST');
-    $client->setHeaders([
-        'Content-Type' => 'application/json',
-        'Omeka-S-Api-Key' => $omekaUser,
-    ]);
-
-    $errors = [];
+private function sendToOmekaS($omekaData, $itemSetId = null)
+{
     $createdItems = [];
-    $skippedItems = [];
-    
-    // First, check for duplicate identifiers within the current data
-    $identifierMap = [];
-    $duplicatesInBatch = [];
-    
-    foreach ($omekaData as $itemIndex => $itemData) {
-        $identifier = $this->extractIdentifierFromItemData($itemData);
-        if ($identifier) {
-            if (isset($identifierMap[$identifier])) {
-                $duplicatesInBatch[] = $identifier;
-                $errors[] = "Duplicate identifier '$identifier' found in the current batch (items $identifierMap[$identifier] and $itemIndex)";
-            } else {
-                $identifierMap[$identifier] = $itemIndex;
+    $errors = [];
+
+    try {
+        // Process each item in the Omeka data array
+        foreach ($omekaData as $itemData) {
+            // If item set ID is provided, add the item to the set
+            if ($itemSetId) {
+                $itemData['o:item_set'] = [['o:id' => $itemSetId]];
+            }
+
+            // Use the API to create the item, sending data in request body
+            $response = $this->api()->create('items', $itemData);
+            
+            if ($response) {
+                $createdItems[] = $response;
+                error_log('Created Omeka S item: ' . $response->id(), 3, OMEKA_PATH . '/logs/omeka-import.log');
             }
         }
+        
+        error_log('Successfully created ' . count($createdItems) . ' items in Omeka S', 3, OMEKA_PATH . '/logs/omeka-import.log');
+    } catch (\Exception $e) {
+        $errors[] = 'Error creating items in Omeka S: ' . $e->getMessage();
+        error_log('Error in sendToOmekaS: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/omeka-errors.log');
     }
     
-    // Process each item
-    foreach ($omekaData as $itemIndex => $itemData) {
-        $identifier = $this->extractIdentifierFromItemData($itemData);
-        
-        // Skip items with duplicate identifiers in the current batch
-        if ($identifier && in_array($identifier, $duplicatesInBatch)) {
-            $skippedItems[] = [
-                'index' => $itemIndex,
-                'identifier' => $identifier,
-                'reason' => 'Duplicate identifier in current batch'
-            ];
-            continue;
-        }
-        
-        // Check if item with this identifier already exists in the item set
-        if ($identifier && $itemSetId && $this->itemExistsWithIdentifier($identifier, $itemSetId)) {
-            $skippedItems[] = [
-                'index' => $itemIndex,
-                'identifier' => $identifier,
-                'reason' => 'Item with this identifier already exists in the item set'
-            ];
-            $errors[] = "Skipped item $itemIndex: An item with identifier '$identifier' already exists in item set #$itemSetId";
-            continue;
-        }
-
-        $fullUrl = rtrim($omekaBaseUrl, '/') . '/items' . 
-                   '?key_identity=' . urlencode($omekaKeyIdentity) .
-                   '&key_credential=' . urlencode($omekaKeyCredential);
-        
-        $client->setUri($fullUrl);
-        $client->setRawBody(json_encode($itemData));
-        $response = $client->send();
-
-        if (!$response->isSuccess()) {
-            $errors[] = 'Failed to create item ' . ($itemIndex + 1) . ': ' . 
-                         $response->getStatusCode() . ' - ' . $response->getBody();
-            error_log('Omeka S API Error: ' . $response->getBody());
-        } else {
-            $createdItem = json_decode($response->getBody(), true);
-            $itemId = $createdItem['o:id'];
-            
-            // Handle media files if they exist
-            $this->attachMediaToItem($itemId);
-            
-            $createdItems[] = $createdItem;
-            error_log('Omeka S Item Created Successfully: ID=' . $itemId . ($identifier ? ", Identifier=$identifier" : ""));
-        }
-    }
-
-    if ($itemSetId && !empty($createdItems) && $this->excavationData) {
-        // Update the item set with excavation info
-        $this->updateItemSetWithExcavationInfo($itemSetId, $this->excavationData);
-    }
-
-    // Log skipped items for debugging
-    if (!empty($skippedItems)) {
-        error_log('Skipped items due to duplicate identifiers: ' . print_r($skippedItems, true), 3, OMEKA_PATH . '/logs/duplicate-identifiers.log');
-    }
-
     return [
-        'errors' => $errors,
         'created_items' => $createdItems,
-        'skipped_items' => $skippedItems
+        'errors' => $errors
     ];
 }
-
 
 private function itemExistsWithIdentifier($identifier, $itemSetId) {
     try {
