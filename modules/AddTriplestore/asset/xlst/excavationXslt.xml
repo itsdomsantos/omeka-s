@@ -5,6 +5,7 @@
     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
     xmlns:excav="https://purl.org/megalod/ms/excavation/"
     xmlns:dct="http://purl.org/dc/terms/"
+    xmlns:dcterms="http://purl.org/dc/terms/"
     xmlns:foaf="http://xmlns.com/foaf/0.1/"
     xmlns:dbo="http://dbpedia.org/ontology/"
     xmlns:dul="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#"
@@ -29,9 +30,9 @@
             <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Excavation"/>
             
             <!-- Identifier -->
-            <dct:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+            <dcterms:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
                 <xsl:value-of select="$excavationId"/>
-            </dct:identifier>
+            </dcterms:identifier>
             
             <!-- Location -->
             <xsl:if test="location">
@@ -136,9 +137,9 @@
             <rdf:Description rdf:about="{concat($excavationUri, '/square/', @id)}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Square"/>
                 
-                <dct:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                <dcterms:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
                     <xsl:value-of select="@id"/>
-                </dct:identifier>
+                </dcterms:identifier>
                 
                 <xsl:if test="northSouth">
                     <geo:long rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
@@ -159,14 +160,14 @@
             <rdf:Description rdf:about="{concat($excavationUri, '/context/', @id)}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Context"/>
                 
-                <dct:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                <dcterms:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
                     <xsl:value-of select="@id"/>
-                </dct:identifier>
+                </dcterms:identifier>
                 
                 <xsl:if test="description">
-                    <dct:description rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                    <dcterms:description rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
                         <xsl:value-of select="description"/>
-                    </dct:description>
+                    </dcterms:description>
                 </xsl:if>
                 
                 <!-- Link to SVUs -->
@@ -181,14 +182,14 @@
             <rdf:Description rdf:about="{concat($excavationUri, '/svu/', @id)}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/StratigraphicVolumeUnit"/>
                 
-                <dct:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                <dcterms:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
                     <xsl:value-of select="@id"/>
-                </dct:identifier>
+                </dcterms:identifier>
                 
                 <xsl:if test="description">
-                    <dct:description rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                    <dcterms:description rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
                         <xsl:value-of select="description"/>
-                    </dct:description>
+                    </dcterms:description>
                 </xsl:if>
                 
                 <xsl:if test="timeline">

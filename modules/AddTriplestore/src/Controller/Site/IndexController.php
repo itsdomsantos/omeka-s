@@ -57,6 +57,7 @@ class IndexController extends AbstractActionController
                "@prefix dct: <http://purl.org/dc/terms/> .\n" .
                "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n" .
                "@prefix dbo: <http://dbpedia.org/ontology/> .\n" .
+               "@prefix dcterms: <http://purl.org/dc/terms/> .\n" . 
                "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .\n" .
                "@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .\n" .
                "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .\n" .
@@ -2481,6 +2482,7 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
     error_log('Data validation passed: ' . ($isExcavation ? 'Excavation' : 'Arrowhead'), 3, OMEKA_PATH . '/logs/validation.log');
 }
 
+
 public function xmlParser($file)
 {
     error_log('Starting XML parsing with enhanced processor');
@@ -2492,12 +2494,12 @@ public function xmlParser($file)
     if (strpos($xmlContent, '<item id="AH') !== false || 
         strpos($xmlContent, 'arrowhead') !== false ||
         strpos($xmlContent, '<ah:') !== false) {
-        $xsltPath = OMEKA_PATH . '/modules/AddTriplestore/asset/xlst/xlst.xml'; // Arrowhead XSLT
+        $xsltPath = OMEKA_PATH . '/modules/AddTriplestore/asset/xlst/arrowXslt.xml'; // Arrowhead XSLT
         error_log('Detected arrowhead XML');
     } elseif (strpos($xmlContent, '<Excavation') !== false || 
               strpos($xmlContent, 'excavation') !== false ||
               strpos($xmlContent, '<excav:') !== false) {
-        $xsltPath = OMEKA_PATH . '/modules/AddTriplestore/asset/xlst/excavationXlst.xml'; // Excavation XSLT
+        $xsltPath = OMEKA_PATH . '/modules/AddTriplestore/asset/xlst/excavationXslt.xml'; // Excavation XSLT
         error_log('Detected excavation XML');
     } else {
         error_log('Could not determine XML type for XSLT selection.');
@@ -2523,7 +2525,10 @@ public function xmlParser($file)
 
     // Apply XSLT transformation
     $processor = new \XSLTProcessor();
+    
     $processor->importStylesheet($xslt);
+    
+    // FIXED: Namespace registration is handled in XSLT stylesheet instead
     
     // Transform to RDF-XML
     $rdfXmlConverted = $processor->transformToXML($xmlDoc);
@@ -2536,8 +2541,6 @@ public function xmlParser($file)
     error_log('Successfully converted XML to RDF-XML');
     return $rdfXmlConverted;
 }
-
-
 
 private function applyExcavationPatterns($ttlData)
 {
@@ -2607,17 +2610,20 @@ private function applyExcavationPatterns($ttlData)
 
 
 
-/**
- * Enhanced XML to TTL conversion methods
- * Add these methods to your IndexController class
- */
 
 public function xmlTtlConverter($rdfXmlData)
 {
     error_log('Converting RDF-XML to TTL with enhanced processing');
-
+    
+    // Log RDF-XML for debugging
+    error_log('RDF-XML before processing: ' . substr($rdfXmlData, 0, 1000), 3, OMEKA_PATH . '/logs/namespace-debug.log');
+    
+    // ADDED: Explicitly register Dublin Core Terms namespace
+    \EasyRdf\RdfNamespace::set('dct', 'http://purl.org/dc/terms/');
+    
     // Clean the RDF-XML first
     $cleanedRdfXml = $this->cleanRdfXmlNamespaces($rdfXmlData);
+    error_log('RDF-XML after cleaning: ' . substr($cleanedRdfXml, 0, 1000), 3, OMEKA_PATH . '/logs/namespace-debug.log');
     
     $rdfGraph = new \EasyRdf\Graph();
     $rdfGraph->parse($cleanedRdfXml, 'rdfxml');
@@ -2626,9 +2632,11 @@ public function xmlTtlConverter($rdfXmlData)
 
     // Get TTL with proper prefixes
     $ttlData = $rdfGraph->serialise('turtle');
+    error_log('TTL after serialization: ' . substr($ttlData, 0, 1000), 3, OMEKA_PATH . '/logs/namespace-debug.log');
     
     // Apply comprehensive cleanup
     $cleanTtl = $this->cleanupTtlOutput($ttlData);
+    error_log('TTL after cleanup: ' . substr($cleanTtl, 0, 1000), 3, OMEKA_PATH . '/logs/namespace-debug.log');
     
     error_log('RDF-XML data converted to clean TTL');
 
@@ -2703,6 +2711,8 @@ private function cleanupTtlOutput($ttlData)
     return $cleanTtl . "\n" . $content;
 }
 
+
+
 private function replaceNamespacePrefixes($content)
 {
     // Replace auto-generated prefixes with our clean ones
@@ -2750,6 +2760,10 @@ private function replaceNamespacePrefixes($content)
     foreach ($uriReplacements as $uri => $prefix) {
         $content = str_replace($uri, $prefix, $content);
     }
+    
+    // CRITICAL FIX: Fix Dublin Core namespace issues
+    $content = preg_replace('/dc:identifier/', 'dct:identifier', $content);
+    $content = preg_replace('/dc:date/', 'dct:date', $content);
     
     return $content;
 }

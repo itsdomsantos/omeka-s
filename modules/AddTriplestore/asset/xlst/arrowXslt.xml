@@ -1,54 +1,52 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<xsl:stylesheet version="1.0" 
+<xsl:stylesheet version="1.0"
     xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
     xmlns:ah="https://purl.org/megalod/ms/ah/"
     xmlns:excav="https://purl.org/megalod/ms/excavation/"
     xmlns:dct="http://purl.org/dc/terms/"
+    xmlns:dcterms="http://purl.org/dc/terms/"
     xmlns:schema="http://schema.org/"
     xmlns:crm="http://www.cidoc-crm.org/cidoc-crm/"
     xmlns:crmsci="http://cidoc-crm.org/extensions/crmsci/"
     xmlns:edm="http://www.europeana.eu/schemas/edm/"
     xmlns:dbo="http://dbpedia.org/ontology/"
     xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#"
-    xmlns:xsd="http://www.w3.org/2001/XMLSchema#">
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+    xmlns:dul="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#">
 
     <xsl:output method="xml" indent="yes" encoding="UTF-8"/>
-    
+
     <xsl:template match="/">
         <rdf:RDF>
             <xsl:apply-templates select="//arrowhead"/>
         </rdf:RDF>
     </xsl:template>
-    
+
     <xsl:template match="arrowhead">
         <xsl:variable name="arrowheadId" select="@id"/>
+        <xsl:variable name="itemIdentifier" select="identifier"/>
         <xsl:variable name="arrowheadUri" select="concat('https://purl.org/megalod/item/arrowhead-', $arrowheadId)"/>
-        
-        <!-- Main Arrowhead Item -->
+
         <rdf:Description rdf:about="{$arrowheadUri}">
             <rdf:type rdf:resource="https://purl.org/megalod/ms/ah/Arrowhead"/>
             <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Item"/>
-            
-            <!-- Identifier -->
+
             <dct:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
                 <xsl:value-of select="identifier"/>
             </dct:identifier>
-            
-            <!-- Web Resources -->
+
             <xsl:for-each select="images/image">
                 <edm:Webresource rdf:resource="{.}"/>
             </xsl:for-each>
-            
-            <!-- Annotations -->
+
             <xsl:if test="annotation">
                 <dbo:Annotation rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
                     <xsl:value-of select="annotation"/>
                 </dbo:Annotation>
             </xsl:if>
-            
-            <!-- Condition State -->
+
             <xsl:if test="conditionState">
                 <crm:E3_Condition_State rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">
                     <xsl:choose>
@@ -57,53 +55,46 @@
                     </xsl:choose>
                 </crm:E3_Condition_State>
             </xsl:if>
-            
-            <!-- Material -->
+
             <xsl:if test="material">
                 <crm:E57_Material rdf:resource="{material}"/>
             </xsl:if>
-            
-            <!-- GPS Coordinates -->
+
             <xsl:if test="gpsCoordinates">
-                <excav:hasGPSCoordinates rdf:resource="{concat($arrowheadUri, '/gps/', $arrowheadId, '-gps')}"/>
+                <excav:hasGPSCoordinates rdf:resource="{concat('https://purl.org/megalod/gps/', $itemIdentifier, '-gps')}"/>
             </xsl:if>
-            
-            <!-- Coordinates in Square -->
+
             <xsl:if test="coordinates">
-                <excav:hasCoordinatesInSquare rdf:resource="{concat($arrowheadUri, '/coordinates/', $arrowheadId, '-coordinates')}"/>
+                <excav:hasCoordinatesInSquare rdf:resource="{concat('https://purl.org/megalod/coordinates/', $itemIdentifier, '-coordinates')}"/>
             </xsl:if>
-            
-            <!-- Measurements -->
+
             <xsl:if test="measurements/height">
-                <schema:height rdf:resource="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-height')}"/>
+                <schema:height rdf:resource="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-height')}"/>
             </xsl:if>
             <xsl:if test="measurements/width">
-                <schema:width rdf:resource="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-width')}"/>
+                <schema:width rdf:resource="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-width')}"/>
             </xsl:if>
             <xsl:if test="measurements/thickness">
-                <schema:depth rdf:resource="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-thickness')}"/>
+                <schema:depth rdf:resource="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-depth')}"/>
             </xsl:if>
             <xsl:if test="measurements/weight">
-                <schema:weight rdf:resource="{concat($arrowheadUri, '/weight/', $arrowheadId, '-weight')}"/>
+                <schema:weight rdf:resource="{concat('https://purl.org/megalod/weight/', $itemIdentifier, '-weight')}"/>
             </xsl:if>
             <xsl:if test="measurements/bodyLength">
-                <ah:hasBodyLength rdf:resource="{concat($arrowheadUri, '/bodylength/', $arrowheadId, '-bodylength')}"/>
+                <ah:hasBodyLength rdf:resource="{concat('https://purl.org/megalod/BodyLength/', $itemIdentifier, '-bodylength')}"/>
             </xsl:if>
             <xsl:if test="measurements/baseLength">
-                <ah:hasBaseLength rdf:resource="{concat($arrowheadUri, '/baselength/', $arrowheadId, '-baselength')}"/>
+                <ah:hasBaseLength rdf:resource="{concat('https://purl.org/megalod/BaseLength/', $itemIdentifier, '-baselength')}"/>
             </xsl:if>
-            
-            <!-- Elongation Index -->
+
             <xsl:if test="elongationIndex">
                 <excav:elongationIndex rdf:resource="{concat('https://purl.org/megalod/kos/MegaLOD-IndexElongation/', elongationIndex)}"/>
             </xsl:if>
-            
-            <!-- Thickness Index -->
+
             <xsl:if test="thicknessIndex">
                 <excav:thicknessIndex rdf:resource="{concat('https://purl.org/megalod/kos/MegaLOD-IndexThickness/', thicknessIndex)}"/>
             </xsl:if>
-            
-            <!-- Type (Elongate/Short) -->
+
             <xsl:if test="type">
                 <crm:E55_Type rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">
                     <xsl:choose>
@@ -112,33 +103,28 @@
                     </xsl:choose>
                 </crm:E55_Type>
             </xsl:if>
-            
-            <!-- Shape -->
+
             <xsl:if test="shape">
                 <ah:shape rdf:resource="{concat('https://purl.org/megalod/kos/ah-shape/', shape)}"/>
             </xsl:if>
-            
-            <!-- Variant -->
+
             <xsl:if test="variant">
                 <ah:variant rdf:resource="{concat('https://purl.org/megalod/kos/ah-variant/', variant)}"/>
             </xsl:if>
-            
-            <!-- Morphology -->
+
             <xsl:if test="morphology">
-                <ah:hasMorphology rdf:resource="{concat($arrowheadUri, '/morphology/', $arrowheadId, '-morphology')}"/>
+                <ah:hasMorphology rdf:resource="{concat('https://purl.org/megalod/Morphology/', $itemIdentifier, '-morphology')}"/>
             </xsl:if>
-            
-            <!-- Chipping -->
+
             <xsl:if test="chipping">
-                <ah:hasChipping rdf:resource="{concat($arrowheadUri, '/chipping/', $arrowheadId, '-chipping')}"/>
+                <ah:hasChipping rdf:resource="{concat('https://purl.org/megalod/Chipping/', $itemIdentifier, '-chipping')}"/>
             </xsl:if>
-            
-            <!-- Context References -->
+
             <xsl:if test="context/excavation">
                 <excav:foundInExcavation rdf:resource="{context/excavation}"/>
             </xsl:if>
             <xsl:if test="context/location">
-                <excav:foundInLocation rdf:resource="{context/location}"/>
+                <dul:foundInLocation rdf:resource="{context/location}"/>
             </xsl:if>
             <xsl:if test="context/square">
                 <excav:foundInSquare rdf:resource="{context/square}"/>
@@ -149,18 +135,17 @@
             <xsl:if test="context/svu">
                 <excav:foundInSVU rdf:resource="{context/svu}"/>
             </xsl:if>
-            
-            <!-- Date -->
+
             <xsl:if test="date">
                 <dct:date rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
                     <xsl:value-of select="date"/>
                 </dct:date>
             </xsl:if>
+
         </rdf:Description>
-        
-        <!-- GPS Coordinates Object -->
+
         <xsl:if test="gpsCoordinates">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/gps/', $arrowheadId, '-gps')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/gps/', $itemIdentifier, '-gps')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/GPSCoordinates"/>
                 <geo:lat rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
                     <xsl:value-of select="gpsCoordinates/latitude"/>
@@ -170,26 +155,24 @@
                 </geo:long>
             </rdf:Description>
         </xsl:if>
-        
-        <!-- Coordinates Object -->
+
         <xsl:if test="coordinates">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/coordinates/', $arrowheadId, '-coordinates')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/coordinates/', $itemIdentifier, '-coordinates')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Coordinates"/>
                 <xsl:if test="coordinates/x">
-                    <geo:longitude rdf:resource="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-x')}"/>
+                    <geo:longitude rdf:resource="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-x')}"/>
                 </xsl:if>
                 <xsl:if test="coordinates/y">
-                    <geo:latitude rdf:resource="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-y')}"/>
+                    <geo:latitude rdf:resource="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-y')}"/>
                 </xsl:if>
                 <xsl:if test="coordinates/z">
-                    <schema:depth rdf:resource="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-z')}"/>
+                    <schema:depth rdf:resource="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-z')}"/>
                 </xsl:if>
             </rdf:Description>
         </xsl:if>
-        
-        <!-- Coordinate Typometry Values -->
+
         <xsl:if test="coordinates/x">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-x')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-x')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/TypometryValue"/>
                 <schema:value rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
                     <xsl:value-of select="coordinates/x/@value"/>
@@ -197,9 +180,8 @@
                 <schema:UnitCode rdf:resource="http://qudt.org/vocab/unit/{coordinates/x/@unit}"/>
             </rdf:Description>
         </xsl:if>
-        
         <xsl:if test="coordinates/y">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-y')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-y')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/TypometryValue"/>
                 <schema:value rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
                     <xsl:value-of select="coordinates/y/@value"/>
@@ -207,9 +189,8 @@
                 <schema:UnitCode rdf:resource="http://qudt.org/vocab/unit/{coordinates/y/@unit}"/>
             </rdf:Description>
         </xsl:if>
-        
         <xsl:if test="coordinates/z">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-z')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-z')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/TypometryValue"/>
                 <schema:value rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
                     <xsl:value-of select="coordinates/z/@value"/>
@@ -217,10 +198,9 @@
                 <schema:UnitCode rdf:resource="http://qudt.org/vocab/unit/{coordinates/z/@unit}"/>
             </rdf:Description>
         </xsl:if>
-        
-        <!-- Measurement Typometry Values -->
+
         <xsl:if test="measurements/height">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-height')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-height')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/TypometryValue"/>
                 <schema:value rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
                     <xsl:value-of select="measurements/height/@value"/>
@@ -228,9 +208,8 @@
                 <schema:UnitCode rdf:resource="http://qudt.org/vocab/unit/{measurements/height/@unit}"/>
             </rdf:Description>
         </xsl:if>
-        
         <xsl:if test="measurements/width">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-width')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-width')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/TypometryValue"/>
                 <schema:value rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
                     <xsl:value-of select="measurements/width/@value"/>
@@ -238,9 +217,8 @@
                 <schema:UnitCode rdf:resource="http://qudt.org/vocab/unit/{measurements/width/@unit}"/>
             </rdf:Description>
         </xsl:if>
-        
         <xsl:if test="measurements/thickness">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/typometry/', $arrowheadId, '-thickness')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-depth')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/TypometryValue"/>
                 <schema:value rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
                     <xsl:value-of select="measurements/thickness/@value"/>
@@ -248,9 +226,8 @@
                 <schema:UnitCode rdf:resource="http://qudt.org/vocab/unit/{measurements/thickness/@unit}"/>
             </rdf:Description>
         </xsl:if>
-        
         <xsl:if test="measurements/bodyLength">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/bodylength/', $arrowheadId, '-bodylength')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/BodyLength/', $itemIdentifier, '-bodylength')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/TypometryValue"/>
                 <schema:value rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
                     <xsl:value-of select="measurements/bodyLength/@value"/>
@@ -258,9 +235,8 @@
                 <schema:UnitCode rdf:resource="http://qudt.org/vocab/unit/{measurements/bodyLength/@unit}"/>
             </rdf:Description>
         </xsl:if>
-        
         <xsl:if test="measurements/baseLength">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/baselength/', $arrowheadId, '-baselength')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/BaseLength/', $itemIdentifier, '-baselength')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/TypometryValue"/>
                 <schema:value rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
                     <xsl:value-of select="measurements/baseLength/@value"/>
@@ -268,10 +244,9 @@
                 <schema:UnitCode rdf:resource="http://qudt.org/vocab/unit/{measurements/baseLength/@unit}"/>
             </rdf:Description>
         </xsl:if>
-        
-        <!-- Weight -->
+
         <xsl:if test="measurements/weight">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/weight/', $arrowheadId, '-weight')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/weight/', $itemIdentifier, '-weight')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Weight"/>
                 <schema:value rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
                     <xsl:value-of select="measurements/weight/@value"/>
@@ -279,10 +254,9 @@
                 <schema:UnitCode rdf:resource="http://qudt.org/vocab/unit/{measurements/weight/@unit}"/>
             </rdf:Description>
         </xsl:if>
-        
-        <!-- Morphology -->
+
         <xsl:if test="morphology">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/morphology/', $arrowheadId, '-morphology')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/Morphology/', $itemIdentifier, '-morphology')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/ah/Morphology"/>
                 <xsl:if test="morphology/point">
                     <ah:point rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">
@@ -305,10 +279,9 @@
                 </xsl:if>
             </rdf:Description>
         </xsl:if>
-        
-        <!-- Chipping -->
+
         <xsl:if test="chipping">
-            <rdf:Description rdf:about="{concat($arrowheadUri, '/chipping/', $arrowheadId, '-chipping')}">
+            <rdf:Description rdf:about="{concat('https://purl.org/megalod/Chipping/', $itemIdentifier, '-chipping')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/ah/Chipping"/>
                 <xsl:if test="chipping/mode">
                     <ah:chippingMode rdf:resource="{concat('https://purl.org/megalod/kos/ah-chippingMode/', chipping/mode)}"/>
@@ -316,7 +289,7 @@
                 <xsl:if test="chipping/amplitude">
                     <ah:chippingAmplitude rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">
                         <xsl:choose>
-                            <xsl:when test="chipping/amplitude = 'marginal'">true</xsl:when>
+                            <xsl:when test="chipping/amplitude = 'deep'">true</xsl:when>
                             <xsl:otherwise>false</xsl:otherwise>
                         </xsl:choose>
                     </ah:chippingAmplitude>
@@ -346,5 +319,7 @@
                 </xsl:if>
             </rdf:Description>
         </xsl:if>
+
     </xsl:template>
+
 </xsl:stylesheet>
