@@ -8433,7 +8433,7 @@ public function downloadTtlAction()
         
         if ($type === 'item_set') {
             // For item sets, get all data from the corresponding graph
-            $ttlData = $this->queryCompleteItemSetFromGraphDB($id);
+            $ttlData = $this->queryCompleteExcavationFromGraphDB($id, $resource);
         } else {
             // For individual items, get the specific item and its related data
             $ttlData = $this->queryItemFromGraphDB($resource, $id);
@@ -8468,11 +8468,13 @@ public function downloadTtlAction()
 }
 
 
-private function queryCompleteItemSetFromGraphDB($itemSetId)
+private function queryCompleteExcavationFromGraphDB($itemSetId, $resource)
 {
     $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
     
-    // Query to get ALL triples in the graph
+    error_log("Querying complete excavation data for item set: $itemSetId in graph: $graphUri", 3, OMEKA_PATH . '/logs/excavation-download.log');
+    
+    // MUCH SIMPLER: Just get ALL triples in the graph
     $query = "
     PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
     PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -8503,7 +8505,226 @@ private function queryCompleteItemSetFromGraphDB($itemSetId)
     }
     ";
     
-    return $this->executeConstructQuery($query);
+    $ttlData = $this->executeConstructQuery($query);
+    
+    if ($ttlData) {
+        // Organize and format the TTL data
+        $organizedTtl = $this->organizeAndFormatTtl($ttlData, $itemSetId);
+        
+        error_log("Successfully retrieved and organized excavation TTL data. Length: " . strlen($organizedTtl), 3, OMEKA_PATH . '/logs/excavation-download.log');
+        return $organizedTtl;
+    }
+    
+    error_log("No TTL data retrieved for excavation item set: $itemSetId", 3, OMEKA_PATH . '/logs/excavation-download.log');
+    return null;
+}
+
+
+
+private function organizeAndFormatTtl($rawTtlData, $itemSetId)
+{
+    // Parse the TTL data into subject-grouped statements
+    $subjects = $this->parseTtlIntoSubjects($rawTtlData);
+    
+    // Build organized TTL
+    $organizedTtl = $this->getTtlPrefixes();
+    $organizedTtl .= "\n# ========================================================================================\n";
+    $organizedTtl .= "# COMPLETE EXCAVATION DATA - ITEM SET $itemSetId\n";
+    $organizedTtl .= "# Downloaded from GraphDB on " . date('Y-m-d H:i:s') . "\n";
+    $organizedTtl .= "# Organized by resource type for better readability\n";
+    $organizedTtl .= "# ========================================================================================\n\n";
+    
+    // Define the order of sections
+    $sections = [
+        'excavation' => [
+            'title' => 'MAIN EXCAVATION',
+            'pattern' => '/excav:Excavation/'
+        ],
+        'location' => [
+            'title' => 'LOCATION',
+            'pattern' => '/excav:Location/'
+        ],
+        'gps' => [
+            'title' => 'GPS COORDINATES',
+            'pattern' => '/excav:GPSCoordinates/'
+        ],
+        'archaeologist' => [
+            'title' => 'ARCHAEOLOGIST',
+            'pattern' => '/excav:Archaeologist/'
+        ],
+        'squares' => [
+            'title' => 'EXCAVATION SQUARES',
+            'pattern' => '/excav:Square/'
+        ],
+        'contexts' => [
+            'title' => 'CONTEXTS',
+            'pattern' => '/excav:Context/'
+        ],
+        'svus' => [
+            'title' => 'STRATIGRAPHIC VOLUME UNITS',
+            'pattern' => '/excav:StratigraphicVolumeUnit/'
+        ],
+        'timelines' => [
+            'title' => 'TIMELINES',
+            'pattern' => '/excav:TimeLine/'
+        ],
+        'instants' => [
+            'title' => 'TIME INSTANTS',
+            'pattern' => '/excav:Instant/'
+        ],
+        'encounters' => [
+            'title' => 'ENCOUNTER EVENTS',
+            'pattern' => '/excav:EncounterEvent/'
+        ],
+        'items' => [
+            'title' => 'ARCHAEOLOGICAL ITEMS',
+            'pattern' => '/(ah:Arrowhead|excav:Item)/'
+        ],
+        'morphology' => [
+            'title' => 'MORPHOLOGY',
+            'pattern' => '/ah:Morphology/'
+        ],
+        'chipping' => [
+            'title' => 'CHIPPING',
+            'pattern' => '/ah:Chipping/'
+        ],
+        'typometry' => [
+            'title' => 'TYPOMETRY VALUES',
+            'pattern' => '/excav:TypometryValue/'
+        ],
+        'weights' => [
+            'title' => 'WEIGHT VALUES',
+            'pattern' => '/excav:Weight/'
+        ],
+        'coordinates' => [
+            'title' => 'COORDINATES IN SQUARE',
+            'pattern' => '/excav:Coordinates/'
+        ],
+        'external' => [
+            'title' => 'REFERENCE DECLARATIONS',
+            'pattern' => '/(dbo:District|dbo:Parish|dbo:Country)/'
+        ]
+    ];
+    
+    // Process each section
+    foreach ($sections as $sectionKey => $sectionInfo) {
+        $sectionSubjects = $this->findSubjectsByPattern($subjects, $sectionInfo['pattern']);
+        
+        if (!empty($sectionSubjects)) {
+            $organizedTtl .= "# =========== {$sectionInfo['title']} ===========\n\n";
+            
+            foreach ($sectionSubjects as $subject => $statements) {
+                $organizedTtl .= $this->formatSubjectStatements($subject, $statements);
+                $organizedTtl .= "\n";
+            }
+            
+            $organizedTtl .= "\n";
+        }
+    }
+    
+    return $organizedTtl;
+}
+
+private function parseTtlIntoSubjects($ttlData)
+{
+    $subjects = [];
+    
+    // Remove prefixes first
+    $cleanTtl = $this->cleanExistingPrefixes($ttlData);
+    
+    // Split into lines and process
+    $lines = explode("\n", $cleanTtl);
+    $currentSubject = null;
+    $currentStatements = [];
+    
+    foreach ($lines as $line) {
+        $line = trim($line);
+        
+        // Skip empty lines and comments
+        if (empty($line) || strpos($line, '#') === 0) {
+            continue;
+        }
+        
+        // Check if this line starts a new subject (contains '<' at the beginning)
+        if (preg_match('/^<([^>]+)>\s+(.+)$/', $line, $matches)) {
+            // Save previous subject if exists
+            if ($currentSubject && !empty($currentStatements)) {
+                $subjects[$currentSubject] = $currentStatements;
+            }
+            
+            // Start new subject
+            $currentSubject = '<' . $matches[1] . '>';
+            $currentStatements = [$matches[2]];
+        } else if ($currentSubject && !empty($line)) {
+            // Continue current subject
+            $currentStatements[] = $line;
+        }
+    }
+    
+    // Don't forget the last subject
+    if ($currentSubject && !empty($currentStatements)) {
+        $subjects[$currentSubject] = $currentStatements;
+    }
+    
+    return $subjects;
+}
+
+private function findSubjectsByPattern($subjects, $pattern)
+{
+    $matchingSubjects = [];
+    
+    foreach ($subjects as $subject => $statements) {
+        $allStatements = implode(' ', $statements);
+        
+        if (preg_match($pattern, $allStatements)) {
+            $matchingSubjects[$subject] = $statements;
+        }
+    }
+    
+    return $matchingSubjects;
+}
+
+private function cleanExistingPrefixes($ttlData)
+{
+    // Remove any existing @prefix declarations since we add our own
+    $lines = explode("\n", $ttlData);
+    $cleanedLines = [];
+    
+    foreach ($lines as $line) {
+        $trimmedLine = trim($line);
+        // Skip @prefix lines and empty lines at the beginning
+        if (!empty($trimmedLine) && strpos($trimmedLine, '@prefix') !== 0) {
+            $cleanedLines[] = $line;
+        }
+    }
+    
+    return implode("\n", $cleanedLines);
+}
+
+private function formatSubjectStatements($subject, $statements)
+{
+    $formatted = $subject;
+    
+    // Process each statement
+    $processedStatements = [];
+    foreach ($statements as $statement) {
+        // Clean up the statement
+        $statement = trim($statement);
+        
+        // Remove trailing semicolons and periods for consistent formatting
+        $statement = rtrim($statement, ';.');
+        
+        $processedStatements[] = $statement;
+    }
+    
+    if (!empty($processedStatements)) {
+        $formatted .= ' ' . implode(" ;\n    ", $processedStatements);
+        
+        // End with a period
+        $formatted .= " .\n";
+    }
+    
+    return $formatted;
 }
 
 private function queryItemFromGraphDB($resource, $itemId)
@@ -8599,7 +8820,129 @@ private function queryItemFromGraphDB($resource, $itemId)
     }
     ";
     
-    return $this->executeConstructQuery($query);
+    $rawTtlData = $this->executeConstructQuery($query);
+
+    if ($rawTtlData) {
+        // Organize and format the TTL data for individual item
+        $organizedTtl = $this->organizeAndFormatItemTtl($rawTtlData, $identifier, $itemSetId);
+        
+        error_log("Successfully retrieved and organized item TTL data. Length: " . strlen($organizedTtl), 3, OMEKA_PATH . '/logs/item-download.log');
+        return $organizedTtl;
+    }
+    
+    return null;
+}
+
+private function organizeAndFormatItemTtl($rawTtlData, $identifier, $itemSetId)
+{
+    // Parse the TTL data into subject-grouped statements
+    $subjects = $this->parseTtlIntoSubjects($rawTtlData);
+    
+    // Build organized TTL
+    $organizedTtl = $this->getTtlPrefixes();
+    $organizedTtl .= "\n# ========================================================================================\n";
+    $organizedTtl .= "# ARCHAEOLOGICAL ITEM DATA - " . strtoupper($identifier) . "\n";
+    $organizedTtl .= "# Downloaded from GraphDB on " . date('Y-m-d H:i:s') . "\n";
+    $organizedTtl .= "# Item Set: $itemSetId | Item ID: $identifier\n";
+    $organizedTtl .= "# Organized by resource type for better readability\n";
+    $organizedTtl .= "# ========================================================================================\n\n";
+    
+    // Define the order of sections for individual items
+    $sections = [
+        'main_item' => [
+            'title' => 'MAIN ARCHAEOLOGICAL ITEM',
+            'pattern' => '/(ah:Arrowhead|excav:Item)/'
+        ],
+        'morphology' => [
+            'title' => 'MORPHOLOGY',
+            'pattern' => '/ah:Morphology/'
+        ],
+        'chipping' => [
+            'title' => 'CHIPPING',
+            'pattern' => '/ah:Chipping/'
+        ],
+        'typometry' => [
+            'title' => 'TYPOMETRY VALUES',
+            'pattern' => '/excav:TypometryValue/'
+        ],
+        'weights' => [
+            'title' => 'WEIGHT VALUES',
+            'pattern' => '/excav:Weight/'
+        ],
+        'coordinates' => [
+            'title' => 'COORDINATES IN SQUARE',
+            'pattern' => '/excav:Coordinates/'
+        ],
+        'gps' => [
+            'title' => 'GPS COORDINATES',
+            'pattern' => '/excav:GPSCoordinates/'
+        ],
+        'encounters' => [
+            'title' => 'ENCOUNTER EVENTS',
+            'pattern' => '/excav:EncounterEvent/'
+        ],
+        'excavation' => [
+            'title' => 'EXCAVATION REFERENCE',
+            'pattern' => '/excav:Excavation/'
+        ],
+        'location' => [
+            'title' => 'LOCATION REFERENCE',
+            'pattern' => '/excav:Location/'
+        ],
+        'squares' => [
+            'title' => 'SQUARE REFERENCE',
+            'pattern' => '/excav:Square/'
+        ],
+        'contexts' => [
+            'title' => 'CONTEXT REFERENCE',
+            'pattern' => '/excav:Context/'
+        ],
+        'svus' => [
+            'title' => 'SVU REFERENCE',
+            'pattern' => '/excav:StratigraphicVolumeUnit/'
+        ],
+        'timelines' => [
+            'title' => 'TIMELINE REFERENCE',
+            'pattern' => '/excav:TimeLine/'
+        ],
+        'instants' => [
+            'title' => 'TIME INSTANT REFERENCE',
+            'pattern' => '/excav:Instant/'
+        ],
+        'external' => [
+            'title' => 'EXTERNAL REFERENCE DECLARATIONS',
+            'pattern' => '/(dbo:District|dbo:Parish|dbo:Country)/'
+        ]
+    ];
+    
+    // Process each section
+    foreach ($sections as $sectionKey => $sectionInfo) {
+        $sectionSubjects = $this->findSubjectsByPattern($subjects, $sectionInfo['pattern']);
+        
+        if (!empty($sectionSubjects)) {
+            $organizedTtl .= "# =========== {$sectionInfo['title']} ===========\n\n";
+            
+            // For the main item, put it first
+            if ($sectionKey === 'main_item') {
+                $mainItemUri = "https://purl.org/megalod/$itemSetId/item/$identifier";
+                if (isset($sectionSubjects["<$mainItemUri>"])) {
+                    $organizedTtl .= $this->formatSubjectStatements("<$mainItemUri>", $sectionSubjects["<$mainItemUri>"]);
+                    unset($sectionSubjects["<$mainItemUri>"]);
+                    $organizedTtl .= "\n";
+                }
+            }
+            
+            // Then add any other subjects in this section
+            foreach ($sectionSubjects as $subject => $statements) {
+                $organizedTtl .= $this->formatSubjectStatements($subject, $statements);
+                $organizedTtl .= "\n";
+            }
+            
+            $organizedTtl .= "\n";
+        }
+    }
+    
+    return $organizedTtl;
 }
 
 private function executeConstructQuery($query)
