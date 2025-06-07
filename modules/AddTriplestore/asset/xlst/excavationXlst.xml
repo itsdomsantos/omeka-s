@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xsl:stylesheet version="1.0" 
+    xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
+    xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+    xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+    xmlns:excav="https://purl.org/megalod/ms/excavation/"
+    xmlns:dct="http://purl.org/dc/terms/"
+    xmlns:foaf="http://xmlns.com/foaf/0.1/"
+    xmlns:dbo="http://dbpedia.org/ontology/"
+    xmlns:dul="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#"
+    xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#"
+    xmlns:time="http://www.w3.org/2006/time#"
+    xmlns:xsd="http://www.w3.org/2001/XMLSchema#">
+
+    <xsl:output method="xml" indent="yes" encoding="UTF-8"/>
+    
+    <xsl:template match="/">
+        <rdf:RDF>
+            <xsl:apply-templates select="//excavation"/>
+        </rdf:RDF>
+    </xsl:template>
+    
+    <xsl:template match="excavation">
+        <xsl:variable name="excavationId" select="@id"/>
+        <xsl:variable name="excavationUri" select="concat('https://purl.org/megalod/excavation/', $excavationId)"/>
+        
+        <!-- Main Excavation -->
+        <rdf:Description rdf:about="{$excavationUri}">
+            <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Excavation"/>
+            
+            <!-- Identifier -->
+            <dct:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                <xsl:value-of select="$excavationId"/>
+            </dct:identifier>
+            
+            <!-- Location -->
+            <xsl:if test="location">
+                <dul:hasLocation rdf:resource="{concat($excavationUri, '/location/', location/@id)}"/>
+            </xsl:if>
+            
+            <!-- Person in Charge -->
+            <xsl:if test="archaeologist">
+                <excav:hasPersonInCharge rdf:resource="{concat($excavationUri, '/archaeologist/', archaeologist/@id)}"/>
+            </xsl:if>
+            
+            <!-- Squares -->
+            <xsl:for-each select="squares/square">
+                <excav:hasSquare rdf:resource="{concat($excavationUri, '/square/', @id)}"/>
+            </xsl:for-each>
+            
+            <!-- Contexts -->
+            <xsl:for-each select="contexts/context">
+                <excav:hasContext rdf:resource="{concat($excavationUri, '/context/', @id)}"/>
+            </xsl:for-each>
+        </rdf:Description>
+        
+        <!-- Location -->
+        <xsl:if test="location">
+            <rdf:Description rdf:about="{concat($excavationUri, '/location/', location/@id)}">
+                <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Location"/>
+                
+                <xsl:if test="location/name">
+                    <dbo:informationName rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                        <xsl:value-of select="location/name"/>
+                    </dbo:informationName>
+                </xsl:if>
+                
+                <xsl:if test="location/district">
+                    <dbo:District rdf:resource="{concat('http://dbpedia.org/resource/', translate(location/district, ' ', '_'))}"/>
+                </xsl:if>
+                
+                <xsl:if test="location/parish">
+                    <dbo:Parish rdf:resource="{concat('http://dbpedia.org/resource/', translate(location/parish, ' ', '_'))}"/>
+                </xsl:if>
+                
+                <xsl:if test="location/country">
+                    <dbo:Country rdf:resource="{concat('http://dbpedia.org/resource/', translate(location/country, ' ', '_'))}"/>
+                </xsl:if>
+                
+                <xsl:if test="location/gpsCoordinates">
+                    <excav:hasGPSCoordinates rdf:resource="{concat($excavationUri, '/gps/', location/@id, '-gps')}"/>
+                </xsl:if>
+            </rdf:Description>
+        </xsl:if>
+        
+        <!-- GPS Coordinates -->
+        <xsl:if test="location/gpsCoordinates">
+            <rdf:Description rdf:about="{concat($excavationUri, '/gps/', location/@id, '-gps')}">
+                <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/GPSCoordinates"/>
+                <geo:lat rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
+                    <xsl:value-of select="location/gpsCoordinates/latitude"/>
+                </geo:lat>
+                <geo:long rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
+                    <xsl:value-of select="location/gpsCoordinates/longitude"/>
+                </geo:long>
+            </rdf:Description>
+        </xsl:if>
+        
+        <!-- District Type Declaration -->
+        <xsl:if test="location/district">
+            <rdf:Description rdf:about="{concat('http://dbpedia.org/resource/', translate(location/district, ' ', '_'))}">
+                <rdf:type rdf:resource="http://dbpedia.org/ontology/District"/>
+            </rdf:Description>
+        </xsl:if>
+        
+        <!-- Parish Type Declaration -->
+        <xsl:if test="location/parish">
+            <rdf:Description rdf:about="{concat('http://dbpedia.org/resource/', translate(location/parish, ' ', '_'))}">
+                <rdf:type rdf:resource="http://dbpedia.org/ontology/Parish"/>
+            </rdf:Description>
+        </xsl:if>
+        
+        <!-- Archaeologist -->
+        <xsl:if test="archaeologist">
+            <rdf:Description rdf:about="{concat($excavationUri, '/archaeologist/', archaeologist/@id)}">
+                <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Archaeologist"/>
+                
+                <xsl:if test="archaeologist/orcid">
+                    <foaf:account rdf:resource="{archaeologist/orcid}"/>
+                </xsl:if>
+                
+                <xsl:if test="archaeologist/name">
+                    <foaf:name rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                        <xsl:value-of select="archaeologist/name"/>
+                    </foaf:name>
+                </xsl:if>
+                
+                <xsl:for-each select="archaeologist/emails/email">
+                    <foaf:mbox rdf:resource="{.}"/>
+                </xsl:for-each>
+            </rdf:Description>
+        </xsl:if>
+        
+        <!-- Squares -->
+        <xsl:for-each select="squares/square">
+            <rdf:Description rdf:about="{concat($excavationUri, '/square/', @id)}">
+                <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Square"/>
+                
+                <dct:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                    <xsl:value-of select="@id"/>
+                </dct:identifier>
+                
+                <xsl:if test="northSouth">
+                    <geo:long rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
+                        <xsl:value-of select="northSouth"/>
+                    </geo:long>
+                </xsl:if>
+                
+                <xsl:if test="eastWest">
+                    <geo:lat rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
+                        <xsl:value-of select="eastWest"/>
+                    </geo:lat>
+                </xsl:if>
+            </rdf:Description>
+        </xsl:for-each>
+        
+        <!-- Contexts -->
+        <xsl:for-each select="contexts/context">
+            <rdf:Description rdf:about="{concat($excavationUri, '/context/', @id)}">
+                <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Context"/>
+                
+                <dct:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                    <xsl:value-of select="@id"/>
+                </dct:identifier>
+                
+                <xsl:if test="description">
+                    <dct:description rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                        <xsl:value-of select="description"/>
+                    </dct:description>
+                </xsl:if>
+                
+                <!-- Link to SVUs -->
+                <xsl:for-each select="svus/svu">
+                    <excav:hasSVU rdf:resource="{concat($excavationUri, '/svu/', @id)}"/>
+                </xsl:for-each>
+            </rdf:Description>
+        </xsl:for-each>
+        
+        <!-- Stratigraphic Volume Units -->
+        <xsl:for-each select="contexts/context/svus/svu | svus/svu">
+            <rdf:Description rdf:about="{concat($excavationUri, '/svu/', @id)}">
+                <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/StratigraphicVolumeUnit"/>
+                
+                <dct:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                    <xsl:value-of select="@id"/>
+                </dct:identifier>
+                
+                <xsl:if test="description">
+                    <dct:description rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
+                        <xsl:value-of select="description"/>
+                    </dct:description>
+                </xsl:if>
+                
+                <xsl:if test="timeline">
+                    <excav:hasTimeline rdf:resource="{concat($excavationUri, '/timeline/', @id, '-timeline')}"/>
+                </xsl:if>
+            </rdf:Description>
+        </xsl:for-each>
+        
+        <!-- Timelines -->
+        <xsl:for-each select="contexts/context/svus/svu[timeline] | svus/svu[timeline]">
+            <rdf:Description rdf:about="{concat($excavationUri, '/timeline/', @id, '-timeline')}">
+                <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/TimeLine"/>
+                
+                <xsl:if test="timeline/beginning">
+                    <time:hasBeginning rdf:resource="{concat($excavationUri, '/instant/', @id, '-beginning')}"/>
+                </xsl:if>
+                
+                <xsl:if test="timeline/end">
+                    <time:hasEnd rdf:resource="{concat($excavationUri, '/instant/', @id, '-end')}"/>
+                </xsl:if>
+            </rdf:Description>
+        </xsl:for-each>
+        
+        <!-- Time Instants - Beginning -->
+        <xsl:for-each select="contexts/context/svus/svu[timeline/beginning] | svus/svu[timeline/beginning]">
+            <rdf:Description rdf:about="{concat($excavationUri, '/instant/', @id, '-beginning')}">
+                <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Instant"/>
+                
+                <excav:bcad rdf:resource="{concat('https://purl.org/megalod/kos/MegaLOD-BCAD/', timeline/beginning/era)}"/>
+                
+                <time:inXSDgYear rdf:datatype="http://www.w3.org/2001/XMLSchema#gYear">
+                    <xsl:choose>
+                        <xsl:when test="timeline/beginning/era = 'BC'">
+                            <xsl:value-of select="concat('-', format-number(timeline/beginning/year, '0000'))"/>
+                        </xsl:when>
+                        <xsl:otherwise>
+                            <xsl:value-of select="format-number(timeline/beginning/year, '0000')"/>
+                        </xsl:otherwise>
+                    </xsl:choose>
+                </time:inXSDgYear>
+            </rdf:Description>
+        </xsl:for-each>
+        
+        <!-- Time Instants - End -->
+        <xsl:for-each select="contexts/context/svus/svu[timeline/end] | svus/svu[timeline/end]">
+            <rdf:Description rdf:about="{concat($excavationUri, '/instant/', @id, '-end')}">
+                <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Instant"/>
+                
+                <excav:bcad rdf:resource="{concat('https://purl.org/megalod/kos/MegaLOD-BCAD/', timeline/end/era)}"/>
+                
+                <time:inXSDgYear rdf:datatype="http://www.w3.org/2001/XMLSchema#gYear">
+                    <xsl:choose>
+                        <xsl:when test="timeline/end/era = 'BC'">
+                            <xsl:value-of select="concat('-', format-number(timeline/end/year, '0000'))"/>
+                        </xsl:when>
+                        <xsl:otherwise>
+                            <xsl:value-of select="format-number(timeline/end/year, '0000')"/>
+                        </xsl:otherwise>
+                    </xsl:choose>
+                </time:inXSDgYear>
+            </rdf:Description>
+        </xsl:for-each>
+    </xsl:template>
+</xsl:stylesheet>

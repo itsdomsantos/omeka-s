@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<excavations>
+    <excavation id="alto-castelinho-2024">
+        <!-- Location Information -->
+        <location id="alto-castelinho">
+            <name>Alto do Castelinho Archaeological Site</name>
+            <district>Porto</district>
+            <parish>Penafiel</parish>
+            <country>Portugal</country>
+            <gpsCoordinates>
+                <latitude>41.2081</latitude>
+                <longitude>-8.6150</longitude>
+            </gpsCoordinates>
+        </location>
+        
+        <!-- Archaeologist Information -->
+        <archaeologist id="maria-santos">
+            <orcid>https://orcid.org/0000-0002-1234-5678</orcid>
+            <name>Dr. Maria Santos</name>
+            <emails>
+                <email>mailto:maria.santos@univ.pt</email>
+                <email>mailto:m.santos@archaeology.pt</email>
+            </emails>
+        </archaeologist>
+        
+        <!-- Excavation Squares -->
+        <squares>
+            <square id="A1">
+                <eastWest>100.50</eastWest>
+                <northSouth>50.25</northSouth>
+            </square>
+            <square id="A2">
+                <eastWest>101.50</eastWest>
+                <northSouth>51.25</northSouth>
+            </square>
+            <square id="B1">
+                <eastWest>102.00</eastWest>
+                <northSouth>52.75</northSouth>
+            </square>
+        </squares>
+        
+        <!-- Archaeological Contexts -->
+        <contexts>
+            <context id="CTX-001">
+                <description>Bronze Age occupation layer with lithic remains and hearth structures</description>
+                <svus>
+                    <svu id="Layer-02">
+                        <description>Bronze Age occupation layer with lithic remains and hearth structures</description>
+                        <timeline>
+                            <beginning>
+                                <year>1500</year>
+                                <era>BC</era>
+                            </beginning>
+                            <end>
+                                <year>1200</year>
+                                <era>BC</era>
+                            </end>
+                        </timeline>
+                    </svu>
+                    <svu id="Layer-03">
+                        <description>Late Bronze Age refuse pit with ceramic and lithic material</description>
+                        <timeline>
+                            <beginning>
+                                <year>1200</year>
+                                <era>BC</era>
+                            </beginning>
+                            <end>
+                                <year>1000</year>
+                                <era>BC</era>
+                            </end>
+                        </timeline>
+                    </svu>
+                </svus>
+            </context>
+            
+            <context id="CTX-002">
+                <description>Early Bronze Age workshop area</description>
+                <svus>
+                    <svu id="Layer-04">
+                        <description>Early Bronze Age workshop area with debitage and tools</description>
+                        <timeline>
+                            <beginning>
+                                <year>1800</year>
+                                <era>BC</era>
+                            </beginning>
+                            <end>
+                                <year>1500</year>
+                                <era>BC</era>
+                            </end>
+                        </timeline>
+                    </svu>
+                </svus>
+            </context>
+        </contexts>
+    </excavation>
+    
+    <!-- Additional excavation example -->
+    <excavation id="monte-da-cerca-2023">
+        <location id="monte-da-cerca">
+            <name>Monte da Cerca Archaeological Site</name>
+            <district>Braga</district>
+            <parish>Esposende</parish>
+            <country>Portugal</country>
+            <gpsCoordinates>
+                <latitude>41.5320</latitude>
+                <longitude>-8.7810</longitude>
+            </gpsCoordinates>
+        </location>
+        
+        <archaeologist id="joao-silva">
+            <orcid>https://orcid.org/0000-0003-5678-9012</orcid>
+            <name>Dr. João Silva</name>
+            <emails>
+                <email>mailto:joao.silva@archaeology.pt</email>
+            </emails>
+        </archaeologist>
+        
+        <squares>
+            <square id="C1">
+                <eastWest>200.75</eastWest>
+                <northSouth>150.25</northSouth>
+            </square>
+            <square id="C2">
+                <eastWest>201.75</eastWest>
+                <northSouth>151.25</northSouth>
+            </square>
+            <square id="D1">
+                <eastWest>202.25</eastWest>
+                <northSouth>152.50</northSouth>
+            </square>
+        </squares>
+        
+        <contexts>
+            <context id="CTX-003">
+                <description>Neolithic settlement layer</description>
+                <svus>
+                    <svu id="Layer-05">
+                        <description>Neolithic domestic area with pottery and stone tools</description>
+                        <timeline>
+                            <beginning>
+                                <year>3500</year>
+                                <era>BC</era>
+                            </beginning>
+                            <end>
+                                <year>2500</year>
+                                <era>BC</era>
+                            </end>
+                        </timeline>
+                    </svu>
+                    <svu id="Layer-06">
+                        <description>Late Neolithic ritual deposit</description>
+                        <timeline>
+                            <beginning>
+                                <year>2800</year>
+                                <era>BC</era>
+                            </beginning>
+                            <end>
+                                <year>2500</year>
+                                <era>BC</era>
+                            </end>
+                        </timeline>
+                    </svu>
+                </svus>
+            </context>
+            
+            <context id="CTX-004">
+                <description>Chalcolithic occupation layer</description>
+                <svus>
+                    <svu id="Layer-07">
+                        <description>Chalcolithic metallurgy workshop</description>
+                        <timeline>
+                            <beginning>
+                                <year>2500</year>
+                                <era>BC</era>
+                            </beginning>
+                            <end>
+                                <year>2000</year>
+                                <era>BC</era>
+                            </end>
+                        </timeline>
+                    </svu>
+                </svus>
+            </context>
+        </contexts>
+    </excavation>
+</excavations>

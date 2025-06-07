@@ -2059,6 +2059,7 @@ private function getExcavationLocationUri($excavationId, $itemSetId = null) {
                 $rdfXmlData = $this->xmlParser($file);
                 if (is_string($rdfXmlData) && strpos($rdfXmlData, 'Failed') === false) {
                     $ttlData = $this->xmlTtlConverter($rdfXmlData);
+                    error_log('ttl data: ' . $ttlData, 3, OMEKA_PATH . '/logs/file-upload.log');
                 } else {
                     throw new \Exception('Failed to process XML file: ' . $rdfXmlData);
                 }
@@ -2480,224 +2481,339 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
     error_log('Data validation passed: ' . ($isExcavation ? 'Excavation' : 'Arrowhead'), 3, OMEKA_PATH . '/logs/validation.log');
 }
 
-    public function xmlParser($file)
-    {
-        // Determine which XSLT to use based on the file content
-        $xmlContent = file_get_contents($file['tmp_name']);
-        if (strpos($xmlContent, '<item id="AH') !== false) {
-            $xsltPath = OMEKA_PATH . '/modules/AddTriplestore/asset/xlst/xlst.xml'; // Arrowhead XSLT
-        } elseif (strpos($xmlContent, '<Excavation') !== false) {
-            $xsltPath = OMEKA_PATH . '/modules/AddTriplestore/asset/xlst/excavationXlst.xml'; // Excavation XSLT
-
-        } else {
-            error_log('Could not determine XML type for XSLT selection.');
-            return 'Could not determine XML type'; // Or throw an exception
-        }
-
-        // load xsml file
-        $xslt = new \DOMDocument();
-        // failed to load xsml file
-        if (!$xslt->load($xsltPath)) {
-            error_log('Failed to load xsml file: ' . $xsltPath);
-            return 'Failed to load xsml file';
-        }
-
-        // Load the uploaded XML file into a DOMDocument
-        $auxFile = new \DOMDocument();
-        if (!$auxFile->load($file['tmp_name'])) {
-            error_log('Failed to load xml file');
-            return 'Failed to load xml file';
-        }
-
-        // convert xlm to xlm rdf
-        $convert = new \XSLTProcessor();
-        $convert->importStylesheet($xslt);
-        $rdfXmlConverted = $convert->transformToXML($auxFile);
-
-        // check if conversion fail
-        if (!$rdfXmlConverted) {
-            error_log('Failed to convert xml to rdf xml');
-            return 'Failed to convert xml to rdf xml';
-        }
-
-        error_log($rdfXmlConverted, 3, OMEKA_PATH . '/logs/rdf-xml-finsal.log');
-        return $rdfXmlConverted;
-    }
-
-    public function xmlTtlConverter($rdfXmlData)
+public function xmlParser($file)
 {
-    error_log('Converting RDF-XML to TTL');
-
-    $rdfGraph = new Graph();
-    $rdfGraph->parse($rdfXmlData, 'rdfxml');
-
-    error_log('RDF-XML data loaded into graph');
-
-    $ttlData = $rdfGraph->serialise('turtle');
-
-    error_log('RDF-XML data converted to TTL');
-
-    $ttlData = $this->addPrefixesToTTL($ttlData, [
-        'ah' => 'http://www.purl.com/ah/ms/ahMS#',
-        'ah-shape' => 'http://www.purl.com/ah/kos/ah-shape/',
-        'ah-variant' => 'http://www.purl.com/ah/kos/ah-variant/',
-        'ah-base' => 'http://www.purl.com/ah/kos/ah-base/',
-        'ah-chippingMode' => 'http://www.purl.com/ah/kos/ah-chippingMode/',
-        'ah-chippingDirection' => 'http://www.purl.com/ah/kos/ah-chippingDirection/',
-        'ah-chippingDelineation' => 'http://www.purl.com/ah/kos/ah-chippingDelineation/',
-        'ah-chippingLocation' => 'http://www.purl.com/ah/kos/ah-chippingLocation/',
-        'ah-chippingShape' => 'http://www.purl.com/ah/kos/ah-chippingShape/',
-        'crm' => 'http://www.cidoc-crm.org/cidoc-crm/',
-        'rdf' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
-        'xsd' => 'http://www.w3.org/2001/XMLSchema#',
-        'rdfs' => 'http://www.w3.org/2000/01/rdf-schema#',
-        'owl' => 'http://www.w3.org/2002/07/owl#',
-        'skos' => 'http://www.w3.org/2004/02/skos/core#',
-        'dc' => 'http://purl.org/dc/elements/1.1/',
-        'dcterms' => 'http://purl.org/dc/terms/',
-        'foaf' => 'http://xmlns.com/foaf/0.1/',
-        'ah-vocab' => 'http://www.purl.com/ah/kos#',
-        'excav' => 'https://purl.org/ah/ms/excavationMS#', // Corrected namespace
-        'dct' => 'http://purl.org/dc/terms/',
-        'schema' => 'http://schema.org/',
-        'voaf' => 'http://purl.org/vocommons/voaf#',
-        'vann' => 'http://purl.org/vocab/vann/',
-        'dbo' => 'http://dbpedia.org/ontology/',
-        'time' => 'http://www.w3.org/2006/time#',
-        'edm' => 'http://www.europeana.eu/schemas/edm#',
-        'dul' => 'http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#',
-        'crmsci' => 'https://cidoc-crm.org/extensions/crmsci/',
-        'crmarchaeo' => 'http://www.cidoc-crm.org/extensions/crmarchaeo/',
-        'geo' => 'http://www.w3.org/2003/01/geo/wgs84_pos#',
-        'sh' => 'http://www.w3.org/ns/shacl#',
-    ]);
-
+    error_log('Starting XML parsing with enhanced processor');
     
-    $ttlData = preg_replace_callback(
-        '/time:inXSDYear "(-?\d+)"\^\^xsd:gYear/',
-        function($matches) {
-            $year = str_replace('-', '', $matches[1]);
-            return 'time:inXSDYear "' . $year . '"^^xsd:gYear';
-        },
-        $ttlData
-    );
-
-    // Fix boolean values
-    $ttlData = str_replace('"true"', 'true', $ttlData);
-    $ttlData = str_replace('"false"', 'false', $ttlData);
+    // Determine which XSLT to use based on the file content
+    $xmlContent = file_get_contents($file['tmp_name']);
     
-    $ttlData = preg_replace_callback(
-        '/time:inXSDYear "(-?\d+)"\^\^xsd:gYear/',
-        function($matches) {
-            $year = str_replace('-', '', $matches[1]);
-            return 'time:inXSDYear "' . $year . '"^^xsd:gYear';
-        },
-        $ttlData
-    );
-
-    // Fix the instant URIs to match what the SHACL shapes expect
-    //$ttlData = str_replace('excav:Instant_LowerBound_', 'excav:Instant_Lower_', $ttlData);
-    //$ttlData = str_replace('excav:Instant_UpperBound_',  'excav:Instant_Upper_', $ttlData);
-
-    
-    // Determine if this is excavation data
-    if (strpos($ttlData, 'crmarchaeo:A9_Archaeological_Excavation') !== false) {
-        $patterns = [
-            '/<http:\/\/www\.cidoc-crm\.org\/extensions\/crmarchaeo\/A9_Archaeological_Excavation>/' => 'crmarchaeo:A9_Archaeological_Excavation',
-            '/<http:\/\/www\.cidoc-crm\.org\/extensions\/crmarchaeo\/A1_Excavation_Processing_Unit>/' => 'crmarchaeo:A1_Excavation_Processing_Unit',
-            '/<http:\/\/www\.cidoc-crm\.org\/extensions\/crmarchaeo\/A2_Stratigraphic_Volume_Unit>/' => 'crmarchaeo:A2_Stratigraphic_Volume_Unit',
-            '/<dcterms:identifier>([^<]+)<\/dcterms:identifier>/' => 'dcterms:identifier "$1";',
-            '/<dul:hasLocation rdf:resource="([^"]+)"\/>/' => 'dul:hasLocation <$1>;',
-            '/<crmarchaeo:A9_Archaeological_Excavation rdf:about="([^"]+)"\/>/' => 'crmarchaeo:A9_Archaeological_Excavation <$1>;',
-            '/<excav:ArchaeologistShape rdf:resource="([^"]+)"\/>/' => 'excav:ArchaeologistShape <$1>;',
-            '/<excav:hasContext rdf:resource="([^"]+)"\/>/' => 'excav:hasContext <$1>;',
-            '/foaf:account "([^"]+)"/' => 'foaf:account "$1"^^xsd:anyURI;',
-            '/<foaf:name>([^<]+)<\/foaf:name>/' => 'foaf:name "$1";',
-            '/foaf:mbox "([^"]+)"/' => 'foaf:mbox "$1"^^xsd:anyURI',
-            '/<excav:hasSVU rdf:resource="([^"]+)"\/>/' => 'excav:hasSVU <$1>;',
-            '/<dcterms:description>([^<]+)<\/dcterms:description>/' => 'dcterms:description "$1";',
-            '/<excav:hasTimeLine rdf:resource="([^"]+)"\/>/' => 'excav:hasTimeLine <$1>;',
-            '/<dbo:informationName>([^<]+)<\/dbo:informationName>/' => 'dbo:informationName "$1";',
-            '/excav:Archaeologist /' => 'a excav:Archaeologist;',
-            '/excav:excavation_/' => 'a excav:Excavation;',
-            '/<excav:foundInAContext rdf:resource="([^"]+)"\/>/' => 'excav:foundInAContext <$1>;',
-            '/<excav:hasGPSCoordinates rdf:resource="([^"]+)"\/>/' => 'excav:hasGPSCoordinates <$1>;',
-            '/<geo:lat rdf:datatype="[^"]+">([^<]+)<\/geo:lat>/' => 'geo:lat "$1"^^xsd:decimal;',
-            '/<geo:long rdf:datatype="[^"]+">([^<]+)<\/geo:long>/' => 'geo:long "$1"^^xsd:decimal;',
-            '/<time:hasBeginning rdf:resource="([^"]+)"\/>/' => 'time:hasBeginning <$1>;',
-            '/<time:hasEnd rdf:resource="([^"]+)"\/>/' => 'time:hasEnd <$1>;',
-            '/<time:inXSDYear rdf:datatype="[^"]+">([^<]+)<\/time:inXSDYear>/' => 'time:inXSDYear "$1"^^xsd:gYear;',
-            '/<excav:bc rdf:datatype="[^"]+">([^<]+)<\/excav:bc>/' => 'excav:bc $1;',
-            '/<dcterms:date rdf:datatype="[^"]+">([^<]+)<\/dcterms:date>/' => 'dcterms:date "$1"^^xsd:date;',
-            '/<dbo:depth rdf:datatype="[^"]+">([^<]+)<\/dbo:depth>/' => 'dbo:depth "$1"^^xsd:decimal;',
-            '/<dbo:District rdf:resource="([^"]+)"\/>/' => 'dbo:District <$1>;',
-            '/<dbo:Parish rdf:resource="([^"]+)"\/>/' => 'dbo:Parish <$1>;',
-            '/\s*rdf:about="([^"]+)"/' => '',
-            '/\s*rdf:resource="([^"]+)"/' => '',
-            '/\s*rdf:datatype="[^"]+"/' => '',
-            '/<\?xml[^>]+\?>/' => '',
-            '/<rdf:RDF[^>]*>/' => '',
-            '/<\/rdf:RDF>/' => '',
-        ];
+    // More robust detection
+    if (strpos($xmlContent, '<item id="AH') !== false || 
+        strpos($xmlContent, 'arrowhead') !== false ||
+        strpos($xmlContent, '<ah:') !== false) {
+        $xsltPath = OMEKA_PATH . '/modules/AddTriplestore/asset/xlst/xlst.xml'; // Arrowhead XSLT
+        error_log('Detected arrowhead XML');
+    } elseif (strpos($xmlContent, '<Excavation') !== false || 
+              strpos($xmlContent, 'excavation') !== false ||
+              strpos($xmlContent, '<excav:') !== false) {
+        $xsltPath = OMEKA_PATH . '/modules/AddTriplestore/asset/xlst/excavationXlst.xml'; // Excavation XSLT
+        error_log('Detected excavation XML');
     } else {
-        $patterns = [
-            '/<ah:shape>([^<]+)<\/ah:shape>/' => 'ah:shape <ah-shape:$1>;',
-            '/<ah:variant>([^<]+)<\/ah:variant>/' => 'ah:variant <ah-variant:$1>;',
-            '/<crm:E57_Material>([^<]+)<\/crm:E57_Material>/' => 'crm:E57_Material <$1>;',
-            '/<ah:foundInCoordinates rdf:resource="([^"]+)"\/>/' => 'ah:foundInCoordinates <$1>;',
-            '/<ah:hasMorphology rdf:resource="([^"]+)"\/>/' => 'ah:hasMorphology <$1>;',
-            '/<ah:hasTypometry rdf:resource="([^"]+)"\/>/' => 'ah:hasTypometry <$1>;',
-            '/<ah:point>([^<]+)<\/ah:point>/' => 'ah:point "$1";',
-            '/<ah:body>([^<]+)<\/ah:body>/' => 'ah:body "$1";',
-            '/<ah:base>([^<]+)<\/ah:base>/' => 'ah:base <ah-base:$1>;',
-            '/<crm:E54_Dimension>([^<]+)<\/crm:E54_Dimension>/' => 'crm:E54_Dimension "$1"^^xsd:decimal;',
-            '/<ah:hasChipping rdf:resource="([^"]+)"\/>/' => 'ah:hasChipping <$1>;',
-            '/<ah:mode>([^<]+)<\/ah:mode>/' => 'ah:mode <ah-chippingMode:$1>;',
-            '/<ah:amplitude>([^<]+)<\/ah:amplitude>/' => 'ah:amplitude "$1";',
-            '/<ah:direction>([^<]+)<\/ah:direction>/' => 'ah:direction <ah-chippingDirection:$1>;',
-            '/<ah:orientation>([^<]+)<\/ah:orientation>/' => 'ah:orientation "$1";',
-            '/<ah:dileneation>([^<]+)<\/ah:dileneation>/' => 'ah:dileneation <ah-chippingDelineation:$1>;',
-            '/<ah:chippinglocation-Lateral>([^<]+)<\/ah:chippinglocation-Lateral>/' => 'ah:chippinglocation-Lateral <ah-chippingLocation:$1>;',
-            '/<ah:chippingLocation-Transversal>([^<]+)<\/ah:chippingLocation-Transversal>/' => 'ah:chippingLocation-Transversal <ah-chippingLocation:$1>;',
-            '/<ah:chippingShape>([^<]+)<\/ah:chippingShape>/' => 'ah:chippingShape <ah-chippingShape:$1>;',
-            '/<dcterms:identifier>([^<]+)<\/dcterms:identifier>/' => 'dcterms:identifier "$1";',
-            '/<edm:Webresource>([^<]+)<\/edm:Webresource>/' => 'edm:Webresource <$1>;',
-            '/<dbo:Annotation>([^<]+)<\/dbo:Annotation>/' => 'dbo:Annotation "$1";',
-            '/<crm:E3_Condition_State>([^<]+)<\/crm:E3_Condition_State>/' => 'crm:E3_Condition_State "$1";',
-            '/<crm:E55_Type>([^<]+)<\/crm:E55_Type>/' => 'crm:E55_Type "$1";',
-            '/<geo:lat>([^<]+)<\/geo:lat>/' => 'geo:lat "$1"^^xsd:decimal;',
-            '/<geo:long>([^<]+)<\/geo:long>/' => 'geo:long "$1"^^xsd:decimal;',
-        ];
+        error_log('Could not determine XML type for XSLT selection.');
+        return 'Could not determine XML type';
     }
-    foreach ($patterns as $pattern => $replacement) {
+
+    // Validate XSLT file exists
+    if (!file_exists($xsltPath)) {
+        error_log('XSLT file not found: ' . $xsltPath);
+        return 'XSLT file not found';
+    }
+
+    // Load XSLT file
+    $xslt = new \DOMDocument();
+    $xslt->load($xsltPath);
+
+    // Load the uploaded XML file into a DOMDocument
+    $xmlDoc = new \DOMDocument();
+    if (!$xmlDoc->load($file['tmp_name'])) {
+        error_log('Failed to load XML file');
+        return 'Failed to load XML file';
+    }
+
+    // Apply XSLT transformation
+    $processor = new \XSLTProcessor();
+    $processor->importStylesheet($xslt);
+    
+    // Transform to RDF-XML
+    $rdfXmlConverted = $processor->transformToXML($xmlDoc);
+
+    if (!$rdfXmlConverted) {
+        error_log('Failed to convert XML to RDF-XML');
+        return 'Failed to convert XML to RDF-XML';
+    }
+
+    error_log('Successfully converted XML to RDF-XML');
+    return $rdfXmlConverted;
+}
+
+
+
+private function applyExcavationPatterns($ttlData)
+{
+    error_log('Applying excavation-specific patterns');
+    
+    $excavationPatterns = [
+        // UPDATED: Type declarations for excavation entities
+        '/<http:\/\/www\.cidoc-crm\.org\/extensions\/crmarchaeo\/A9_Archaeological_Excavation>/' => 'excav:Excavation',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/Excavation>/' => 'excav:Excavation',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/Location>/' => 'excav:Location',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/Square>/' => 'excav:Square',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/Context>/' => 'excav:Context',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/StratigraphicVolumeUnit>/' => 'excav:StratigraphicVolumeUnit',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/TimeLine>/' => 'excav:TimeLine',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/Instant>/' => 'excav:Instant',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/Archaeologist>/' => 'excav:Archaeologist',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/GPSCoordinates>/' => 'excav:GPSCoordinates',
+        
+        // UPDATED: Property patterns
+        '/<http:\/\/www\.ontologydesignpatterns\.org\/ont\/dul\/DUL\.owl#hasLocation>/' => 'dul:hasLocation',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/hasPersonInCharge>/' => 'excav:hasPersonInCharge',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/hasSquare>/' => 'excav:hasSquare',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/hasContext>/' => 'excav:hasContext',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/hasSVU>/' => 'excav:hasSVU',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/hasTimeline>/' => 'excav:hasTimeline',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/hasGPSCoordinates>/' => 'excav:hasGPSCoordinates',
+        '/<https:\/\/purl\.org\/megalod\/ms\/excavation\/bcad>/' => 'excav:bcad',
+        
+        // UPDATED: Location properties
+        '/<http:\/\/dbpedia\.org\/ontology\/informationName>/' => 'dbo:informationName',
+        '/<http:\/\/dbpedia\.org\/ontology\/District>/' => 'dbo:District',
+        '/<http:\/\/dbpedia\.org\/ontology\/Parish>/' => 'dbo:Parish',
+        '/<http:\/\/dbpedia\.org\/ontology\/Country>/' => 'dbo:Country',
+        
+        // UPDATED: Time properties
+        '/<http:\/\/www\.w3\.org\/2006\/time#hasBeginning>/' => 'time:hasBeginning',
+        '/<http:\/\/www\.w3\.org\/2006\/time#hasEnd>/' => 'time:hasEnd',
+        '/<http:\/\/www\.w3\.org\/2006\/time#inXSDgYear>/' => 'time:inXSDgYear',
+        
+        // UPDATED: FOAF properties for archaeologist
+        '/<http:\/\/xmlns\.com\/foaf\/0\.1\/name>/' => 'foaf:name',
+        '/<http:\/\/xmlns\.com\/foaf\/0\.1\/account>/' => 'foaf:account',
+        '/<http:\/\/xmlns\.com\/foaf\/0\.1\/mbox>/' => 'foaf:mbox',
+        
+        // UPDATED: Fix datatype declarations
+        '/rdf:datatype="http:\/\/www\.w3\.org\/2001\/XMLSchema#gYear"/' => '^^xsd:gYear',
+        '/rdf:datatype="http:\/\/www\.w3\.org\/2001\/XMLSchema#decimal"/' => '^^xsd:decimal',
+        '/rdf:datatype="http:\/\/www\.w3\.org\/2001\/XMLSchema#literal"/' => '^^xsd:literal',
+        
+        // Clean up RDF/XML artifacts
+        '/\s*rdf:about="([^"]+)"/' => '',
+        '/\s*rdf:resource="([^"]+)"/' => ' <$1>',
+        '/<\?xml[^>]+\?>/' => '',
+        '/<rdf:RDF[^>]*>/' => '',
+        '/<\/rdf:RDF>/' => '',
+        '/<rdf:Description[^>]*>/' => '',
+        '/<\/rdf:Description>/' => '',
+    ];
+    
+    foreach ($excavationPatterns as $pattern => $replacement) {
         $ttlData = preg_replace($pattern, $replacement, $ttlData);
     }
-
-
-    // Clean up any empty lines or extra spaces
-    $ttlData = preg_replace("/\n\s*\n/", "\n", $ttlData);
-    $ttlData = trim($ttlData);
-
-     // Fix any remaining issues
-     $ttlData = str_replace('ns0:', 'dul:', $ttlData);
-     $ttlData = str_replace('ns1:', 'excav:', $ttlData);
-     $ttlData = str_replace('ns2:', 'dbo:', $ttlData);
-     $ttlData = str_replace('ns3:', 'crmsci:', $ttlData);
-
-    error_log("Cleaned TTL: " . $ttlData, 3, OMEKA_PATH . '/logs/cleaned-ttl.log');
+    
     return $ttlData;
 }
 
-    private function addPrefixesToTTL($ttlData, $prefixes)
-    {
-        $prefixLines = '';
-        foreach ($prefixes as $prefix => $iri) {
-            $prefixLines .= "@prefix $prefix: <$iri>.\n";
-            // log here
-            error_log("Adding prefix: $prefix: <$iri>");
+
+
+
+/**
+ * Enhanced XML to TTL conversion methods
+ * Add these methods to your IndexController class
+ */
+
+public function xmlTtlConverter($rdfXmlData)
+{
+    error_log('Converting RDF-XML to TTL with enhanced processing');
+
+    // Clean the RDF-XML first
+    $cleanedRdfXml = $this->cleanRdfXmlNamespaces($rdfXmlData);
+    
+    $rdfGraph = new \EasyRdf\Graph();
+    $rdfGraph->parse($cleanedRdfXml, 'rdfxml');
+
+    error_log('RDF-XML data loaded into graph');
+
+    // Get TTL with proper prefixes
+    $ttlData = $rdfGraph->serialise('turtle');
+    
+    // Apply comprehensive cleanup
+    $cleanTtl = $this->cleanupTtlOutput($ttlData);
+    
+    error_log('RDF-XML data converted to clean TTL');
+
+    return $cleanTtl;
+}
+
+private function cleanRdfXmlNamespaces($rdfXmlData)
+{
+    // Define the namespace mappings we want
+    $namespaces = [
+        'rdf' => 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
+        'rdfs' => 'http://www.w3.org/2000/01/rdf-schema#', 
+        'sh' => 'http://www.w3.org/ns/shacl#',
+        'xsd' => 'http://www.w3.org/2001/XMLSchema#',
+        'skos' => 'http://www.w3.org/2004/02/skos/core#',
+        'dct' => 'http://purl.org/dc/terms/',
+        'foaf' => 'http://xmlns.com/foaf/0.1/',
+        'dbo' => 'http://dbpedia.org/ontology/',
+        'crm' => 'http://www.cidoc-crm.org/cidoc-crm/',
+        'crmsci' => 'http://cidoc-crm.org/extensions/crmsci/',
+        'crmarchaeo' => 'http://www.cidoc-crm.org/extensions/crmarchaeo/',
+        'edm' => 'http://www.europeana.eu/schemas/edm/',
+        'geo' => 'http://www.w3.org/2003/01/geo/wgs84_pos#',
+        'time' => 'http://www.w3.org/2006/time#',
+        'schema' => 'http://schema.org/',
+        'ah' => 'https://purl.org/megalod/ms/ah/',
+        'excav' => 'https://purl.org/megalod/ms/excavation/',
+        'dul' => 'http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#'
+        
+
+    ];
+    
+    // Create a DOMDocument to properly handle namespaces
+    $dom = new \DOMDocument();
+    $dom->loadXML($rdfXmlData);
+    
+    // Set proper namespace declarations on root element
+    $root = $dom->documentElement;
+    if ($root) {
+        foreach ($namespaces as $prefix => $namespace) {
+            $root->setAttributeNS('http://www.w3.org/2000/xmlns/', "xmlns:$prefix", $namespace);
         }
-        return $prefixLines . $ttlData;
     }
+    
+    return $dom->saveXML();
+}
+
+private function cleanupTtlOutput($ttlData)
+{
+    // Remove auto-generated namespace prefixes and replace with our clean ones
+    $cleanTtl = $this->getTtlPrefixes();
+    
+    // Remove existing @prefix lines from the TTL
+    $lines = explode("\n", $ttlData);
+    $contentLines = [];
+    
+    foreach ($lines as $line) {
+        $trimmed = trim($line);
+        if (!empty($trimmed) && strpos($trimmed, '@prefix') !== 0) {
+            $contentLines[] = $line;
+        }
+    }
+    
+    $content = implode("\n", $contentLines);
+    
+    // Apply namespace replacements
+    $content = $this->replaceNamespacePrefixes($content);
+    
+    // Apply specific TTL formatting improvements
+    $content = $this->applyTtlFormatting($content);
+    
+    return $cleanTtl . "\n" . $content;
+}
+
+private function replaceNamespacePrefixes($content)
+{
+    // Replace auto-generated prefixes with our clean ones
+    $replacements = [
+        '/ns0:/' => 'ah:',
+        '/ns1:/' => 'excav:',
+        '/ns2:/' => 'dct:',
+        '/ns3:/' => 'foaf:',
+        '/ns4:/' => 'dbo:',
+        '/ns5:/' => 'crm:',
+        '/ns6:/' => 'crmsci:',
+        '/ns7:/' => 'edm:',
+        '/ns8:/' => 'geo:',
+        '/ns9:/' => 'time:',
+        '/ns10:/' => 'schema:',
+        '/ns11:/' => 'dul:',
+        '/ns12:/' => 'rdfs:',
+        '/ns13:/' => 'xsd:',
+        '/ns14:/' => 'rdf:',
+        // Add more as needed based on your namespace usage
+    ];
+    
+    foreach ($replacements as $pattern => $replacement) {
+        $content = preg_replace($pattern, $replacement, $content);
+    }
+    
+    // Replace common URI patterns with prefixed versions
+    $uriReplacements = [
+        '<https://purl.org/megalod/ms/ah/' => '<ah:',
+        '<https://purl.org/megalod/ms/excavation/' => '<excav:',
+        '<http://purl.org/dc/terms/' => '<dct:',
+        '<http://xmlns.com/foaf/0.1/' => '<foaf:',
+        '<http://dbpedia.org/ontology/' => '<dbo:',
+        '<http://www.cidoc-crm.org/cidoc-crm/' => '<crm:',
+        '<http://cidoc-crm.org/extensions/crmsci/' => '<crmsci:',
+        '<http://www.europeana.eu/schemas/edm/' => '<edm:',
+        '<http://www.w3.org/2003/01/geo/wgs84_pos#' => '<geo:',
+        '<http://www.w3.org/2006/time#' => '<time:',
+        '<http://schema.org/' => '<schema:',
+        '<http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#' => '<dul:',
+        '<http://www.w3.org/1999/02/22-rdf-syntax-ns#' => '<rdf:',
+        '<http://www.w3.org/2001/XMLSchema#' => '<xsd:'
+    ];
+    
+    foreach ($uriReplacements as $uri => $prefix) {
+        $content = str_replace($uri, $prefix, $content);
+    }
+    
+    return $content;
+}
+
+private function applyTtlFormatting($content)
+{
+    // Fix boolean values
+    $content = preg_replace('/"true"\^\^xsd:boolean/', 'true', $content);
+    $content = preg_replace('/"false"\^\^xsd:boolean/', 'false', $content);
+    
+    // Clean up datatype declarations that are redundant
+    $content = preg_replace('/"\^\^xsd:literal/', '"^^xsd:literal', $content);
+    
+    // Ensure proper KOS URI formatting
+    $content = $this->fixKosUris($content);
+    
+    // Fix year formatting
+    $content = preg_replace_callback(
+        '/time:inXSDgYear "(-?\d+)"\^\^xsd:gYear/',
+        function($matches) {
+            $year = $matches[1];
+            // Ensure proper formatting
+            if (strpos($year, '-') === 0) {
+                $year = str_replace('-', '', $year);
+                $year = '-' . str_pad($year, 4, '0', STR_PAD_LEFT);
+            } else {
+                $year = str_pad($year, 4, '0', STR_PAD_LEFT);
+            }
+            return 'time:inXSDgYear "' . $year . '"^^xsd:gYear';
+        },
+        $content
+    );
+    
+    // Fix closing angle brackets for URIs
+    $content = str_replace('>', '>', $content);
+    
+    return $content;
+}
+
+private function fixKosUris($content)
+{
+    // Ensure KOS URIs use the correct format
+    $kosPatterns = [
+        '/ah-shape:(\w+)/' => '<https://purl.org/megalod/kos/ah-shape/$1>',
+        '/ah-variant:(\w+)/' => '<https://purl.org/megalod/kos/ah-variant/$1>',
+        '/ah-base:(\w+)/' => '<https://purl.org/megalod/kos/ah-base/$1>',
+        '/ah-chippingMode:(\w+)/' => '<https://purl.org/megalod/kos/ah-chippingMode/$1>',
+        '/ah-chippingDirection:(\w+)/' => '<https://purl.org/megalod/kos/ah-chippingDirection/$1>',
+        '/ah-chippingDelineation:(\w+)/' => '<https://purl.org/megalod/kos/ah-chippingDelineation/$1>',
+        '/ah-chippingLocation:(\w+)/' => '<https://purl.org/megalod/kos/ah-chippingLocation/$1>',
+        '/ah-chippingShape:(\w+)/' => '<https://purl.org/megalod/kos/ah-chippingShape/$1>',
+        '/MegaLOD-IndexElongation:(\w+)/' => '<https://purl.org/megalod/kos/MegaLOD-IndexElongation/$1>',
+        '/MegaLOD-IndexThickness:(\w+)/' => '<https://purl.org/megalod/kos/MegaLOD-IndexThickness/$1>',
+        '/MegaLOD-BCAD:(\w+)/' => '<https://purl.org/megalod/kos/MegaLOD-BCAD/$1>'
+    ];
+    
+    foreach ($kosPatterns as $pattern => $replacement) {
+        $content = preg_replace($pattern, $replacement, $content);
+    }
+    
+    return $content;
+}
+
+
 
     private function sendToGraphDB($data, $excavationId)
 {
@@ -10190,28 +10306,6 @@ private function extractExcavationId($values)
     return 'unknown';
 }
 
-private function addReferencedContextObjects($values)
-{
-    $ttl = "";
-    
-    // Add location object if referenced
-    if (isset($values['excavation:foundInLocation'])) {
-        foreach ($values['excavation:foundInLocation']['values'] as $value) {
-            if ($value->uri()) {
-                $locationUri = $value->uri();
-                $ttl .= "\n# =========== LOCATION ===========\n\n";
-                $ttl .= "<$locationUri> a excav:Location ;\n";
-                $ttl .= "    dbo:informationName \"Alto do Castelinho Archaeological Site\"^^xsd:literal ;\n";
-                $ttl .= "    dbo:District <http://dbpedia.org/resource/Porto> ;\n";
-                $ttl .= "    dbo:Parish <http://dbpedia.org/resource/Penafiel> ;\n";
-                $ttl .= "    dbo:Country <http://dbpedia.org/resource/Portugal> .\n\n";
-                break;
-            }
-        }
-    }
-    
-    return $ttl;
-}
 
 
 private function generateGenericResourceTtlWithOriginalUris($resource, $type)
