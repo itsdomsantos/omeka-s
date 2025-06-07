@@ -47,28 +47,27 @@ class IndexController extends AbstractActionController
     /**
      * Update the getTtlPrefixes function with the new namespace prefixes
      */
-    private function getTtlPrefixes()
-    {
-        return "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n" .
-               "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n" .
-               "@prefix sh: <http://www.w3.org/ns/shacl#> .\n" .
-               "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n" .
-               "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n" .
-               "@prefix dct: <http://purl.org/dc/terms/> .\n" .
-               "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n" .
-               "@prefix dbo: <http://dbpedia.org/ontology/> .\n" .
-               "@prefix dcterms: <http://purl.org/dc/terms/> .\n" . 
-               "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .\n" .
-               "@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .\n" .
-               "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .\n" .
-               "@prefix edm: <http://www.europeana.eu/schemas/edm/> .\n" .
-               "@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .\n" .
-               "@prefix time: <http://www.w3.org/2006/time#> .\n" .
-               "@prefix schema: <http://schema.org/> .\n" .
-               "@prefix ah: <https://purl.org/megalod/ms/ah/> .\n" .
-               "@prefix excav: <https://purl.org/megalod/ms/excavation/> .\n" .
-               "@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .\n\n";
-    }
+private function getTtlPrefixes() 
+{
+    return "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n" .
+           "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n" .
+           "@prefix sh: <http://www.w3.org/ns/shacl#> .\n" .
+           "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n" .
+           "@prefix skos: <http://www.w3.org/2004/02/skos/core#> .\n" .
+           "@prefix dct: <http://purl.org/dc/terms/> .\n" .
+           "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n" .
+           "@prefix dbo: <http://dbpedia.org/ontology/> .\n" .
+           "@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .\n" .
+           "@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .\n" .
+           "@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .\n" .
+           "@prefix edm: <http://www.europeana.eu/schemas/edm/> .\n" .
+           "@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .\n" .
+           "@prefix time: <http://www.w3.org/2006/time#> .\n" .
+           "@prefix schema: <http://schema.org/> .\n" .
+           "@prefix ah: <https://purl.org/megalod/ms/ah/> .\n" .
+           "@prefix excav: <https://purl.org/megalod/ms/excavation/> .\n" .
+           "@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .\n";
+}
     
  
     private function sanitizeForUri($value) {
@@ -2620,7 +2619,10 @@ public function xmlTtlConverter($rdfXmlData)
     
     // ADDED: Explicitly register Dublin Core Terms namespace
     \EasyRdf\RdfNamespace::set('dct', 'http://purl.org/dc/terms/');
-    
+    \EasyRdf\RdfNamespace::set('ah', 'https://purl.org/megalod/ms/ah/');
+    \EasyRdf\RdfNamespace::set('excav', 'https://purl.org/megalod/ms/excavation/');
+    \EasyRdf\RdfNamespace::set('dct', 'http://purl.org/dc/terms/');
+    \EasyRdf\RdfNamespace::set('dul', 'http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#');
     // Clean the RDF-XML first
     $cleanedRdfXml = $this->cleanRdfXmlNamespaces($rdfXmlData);
     error_log('RDF-XML after cleaning: ' . substr($cleanedRdfXml, 0, 1000), 3, OMEKA_PATH . '/logs/namespace-debug.log');
@@ -2715,25 +2717,20 @@ private function cleanupTtlOutput($ttlData)
 
 private function replaceNamespacePrefixes($content)
 {
-    // Replace auto-generated prefixes with our clean ones
-    $replacements = [
-        '/ns0:/' => 'ah:',
-        '/ns1:/' => 'excav:',
-        '/ns2:/' => 'dct:',
-        '/ns3:/' => 'foaf:',
-        '/ns4:/' => 'dbo:',
-        '/ns5:/' => 'crm:',
-        '/ns6:/' => 'crmsci:',
-        '/ns7:/' => 'edm:',
-        '/ns8:/' => 'geo:',
-        '/ns9:/' => 'time:',
-        '/ns10:/' => 'schema:',
-        '/ns11:/' => 'dul:',
-        '/ns12:/' => 'rdfs:',
-        '/ns13:/' => 'xsd:',
-        '/ns14:/' => 'rdf:',
-        // Add more as needed based on your namespace usage
-    ];
+
+    // if is arrowhead, replace ah: with ah-shape:
+    if (strpos($content, 'ah:Arrowhead') !== false || strpos($content, 'excav:Item') !== false) {
+        $replacements = [
+            '/ns0:/' => 'edm:',
+            '/ns1:/' => 'dbo:',
+            '/ns2:/' => 'crm:',
+            // Add more as needed based on your namespace usage
+        ];
+    } else {
+        $replacements = [
+            '/ns0:/' => 'dbo:',
+        ];
+    }
     
     foreach ($replacements as $pattern => $replacement) {
         $content = preg_replace($pattern, $replacement, $content);
@@ -2764,6 +2761,7 @@ private function replaceNamespacePrefixes($content)
     // CRITICAL FIX: Fix Dublin Core namespace issues
     $content = preg_replace('/dc:identifier/', 'dct:identifier', $content);
     $content = preg_replace('/dc:date/', 'dct:date', $content);
+    $content = preg_replace('/dc:description/', 'dct:description', $content);
     
     return $content;
 }

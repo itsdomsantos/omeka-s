@@ -15,7 +15,6 @@
     xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#"
     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
     xmlns:dul="http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#">
-
     <xsl:output method="xml" indent="yes" encoding="UTF-8"/>
 
     <xsl:template match="/">
@@ -124,7 +123,7 @@
                 <excav:foundInExcavation rdf:resource="{context/excavation}"/>
             </xsl:if>
             <xsl:if test="context/location">
-                <dul:foundInLocation rdf:resource="{context/location}"/>
+                <excav:foundInLocation rdf:resource="{context/location}"/>
             </xsl:if>
             <xsl:if test="context/square">
                 <excav:foundInSquare rdf:resource="{context/square}"/>
@@ -160,10 +159,10 @@
             <rdf:Description rdf:about="{concat('https://purl.org/megalod/coordinates/', $itemIdentifier, '-coordinates')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Coordinates"/>
                 <xsl:if test="coordinates/x">
-                    <geo:longitude rdf:resource="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-x')}"/>
+                    <geo:long rdf:resource="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-x')}"/>
                 </xsl:if>
                 <xsl:if test="coordinates/y">
-                    <geo:latitude rdf:resource="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-y')}"/>
+                    <geo:lat rdf:resource="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-y')}"/>
                 </xsl:if>
                 <xsl:if test="coordinates/z">
                     <schema:depth rdf:resource="{concat('https://purl.org/megalod/typometry/', $itemIdentifier, '-z')}"/>

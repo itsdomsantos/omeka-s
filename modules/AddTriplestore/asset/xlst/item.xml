@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <arrowheads>
     <arrowhead id="003">
-        <identifier>ah-020</identifier>
+        <identifier>ah-025</identifier>
         
         <!-- Images/Web Resources -->
         <images>
@@ -88,68 +88,5 @@
         </context>
     </arrowhead>
     
-    <!-- Additional arrowhead example -->
-    <arrowhead id="004">
-        <identifier>ah-021</identifier>
-        
-        <images>
-            <image>https://example.com/images/arrowhead-004.jpg</image>
-        </images>
-        
-        <annotation>Small triangular arrowhead with direct retouch</annotation>
-        <conditionState>broken</conditionState>
-        <date>09-15-2013</date>
-        <material>http://vocab.getty.edu/page/aat/300018143</material>
-        
-        <gpsCoordinates>
-            <latitude>41.2082</latitude>
-            <longitude>-8.6151</longitude>
-        </gpsCoordinates>
-        
-        <coordinates>
-            <x value="22.1" unit="CMT"/>
-            <y value="45.7" unit="CMT"/>
-            <z value="1.2" unit="CMT"/>
-        </coordinates>
-        
-        <measurements>
-            <height value="3.2" unit="CMT"/>
-            <width value="1.8" unit="CMT"/>
-            <thickness value="0.5" unit="CMT"/>
-            <weight value="4.8" unit="GRM"/>
-            <bodyLength value="2.8" unit="CMT"/>
-            <baseLength value="1.2" unit="CMT"/>
-        </measurements>
-        
-        <elongationIndex>Short</elongationIndex>
-        <thicknessIndex>Thin</thicknessIndex>
-        <type>short</type>
-        <shape>triangle</shape>
-        <variant>flat</variant>
-        
-        <morphology>
-            <point>fractured</point>
-            <body>non-symmetrical</body>
-            <base>straight</base>
-        </morphology>
-        
-        <chipping>
-            <mode>plane</mode>
-            <amplitude>marginal</amplitude>
-            <direction>direct</direction>
-            <delineation>continuous</delineation>
-            <locationSide>median</locationSide>
-            <locationTransversal>median</locationTransversal>
-            <orientation>lateral</orientation>
-            <shape>straight</shape>
-        </chipping>
-        
-        <context>
-            <excavation>https://purl.org/megalod/location/alto-castelinho</excavation>
-            <location>https://purl.org/megalod/location/alto-castelinho</location>
-            <square>https://purl.org/megalod/square/A2</square>
-            <contextId>https://purl.org/megalod/context/CTX-001</contextId>
-            <svu>https://purl.org/megalod/svu/Layer-03</svu>
-        </context>
-    </arrowhead>
+
 </arrowheads>
