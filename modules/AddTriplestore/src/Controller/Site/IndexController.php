@@ -3344,56 +3344,47 @@ private function processArrowheadData($rdfData, $subject, &$itemData) {
 
 
 private function extractGPSCoordinates($rdfData, $subject, &$itemData, $currentItemSetId) {
-    error_log('Extracting GPS coordinates for subject: ' . $subject, 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
-    
-    // Get current item set context
-    $currentItemSetId = $this->getCurrentItemSetContext();
-    
-    // Define the URIs to check for GPS coordinates
-    $gpsUris = [
-        'http://www.w3.org/1999/02/22-rdf-syntax-ns#type',
-        'https://purl.org/ah/ms/excavationMS#GPSCoordinates',
-        'excav:GPSCoordinates'
+    // Look for hasGPSCoordinates property first
+    $gpsPropertyUris = [
+        'https://purl.org/megalod/ms/excavation/hasGPSCoordinates',
+        'excav:hasGPSCoordinates'
     ];
     
-    // Scan for GPS coordinate resources
-    foreach ($rdfData as $resourceUri => $properties) {
-        foreach ($gpsUris as $typeUri) {
-            if (isset($properties[$typeUri])) {
-                foreach ($properties[$typeUri] as $typeObj) {
-                    if ($typeObj['value'] === 'excav:GPSCoordinates' || 
-                        strpos($typeObj['value'], 'GPSCoordinates') !== false) {
+    if ($currentItemSetId) {
+        $gpsPropertyUris[] = "https://purl.org/megalod/$currentItemSetId/excavation/hasGPSCoordinates";
+    }
+    
+    foreach ($gpsPropertyUris as $gpsPropertyUri) {
+        if (isset($rdfData[$subject][$gpsPropertyUri])) {
+            foreach ($rdfData[$subject][$gpsPropertyUri] as $gpsObj) {
+                if ($gpsObj['type'] === 'uri' && isset($rdfData[$gpsObj['value']])) {
+                    $gpsUri = $gpsObj['value'];
+                    $coordinates = [];
+                    
+                    if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'])) {
+                        $coordinates['lat'] = $rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'][0]['value'];
+                    }
+                    
+                    if (isset($rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'])) {
+                        $coordinates['long'] = $rdfData[$gpsUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'][0]['value'];
+                    }
+                    
+                    if (!empty($coordinates)) {
+                        $coordStr = "Lat: {$coordinates['lat']}, Long: {$coordinates['long']}";
                         
-                        // Found GPS coordinates resource, extract lat/long
-                        $coordinates = [];
+                        $itemData['GPS Coordinates'][] = [
+                            'type' => 'literal',
+                            'property_id' => 7664,
+                            '@value' => $coordStr
+                        ];
                         
-                        if (isset($properties['http://www.w3.org/2003/01/geo/wgs84_pos#lat'])) {
-                            $coordinates['lat'] = $properties['http://www.w3.org/2003/01/geo/wgs84_pos#lat'][0]['value'];
-                        }
-                        
-                        if (isset($properties['http://www.w3.org/2003/01/geo/wgs84_pos#long'])) {
-                            $coordinates['long'] = $properties['http://www.w3.org/2003/01/geo/wgs84_pos#long'][0]['value'];
-                        }
-                        
-                        if (!empty($coordinates)) {
-                            $coordStr = "Lat: {$coordinates['lat']}, Long: {$coordinates['long']}";
-                            
-                            // Store GPS coordinates in Omeka S format
-                            $itemData['dcterms:spatial'][] = [
-                                'type' => 'literal',
-                                'property_id' => 7664, // Spatial property ID 
-                                '@value' => $coordStr
-                            ];
-                            error_log("Added GPS Coordinates: $coordStr", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
-                            return; // Found and processed coordinates
-                        }
+                        error_log("Added GPS Coordinates: $coordStr", 3, OMEKA_PATH . '/logs/gps-extraction.log');
+                        return;
                     }
                 }
             }
         }
     }
-    
-    error_log("No GPS coordinates found for subject: $subject", 3, OMEKA_PATH . '/logs/arrowhead-enhanced.log');
 }
 
 /**
@@ -4529,34 +4520,26 @@ private function extractEncounterEventData($rdfData, $subject, &$itemData, $curr
     if (!$encounterEventUri) {
         error_log('No encounter event found via property, scanning all resources...', 3, OMEKA_PATH . '/logs/encounter-debug.log');
         
-        foreach ($rdfData as $resourceUri => $properties) {
-            if (isset($properties['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
-                foreach ($properties['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
-                    if ($typeObj['type'] === 'uri' && 
-                        (strpos($typeObj['value'], 'EncounterEvent') !== false ||
-                         $typeObj['value'] === 'https://purl.org/megalod/ms/excavation/EncounterEvent' ||
-                         $typeObj['value'] === 'excav:EncounterEvent')) {
+        foreach ($encounterUris as $uri) {
+            if (isset($rdfData[$subject][$uri])) {
+                foreach ($rdfData[$subject][$uri] as $encounterObj) {
+                    if ($encounterObj['type'] === 'uri') {
+                        $encounterEventUri = $encounterObj['value'];
                         
-                        // Check if this encounter event references our arrowhead
-                        $encounterObjectUris = [
-                            'https://cidoc-crm.org/extensions/crmsci/O19_encountered_object',
-                            'crmsci:O19_encountered_object'
-                        ];
-                        
-                        if ($currentItemSetId) {
-                            $encounterObjectUris[] = "https://purl.org/megalod/$currentItemSetId/crmsci/O19_encountered_object";
+                        if (!isset($itemData['Encounter Event'])) {
+                            $itemData['Encounter Event'] = [];
                         }
                         
-                        foreach ($encounterObjectUris as $objUri) {
-                            if (isset($properties[$objUri])) {
-                                foreach ($properties[$objUri] as $objRef) {
-                                    if ($objRef['type'] === 'uri' && $objRef['value'] === $subject) {
-                                        $encounterEventUri = $resourceUri;
-                                        error_log("Found encounter event by scanning: $encounterEventUri", 3, OMEKA_PATH . '/logs/encounter-debug.log');
-                                        break 3;
-                                    }
-                                }
-                            }
+                        $itemData['Encounter Event'][] = [
+                            'type' => 'uri',
+                            'property_id' => 7686,
+                            '@id' => $encounterEventUri,
+                            'o:label' => 'Archaeological Encounter Event'
+                        ];
+                        
+                        // Process the encounter event details
+                        if (isset($rdfData[$encounterEventUri])) {
+                            $this->processEncounterEvent($rdfData, $encounterEventUri, $itemData, $currentItemSetId);
                         }
                     }
                 }
@@ -7339,6 +7322,28 @@ private function processSVUData($rdfData, $subject, &$itemData) {
             error_log("Timeline property $timelinePropertyUri not found", 3, OMEKA_PATH . '/logs/svu-processing.log');
         }
     }
+
+    if (isset($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'])) {
+    foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasTimeline'] as $timelineObj) {
+        if ($timelineObj['type'] === 'uri' && isset($rdfData[$timelineObj['value']])) {
+            $timelineUri = $timelineObj['value'];
+            
+            // Extract timeline range
+            $timelineRange = $this->extractTimelineRange($rdfData, $timelineUri);
+            if ($timelineRange) {
+                if (!isset($itemData['Chronological Period'])) {
+                    $itemData['Chronological Period'] = [];
+                }
+                
+                $itemData['Chronological Period'][] = [
+                    'type' => 'literal',
+                    'property_id' => 7669,
+                    '@value' => $timelineRange
+                ];
+            }
+        }
+    }
+}
     
     // Debug: Log all available properties for this SVU
     if (isset($rdfData[$subject])) {
@@ -8421,41 +8426,29 @@ public function downloadTtlAction()
         return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
     }
     
-    // Determine API endpoint based on resource type
-    $resourceType = $type === 'item_set' ? 'item_sets' : 'items';
-    $api = $this->api();
-    
     try {
-        // Get the resource
-        $resource = $api->read($resourceType, $id)->getContent();
+        // Get the resource to extract context information
+        $resourceType = $type === 'item_set' ? 'item_sets' : 'items';
+        $resource = $this->api()->read($resourceType, $id)->getContent();
         
-        // Generate TTL for the main resource
-        $ttlData = $this->generateTtlForResource($resource, $type);
-        
-        // Add declarations for all referenced resources
-        $ttlData .= $this->generateReferenceDeclarations($resource);
-        
-        // If it's an item set, also include all its items
         if ($type === 'item_set') {
-            error_log("Generating TTL for item set $id", 3, OMEKA_PATH . '/logs/download-ttl.log');
-            $items = $api->search('items', ['item_set_id' => $id])->getContent();
-            foreach ($items as $item) {
-                $ttlData .= $this->generateTtlForResource($item, 'item');
-                
-                // Also include declarations for referenced resources
-                $ttlData .= $this->generateReferenceDeclarations($item);
-                
-                // Include media for each item
-                $media = $api->search('media', ['item_id' => $item->id()])->getContent();
-                foreach ($media as $medium) {
-                    $ttlData .= $this->generateTtlForResource($medium, 'media');
-                }
-            }
+            // For item sets, get all data from the corresponding graph
+            $ttlData = $this->queryCompleteItemSetFromGraphDB($id);
+        } else {
+            // For individual items, get the specific item and its related data
+            $ttlData = $this->queryItemFromGraphDB($resource, $id);
+        }
+        
+        if (empty($ttlData)) {
+            $this->messenger()->addError('No TTL data found for this resource.');
+            return $this->redirect()->toRoute('site/add-triplestore/view-details', 
+                ['site-slug' => $this->currentSite()->slug()],
+                ['query' => ['id' => $id, 'type' => $type]]
+            );
         }
         
         // Set response headers for download
-        $filename = $resource->displayTitle();
-        $filename = preg_replace('/[^a-zA-Z0-9_-]/', '_', $filename); // Sanitize filename
+        $filename = $this->sanitizeFilename($resource->displayTitle());
         
         $response = $this->getResponse();
         $response->getHeaders()->addHeaderLine('Content-Type', 'text/turtle; charset=UTF-8');
@@ -8463,13 +8456,197 @@ public function downloadTtlAction()
         $response->setContent($ttlData);
         
         return $response;
+        
     } catch (\Exception $e) {
+        error_log('Error in downloadTtlAction: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/download-error.log');
         $this->messenger()->addError('Error generating TTL data: ' . $e->getMessage());
         return $this->redirect()->toRoute('site/add-triplestore/view-details', 
             ['site-slug' => $this->currentSite()->slug()],
             ['query' => ['id' => $id, 'type' => $type]]
         );
     }
+}
+
+
+private function queryCompleteItemSetFromGraphDB($itemSetId)
+{
+    $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
+    
+    // Query to get ALL triples in the graph
+    $query = "
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    PREFIX sh: <http://www.w3.org/ns/shacl#>
+    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+    PREFIX dct: <http://purl.org/dc/terms/>
+    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+    PREFIX dbo: <http://dbpedia.org/ontology/>
+    PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+    PREFIX crmsci: <http://cidoc-crm.org/extensions/crmsci/>
+    PREFIX crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/>
+    PREFIX edm: <http://www.europeana.eu/schemas/edm/>
+    PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+    PREFIX time: <http://www.w3.org/2006/time#>
+    PREFIX schema: <http://schema.org/>
+    PREFIX ah: <https://purl.org/megalod/ms/ah/>
+    PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+    PREFIX dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>
+    
+    CONSTRUCT {
+        ?s ?p ?o .
+    }
+    WHERE {
+        GRAPH <$graphUri> {
+            ?s ?p ?o .
+        }
+    }
+    ";
+    
+    return $this->executeConstructQuery($query);
+}
+
+private function queryItemFromGraphDB($resource, $itemId)
+{
+    // Get the item set ID to determine the graph
+    $itemSetId = null;
+    
+    // Try to get item set ID
+    $itemSets = $resource->itemSets();
+    if (!empty($itemSets)) {
+        $firstSet = reset($itemSets);
+        if ($firstSet) {
+            $itemSetId = $firstSet->id();
+        }
+    }
+    
+    if (!$itemSetId) {
+        error_log("No item set found for item $itemId", 3, OMEKA_PATH . '/logs/download-error.log');
+        return null;
+    }
+    
+    $graphUri = "{$this->baseDataGraphUri}{$itemSetId}/";
+    
+    // Get the item identifier
+    $values = $resource->values();
+    $identifier = null;
+    if (isset($values['dcterms:identifier'])) {
+        $identifier = $values['dcterms:identifier']['values'][0]->value();
+    }
+    
+    if (!$identifier) {
+        error_log("No identifier found for item $itemId", 3, OMEKA_PATH . '/logs/download-error.log');
+        return null;
+    }
+    
+    // Build the item URI pattern
+    $itemUriPattern = "https://purl.org/megalod/$itemSetId/item/$identifier";
+    
+    $query = "
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    PREFIX sh: <http://www.w3.org/ns/shacl#>
+    PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
+    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+    PREFIX dct: <http://purl.org/dc/terms/>
+    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+    PREFIX dbo: <http://dbpedia.org/ontology/>
+    PREFIX crm: <http://www.cidoc-crm.org/cidoc-crm/>
+    PREFIX crmsci: <http://cidoc-crm.org/extensions/crmsci/>
+    PREFIX crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/>
+    PREFIX edm: <http://www.europeana.eu/schemas/edm/>
+    PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+    PREFIX time: <http://www.w3.org/2006/time#>
+    PREFIX schema: <http://schema.org/>
+    PREFIX ah: <https://purl.org/megalod/ms/ah/>
+    PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+    PREFIX dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>
+    
+    CONSTRUCT {
+        ?s ?p ?o .
+        ?related ?relP ?relO .
+        ?encounter ?encP ?encO .
+    }
+    WHERE {
+        GRAPH <$graphUri> {
+            # Main item and its direct properties
+            <$itemUriPattern> ?p ?o .
+            BIND(<$itemUriPattern> AS ?s)
+            
+            # Get related resources (morphology, chipping, coordinates, etc.)
+            OPTIONAL {
+                <$itemUriPattern> ?linkProp ?related .
+                ?related ?relP ?relO .
+                FILTER(STRSTARTS(STR(?related), STR(<$itemUriPattern>)))
+            }
+            
+            # Get encounter events that reference this item
+            OPTIONAL {
+                ?encounter crmsci:O19_encountered_object <$itemUriPattern> .
+                ?encounter ?encP ?encO .
+            }
+            
+            # Get context resources (location, square, context, svu)
+            OPTIONAL {
+                <$itemUriPattern> ?contextProp ?contextRes .
+                ?contextRes ?ctxP ?ctxO .
+                FILTER(?contextProp IN (excav:foundInLocation, excav:foundInSquare, excav:foundInContext, excav:foundInSVU))
+                BIND(?contextRes AS ?s)
+                BIND(?ctxP AS ?p)
+                BIND(?ctxO AS ?o)
+            }
+        }
+    }
+    ";
+    
+    return $this->executeConstructQuery($query);
+}
+
+private function executeConstructQuery($query)
+{
+    try {
+        $client = new \Laminas\Http\Client();
+        $client->setUri($this->graphdbQueryEndpoint);
+        $client->setMethod('POST');
+        $client->setHeaders([
+            'Content-Type' => 'application/sparql-query',
+            'Accept' => 'text/turtle'  // Request TTL format directly
+        ]);
+        $client->setRawBody($query);
+        
+        $response = $client->send();
+        
+        if ($response->isSuccess()) {
+            $ttlData = $response->getBody();
+            
+            // Add prefixes if not included
+            if (strpos($ttlData, '@prefix') === false) {
+                $ttlData = $this->getTtlPrefixes() . "\n" . $ttlData;
+            }
+            
+            return $ttlData;
+        } else {
+            error_log('GraphDB query failed: ' . $response->getStatusCode() . ' - ' . $response->getBody(), 3, OMEKA_PATH . '/logs/download-error.log');
+            return null;
+        }
+        
+    } catch (\Exception $e) {
+        error_log('Error executing GraphDB query: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/download-error.log');
+        return null;
+    }
+}
+
+private function sanitizeFilename($filename)
+{
+    // Remove or replace invalid characters
+    $filename = preg_replace('/[^a-zA-Z0-9_-]/', '_', $filename);
+    $filename = trim($filename, '_');
+    
+    if (empty($filename)) {
+        $filename = 'download';
+    }
+    
+    return $filename;
 }
 
 /**
@@ -10040,14 +10217,35 @@ private function generateLocationTtlFromItem($location, $baseUri, $excavationIde
     }
     
     // Add GPS coordinates object
-    if (isset($values['GPS Latitude']) && isset($values['GPS Longitude'])) {
-        $lat = $values['GPS Latitude']['values'][0]->value();
-        $long = $values['GPS Longitude']['values'][0]->value();
-        
-        $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
-        $ttl .= "    geo:lat \"$lat\"^^xsd:decimal ;\n";
-        $ttl .= "    geo:long \"$long\"^^xsd:decimal .\n\n";
+    // In generateLocationTtlFromItem method, replace the GPS section with:
+if (isset($values['GPS Latitude']) && isset($values['GPS Longitude'])) {
+    $lat = $values['GPS Latitude']['values'][0]->value();
+    $long = $values['GPS Longitude']['values'][0]->value();
+    
+    $ttl .= "    excav:hasGPSCoordinates <$gpsUri> ;\n";
+    
+    // Later, add the GPS object with actual coordinates:
+    $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
+    $ttl .= "    geo:lat \"$lat\"^^xsd:decimal ;\n";
+    $ttl .= "    geo:long \"$long\"^^xsd:decimal .\n\n";
+} else {
+    // Check for combined GPS coordinates
+    if (isset($values['GPS Coordinates'])) {
+        $gpsString = $values['GPS Coordinates']['values'][0]->value();
+        // Parse "Latitude: 41.2081, Longitude: -8.6150"
+        if (preg_match('/Latitude:\s*([0-9.-]+),\s*Longitude:\s*([0-9.-]+)/', $gpsString, $matches)) {
+            $lat = $matches[1];
+            $long = $matches[2];
+            
+            $ttl .= "    excav:hasGPSCoordinates <$gpsUri> ;\n";
+            
+            // Add GPS object
+            $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
+            $ttl .= "    geo:lat \"$lat\"^^xsd:decimal ;\n";
+            $ttl .= "    geo:long \"$long\"^^xsd:decimal .\n\n";
+        }
     }
+}
     
     return $ttl;
 }
