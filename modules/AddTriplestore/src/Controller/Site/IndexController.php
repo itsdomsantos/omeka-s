@@ -5619,6 +5619,9 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     // FIXED: Use correct arrowhead URI format (not /item/ path)       
     $encounterDefinition .= "    crmsci:O19_encountered_object <https://purl.org/megalod/$itemSetId/item/$itemIdentifier> ;\n";
     
+    $encounterDefinition .= "    excav:foundInExcavation <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier> ;\n";
+
+
     // Add context reference
     if ($arrowheadContext['context']) {                   
         $encounterDefinition .= "    excav:foundInContext <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}> ;\n";
