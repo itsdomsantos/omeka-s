@@ -1364,10 +1364,15 @@ if ($locationUri) {
         error_log("Added consistent location URI: $locationUri", 3, OMEKA_PATH . '/logs/form-debug.log');
     
     // CRITICAL FIX: Add ALL context references to the arrowhead item
-    foreach ($linkedResources as $property => $resourceUri) {
+    $addedReferences = [];
+foreach ($linkedResources as $property => $resourceUri) {
+    $referenceKey = "$property:$resourceUri";
+    if (!isset($addedReferences[$referenceKey])) {
         $ttl .= "    $property <$resourceUri>;\n";
+        $addedReferences[$referenceKey] = true;
         error_log("Added reference: $property -> $resourceUri", 3, OMEKA_PATH . '/logs/form-debug.log');
     }
+}
 
     
     // Add annotation if provided
@@ -1580,11 +1585,33 @@ if ($locationUri) {
     }
     
     // Location declaration (CRITICAL FIX for SHACL validation)
-    $locationUri = $this->getRealLocationUriFromExcavation($itemSetId);
-    if ($locationUri) {
-        $ttl .= "<$locationUri> a excav:Location ;\n";
-        error_log("Added location declaration: $locationUri", 3, OMEKA_PATH . '/logs/ttl-fixes.log');
+
+// Location declaration (CRITICAL FIX for SHACL validation)
+$locationUri = $this->getRealLocationUriFromExcavation($itemSetId);
+if ($locationUri) {
+    // Try to get real location data from excavation
+    $locationData = $this->getLocationDataFromExcavation($itemSetId);
+    
+    $ttl .= "<$locationUri> a excav:Location ;\n";
+    
+    if ($locationData && !empty($locationData['name'])) {
+        $ttl .= "    dbo:informationName \"" . $locationData['name'] . "\"^^xsd:literal ;\n";
+        
+        if (!empty($locationData['district'])) {
+            $ttl .= "    dbo:District <" . $locationData['district'] . "> ;\n";
+        }
+        if (!empty($locationData['parish'])) {
+            $ttl .= "    dbo:Parish <" . $locationData['parish'] . "> ;\n";
+        }
+        if (!empty($locationData['country'])) {
+            $ttl .= "    dbo:Country <" . $locationData['country'] . "> ;\n";
+        }
+    } else {
+        $ttl .= "    dbo:informationName \"Archaeological Site Location\"^^xsd:literal ;\n";
     }
+    
+    $ttl = rtrim($ttl, " ;\n") . " .\n\n";
+}
     
     // Add declarations for any other referenced resources (context, square, SVU)
     if (!empty($formData['selected_square'])) {
@@ -3207,12 +3234,12 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
     
     $isCompleteExcavationUpload = $hasExcavationInData && !$hasArrowheadsInData;
     $isArrowheadOnlyUpload = $hasArrowheadsInData && !$hasExcavationInData;
-    
+        
     error_log("Data analysis: hasExcavation=$hasExcavationInData, hasArrowheads=$hasArrowheadsInData", 3, OMEKA_PATH . '/logs/main-subjects.log');
     error_log("Upload type: isCompleteExcavation=$isCompleteExcavationUpload, isArrowheadOnly=$isArrowheadOnlyUpload", 3, OMEKA_PATH . '/logs/main-subjects.log');
 
     // CRITICAL FIX: If uploading to an existing item set, ONLY process arrowhead items
-    if ($itemSetId) {
+if ($itemSetId && $isArrowheadOnlyUpload) {
         error_log("ItemSet ID provided: $itemSetId - ONLY including arrowhead/item subjects", 3, OMEKA_PATH . '/logs/main-subjects.log');
         
         // Find arrowhead/item subjects first
@@ -3412,6 +3439,62 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
     
     return $subjects;
 }
+
+
+/**
+ * Get complete location data from the excavation item set
+ */
+private function getLocationDataFromExcavation($itemSetId) {
+    try {
+        // Query GraphDB for the location data in this excavation
+        $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
+        
+        $query = "
+        PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+        PREFIX dbo: <http://dbpedia.org/ontology/>
+        PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
+        PREFIX dct: <http://purl.org/dc/terms/>
+        
+        SELECT ?locationUri ?locationName ?district ?parish ?country ?lat ?long ?gpsUri
+        WHERE {
+          GRAPH <$graphUri> {
+            ?excavation a excav:Excavation ;
+                        dul:hasLocation ?locationUri .
+            
+            OPTIONAL { ?locationUri dbo:informationName ?locationName }
+            OPTIONAL { ?locationUri dbo:District ?district }
+            OPTIONAL { ?locationUri dbo:Parish ?parish }
+            OPTIONAL { ?locationUri dbo:Country ?country }
+            OPTIONAL { ?locationUri geo:lat ?lat }
+            OPTIONAL { ?locationUri geo:long ?long }
+            OPTIONAL { ?locationUri excav:hasGPSCoordinates ?gpsUri }
+          }
+        }
+        LIMIT 1";
+        
+        $results = $this->querySparql($query);
+        
+        if (!empty($results)) {
+            $result = $results[0];
+            return [
+                'uri' => $result['locationUri']['value'],
+                'name' => isset($result['locationName']) ? $result['locationName']['value'] : null,
+                'district' => isset($result['district']) ? $result['district']['value'] : null,
+                'parish' => isset($result['parish']) ? $result['parish']['value'] : null,
+                'country' => isset($result['country']) ? $result['country']['value'] : null,
+                'lat' => isset($result['lat']) ? $result['lat']['value'] : null,
+                'long' => isset($result['long']) ? $result['long']['value'] : null,
+                'gps_uri' => isset($result['gpsUri']) ? $result['gpsUri']['value'] : null
+            ];
+        }
+    } catch (\Exception $e) {
+        error_log("Error querying location data: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/location-data.log');
+    }
+    
+    return null;
+}
+
+
 /**
  * Extract the identifier from a subject
  */
@@ -5574,57 +5657,37 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
         $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['svu']}\"^^xsd:literal .\n\n";
     }
     
-    // Add location declaration if present
-    if ($arrowheadContext['location']) {
-        $locationUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
+    // FIXED: Add complete location declaration  
+if ($arrowheadContext['location']) {
+    $locationUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
+    
+    // Try to get real location data from excavation
+    $locationData = $this->getLocationDataFromExcavation($itemSetId);
+    
+    $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
+    
+    if ($locationData && !empty($locationData['name'])) {
+        $encounterDefinition .= "    dbo:informationName \"{$locationData['name']}\"^^xsd:literal ;\n";
         
-        // Query GraphDB to get the actual location name
-        $query = "
-PREFIX dbo: <http://dbpedia.org/ontology/>
-PREFIX excav: <https://purl.org/megalod/ms/excavation/>
-
-SELECT ?locationName
-WHERE {
-  GRAPH <" . "https://purl.org/megalod/$itemSetId" . "/> {
-    <$locationUri> a excav:Location ;
-                   dbo:informationName ?locationName .
-  }
-}
-LIMIT 1";
-
-        try {
-            $client = new \Laminas\Http\Client();
-            $client->setUri($this->graphdbQueryEndpoint);
-            $client->setMethod('POST');
-            $client->setHeaders([
-                'Content-Type' => 'application/sparql-query',
-                'Accept' => 'application/sparql-results+json'
-            ]);
-            $client->setRawBody($query);
-            
-            $response = $client->send();
-            
-            if ($response->isSuccess()) {
-                $results = json_decode($response->getBody(), true);
-                if (isset($results['results']['bindings'][0]['locationName']['value'])) {
-                    $locationName = $results['results']['bindings'][0]['locationName']['value'];
-                } else {
-                    // Fallback to formatted identifier if no name found
-                    $locationName = ucwords(str_replace('-', ' ', $arrowheadContext['location']));
-                }
-            }
-            
-            $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
-            $encounterDefinition .= "    dbo:informationName \"$locationName\"^^xsd:literal .\n\n";
-            
-        } catch (\Exception $e) {
-            error_log("Error querying location name: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/encounter-creation.log');
-            // Use fallback name in case of errorx
-            $locationName = ucwords(str_replace('-', ' ', $arrowheadContext['location']));
-            $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
-            $encounterDefinition .= "    dbo:informationName \"$locationName\"^^xsd:literal .\n\n";
+        if (!empty($locationData['district'])) {
+            $encounterDefinition .= "    dbo:District <{$locationData['district']}> ;\n";
         }
+        if (!empty($locationData['parish'])) {
+            $encounterDefinition .= "    dbo:Parish <{$locationData['parish']}> ;\n";
+        }
+        if (!empty($locationData['country'])) {
+            $encounterDefinition .= "    dbo:Country <{$locationData['country']}> ;\n";
+        }
+        if (!empty($locationData['lat']) && !empty($locationData['long'])) {
+            $encounterDefinition .= "    geo:lat \"{$locationData['lat']}\"^^xsd:decimal ;\n";
+            $encounterDefinition .= "    geo:long \"{$locationData['long']}\"^^xsd:decimal ;\n";
+        }
+    } else {
+        $encounterDefinition .= "    dbo:informationName \"Archaeological Site Location\"^^xsd:literal ;\n";
     }
+    
+    $encounterDefinition = rtrim($encounterDefinition, " ;\n") . " .\n\n";
+}
     
     // Add square declaration if present
     if ($arrowheadContext['square']) {
