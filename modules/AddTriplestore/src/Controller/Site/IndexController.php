@@ -1216,7 +1216,66 @@ private function createExcavationItemSetData($excavationIdentifier, $excavationD
     return $itemSetData;
 }
 
-
+/**
+ * FIXED: Get the SVU identifier specifically from an Omeka item
+ */
+private function getSvuIdentifierFromOmekaItem($itemId) {
+    try {
+        error_log("Looking up SVU identifier for Omeka item ID: $itemId", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        
+        $item = $this->api()->read('items', $itemId)->getContent();
+        
+        // Strategy 1: Try to get the SVU ID property specifically
+        $values = $item->values();
+        
+        if (isset($values['SVU ID'])) {
+            foreach ($values['SVU ID'] as $value) {
+                if ($value instanceof \Omeka\Api\Representation\ValueRepresentation) {
+                    $identifier = $value->value();
+                    error_log("Found SVU ID property for item $itemId: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+                    return $identifier;
+                }
+            }
+        }
+        
+        // Strategy 2: Try dcterms:identifier
+        if (isset($values['dcterms:identifier'])) {
+            foreach ($values['dcterms:identifier'] as $value) {
+                if ($value instanceof \Omeka\Api\Representation\ValueRepresentation) {
+                    $identifier = $value->value();
+                    error_log("Found dcterms:identifier for SVU item $itemId: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+                    return $identifier;
+                }
+            }
+        }
+        
+        // Strategy 3: Extract from title looking for Layer patterns
+        $title = $item->displayTitle();
+        error_log("SVU item $itemId title: $title", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        
+        // Look for Layer-XX pattern in title
+        if (preg_match('/Layer-(\d+)/', $title, $matches)) {
+            $identifier = "Layer-" . str_pad($matches[1], 2, '0', STR_PAD_LEFT);
+            error_log("Extracted Layer identifier from title: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+            return $identifier;
+        }
+        
+        // Look for other SVU patterns
+        if (preg_match('/\b(Layer-\d+|\w+-\d+|SVU-\d+)\b/', $title, $matches)) {
+            error_log("Extracted SVU identifier from title: {$matches[1]}", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+            return $matches[1];
+        }
+        
+        // Strategy 4: Generate based on item ID as last resort
+        $fallbackIdentifier = "Layer-" . str_pad($itemId % 100, 2, '0', STR_PAD_LEFT);
+        error_log("Using fallback SVU identifier: $fallbackIdentifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        return $fallbackIdentifier;
+        
+    } catch (\Exception $e) {
+        error_log("Error looking up SVU item $itemId: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        return "Layer-" . str_pad($itemId % 100, 2, '0', STR_PAD_LEFT);
+    }
+}
 
 private function processArchaeologicalContextSelections($formData, $itemSetId, $baseUri)
 {
@@ -1237,7 +1296,7 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
         $squareItemId = $formData['selected_square'];
         error_log("Processing selected square: $squareItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
         
-        // Get the real identifier from the Omeka item
+        // FIXED: Get the real identifier from the Omeka item properly
         $realSquareId = $this->getRealIdentifierFromOmekaItem($squareItemId);
         if ($realSquareId) {
             $squareUri = "$excavationBaseUri/square/$realSquareId";
@@ -1271,10 +1330,13 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
         }
     }
     
-    // Process selected SVU
+    // FIXED: Process selected SVU with proper identifier extraction
     if (!empty($formData['selected_svu'])) {
         $svuItemId = $formData['selected_svu'];
-        $realSvuId = $this->getRealIdentifierFromOmekaItem($svuItemId);
+        error_log("Processing selected SVU item ID: $svuItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
+        
+        // Get the SVU identifier specifically - not the excavation identifier
+        $realSvuId = $this->getSvuIdentifierFromOmekaItem($svuItemId);
         if ($realSvuId) {
             $svuUri = "$excavationBaseUri/svu/$realSvuId";
             $linkedResources['excav:foundInSVU'] = $svuUri;
@@ -1286,6 +1348,8 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
             ];
             
             error_log("✓ Linked to SVU: $svuUri (real ID: $realSvuId)", 3, OMEKA_PATH . '/logs/context-debug.log');
+        } else {
+            error_log("✗ Could not extract SVU identifier from item $svuItemId", 3, OMEKA_PATH . '/logs/context-debug.log');
         }
     }
     
@@ -3131,6 +3195,60 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
 }
 
 
+/**
+ * Check if this is the main arrowhead item (not a context declaration)
+ */
+private function isMainArrowheadItem($rdfData, $subject) {
+    if (!isset($rdfData[$subject])) {
+        return false;
+    }
+    
+    $predicates = $rdfData[$subject];
+    
+    // Main arrowhead items should have arrowhead-specific properties
+    $arrowheadProperties = [
+        'https://purl.org/megalod/ms/ah/shape',
+        'ah:shape',
+        'https://purl.org/megalod/ms/ah/variant', 
+        'ah:variant',
+        'https://purl.org/megalod/ms/ah/hasMorphology',
+        'ah:hasMorphology'
+    ];
+    
+    foreach ($arrowheadProperties as $prop) {
+        if (isset($predicates[$prop])) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
+/**
+ * Check if this is a new encounter event (not an existing one)
+ */
+private function isNewEncounterEvent($rdfData, $subject) {
+    if (!isset($rdfData[$subject])) {
+        return false;
+    }
+    
+    $predicates = $rdfData[$subject];
+    
+    // Check if this encounter event has the "encountered_object" property
+    // which indicates it's a real encounter event, not just a declaration
+    $encounterProperties = [
+        'https://cidoc-crm.org/extensions/crmsci/O19_encountered_object',
+        'crmsci:O19_encountered_object'
+    ];
+    
+    foreach ($encounterProperties as $prop) {
+        if (isset($predicates[$prop])) {
+            return true;
+        }
+    }
+    
+    return false;
+}
 
 private function identifyMainSubjects($rdfData, $itemSetId = null) {
     $subjects = [];
@@ -3169,8 +3287,7 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         // Merge normalized patterns
         $mainSubjectTypes = array_merge($mainSubjectTypes, $normalizedPatterns);
         
-        error_log('Added normalized patterns for itemSetId: ' . $itemSetId, 3, OMEKA_PATH . '/logs/main-subjects.log');
-        error_log('Normalized patterns: ' . print_r($normalizedPatterns, true), 3, OMEKA_PATH . '/logs/main-subjects.log');
+        error_log("Added normalized patterns for itemSetId: " . $itemSetId, 3, OMEKA_PATH . '/logs/main-subjects.log');
     }
     
     // Define the excluded subject types to prevent creating empty objects
@@ -3235,86 +3352,62 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
     error_log("Data analysis: hasExcavation=$hasExcavationInData, hasArrowheads=$hasArrowheadsInData", 3, OMEKA_PATH . '/logs/main-subjects.log');
     error_log("Upload type: isCompleteExcavation=$isCompleteExcavationUpload, isArrowheadOnly=$isArrowheadOnlyUpload", 3, OMEKA_PATH . '/logs/main-subjects.log');
 
-    // CRITICAL FIX: If uploading to an existing item set, ONLY process arrowhead items
-if ($itemSetId && $isArrowheadOnlyUpload) {
-        error_log("ItemSet ID provided: $itemSetId - ONLY including arrowhead/item subjects", 3, OMEKA_PATH . '/logs/main-subjects.log');
-        
-        // Find arrowhead/item subjects first
+    // CRITICAL FIX: If uploading to an existing item set, ONLY process arrowhead items (not context/svu/square)
+    if ($itemSetId) {
+        error_log("ItemSet ID provided: $itemSetId - ONLY including arrowhead/item and encounter subjects", 3, OMEKA_PATH . '/logs/main-subjects.log');
+
+        // Find arrowhead/item subjects
+        $arrowheadSubjects = [];
         foreach ($rdfData as $subject => $predicates) {
             if (isset($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
                 foreach ($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
                     if ($typeObj['type'] === 'uri') {
-                        // Check for arrowhead or item type
+                        // Only include arrowhead/item types
                         if ($typeObj['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' ||
-                            $typeObj['value'] === 'https://purl.org/megalod/ms/excavation/Item' ||
                             $typeObj['value'] === 'ah:Arrowhead' ||
-                            $typeObj['value'] === 'excav:Item' ||
-                            ($itemSetId && ($typeObj['value'] === "https://purl.org/megalod/$itemSetId/ah/Arrowhead" ||
-                                          $typeObj['value'] === "https://purl.org/megalod/$itemSetId/excavation/Item"))) {
+                            ($itemSetId && $typeObj['value'] === "https://purl.org/megalod/$itemSetId/ah/Arrowhead")) {
                             
-                            $subjects[$subject] = ($typeObj['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' || 
-                                                 $typeObj['value'] === 'ah:Arrowhead' ||
-                                                 ($itemSetId && $typeObj['value'] === "https://purl.org/megalod/$itemSetId/ah/Arrowhead")) 
-                               ? 'arrowhead' : 'item';
+                            $arrowheadSubjects[$subject] = 'arrowhead';
+                            error_log("✓ Found arrowhead subject: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                        }
+                        else if (($typeObj['value'] === 'https://purl.org/megalod/ms/excavation/Item' ||
+                                $typeObj['value'] === 'excav:Item' ||
+                                ($itemSetId && $typeObj['value'] === "https://purl.org/megalod/$itemSetId/excavation/Item")) &&
+                                $this->isMainArrowheadItem($rdfData, $subject)) {
                             
-                            error_log("✓ Found arrowhead/item subject: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                            $arrowheadSubjects[$subject] = 'item';
+                            error_log("✓ Found main item subject: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
                         }
                     }
                 }
             }
         }
         
-        // When uploading to an existing item set, ONLY return arrowhead/item subjects
-        // This prevents the code from trying to create context/square/svu items
-        error_log("Returning ONLY arrowhead/item subjects when uploading to item set: " . count($subjects), 3, OMEKA_PATH . '/logs/main-subjects.log');
-        return $subjects;
-    }
-
-    // Find arrowhead/item subjects first
-    $arrowheadSubjects = [];
-    foreach ($rdfData as $subject => $predicates) {
-        if (isset($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
-            foreach ($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
-                if ($typeObj['type'] === 'uri') {
-                    error_log("Found type for subject $subject: " . $typeObj['value'], 3, OMEKA_PATH . '/logs/main-subjects.log');
-                    
-                    // Check for arrowhead or item type
-                    if ($typeObj['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' ||
-                        $typeObj['value'] === 'https://purl.org/megalod/ms/excavation/Item' ||
-                        $typeObj['value'] === 'ah:Arrowhead' ||
-                        $typeObj['value'] === 'excav:Item' ||
-                        ($itemSetId && ($typeObj['value'] === "https://purl.org/megalod/$itemSetId/ah/Arrowhead" ||
-                                       $typeObj['value'] === "https://purl.org/megalod/$itemSetId/excavation/Item"))) {
+        // Also include encounter events
+        foreach ($rdfData as $subject => $predicates) {
+            if (isset($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'])) {
+                foreach ($predicates['http://www.w3.org/1999/02/22-rdf-syntax-ns#type'] as $typeObj) {
+                    if ($typeObj['type'] === 'uri' && 
+                        ($typeObj['value'] === 'https://purl.org/megalod/ms/excavation/EncounterEvent' ||
+                         $typeObj['value'] === 'excav:EncounterEvent')) {
                         
-                        $arrowheadSubjects[$subject] = ($typeObj['value'] === 'https://purl.org/megalod/ms/ah/Arrowhead' || 
-                                                      $typeObj['value'] === 'ah:Arrowhead' ||
-                                                      ($itemSetId && $typeObj['value'] === "https://purl.org/megalod/$itemSetId/ah/Arrowhead")) 
-                            ? 'arrowhead' : 'item';
-                        
-                        error_log("✓ Found arrowhead/item subject: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
-                    }
-                    
-                    // UPDATED LOGIC: Only exclude excavation subjects if this is arrowhead-only upload to existing item set
-                    if ($itemSetId && $isArrowheadOnlyUpload &&
-                        ($typeObj['value'] === 'https://purl.org/megalod/ms/excavation/Excavation' ||
-                         $typeObj['value'] === 'excav:Excavation' ||
-                         $typeObj['value'] === "https://purl.org/megalod/$itemSetId/excavation/Excavation")) {
-                        
-                        error_log("⚠ EXCLUDING excavation subject in arrowhead-only upload to item set: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
-                        $subjects[$subject] = 'excluded';
+                        // Only include NEW encounter events, not existing ones
+                        if ($this->isNewEncounterEvent($rdfData, $subject)) {
+                            $arrowheadSubjects[$subject] = 'encounter';
+                            error_log("✓ Found new encounter event subject: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
+                        }
                     }
                 }
             }
         }
-    }
-
-    // If this is arrowhead-only upload to existing item set, ONLY return arrowheads
-    if ($itemSetId && $isArrowheadOnlyUpload && !empty($arrowheadSubjects)) {
-        error_log('Arrowhead-only upload detected - returning only ' . count($arrowheadSubjects) . ' arrowhead subjects', 3, OMEKA_PATH . '/logs/main-subjects.log');
+        
+        // When uploading to an existing item set, ONLY return arrowhead/item/encounter subjects
+        error_log("Returning ONLY arrowhead/item/encounter subjects when uploading to item set: " . count($arrowheadSubjects), 3, OMEKA_PATH . '/logs/main-subjects.log');
         return $arrowheadSubjects;
     }
 
-    // For complete excavation uploads OR initial excavation creation, process all valid subjects
+    // For complete excavation uploads, proceed with normal processing
+    // (This section handles the initial excavation creation, not individual arrowhead uploads)
     foreach ($rdfData as $subject => $predicates) {
         // Skip subjects that were already marked as excluded
         if (isset($subjects[$subject]) && $subjects[$subject] === 'excluded') {
@@ -3338,15 +3431,6 @@ if ($itemSetId && $isArrowheadOnlyUpload) {
                     !in_array($typeObj['value'], $excludedTypes) &&  // Check against the excluded types
                     isset($mainSubjectTypes[$typeObj['value']])) {
                     
-                    // UPDATED LOGIC: Only skip context/square/svu creation if this is arrowhead-only upload
-                    if ($itemSetId && $isArrowheadOnlyUpload) {
-                        $subjectType = $mainSubjectTypes[$typeObj['value']];
-                        if (in_array($subjectType, ['context', 'svu', 'square', 'excavation'])) {
-                            error_log("  ⚠ Skipping subject type '$subjectType' in arrowhead-only upload", 3, OMEKA_PATH . '/logs/main-subjects.log');
-                            continue;
-                        }
-                    }
-                    
                     $subjects[$subject] = $mainSubjectTypes[$typeObj['value']];
                     error_log("  ✓ Added as main subject: {$mainSubjectTypes[$typeObj['value']]}", 3, OMEKA_PATH . '/logs/main-subjects.log');
                     break; // Found the type, move to next subject
@@ -3362,75 +3446,10 @@ if ($itemSetId && $isArrowheadOnlyUpload) {
         }
     }
     
-    // CRITICAL FIX: Only look for subjects with identifiers if we found NO proper subjects
-    $foundSubjects = array_filter($subjects, function($type) { 
-        return $type !== 'excluded'; 
-    });
-    
-    if (count($foundSubjects) === 0) {
-        error_log('No typed subjects found, looking for identifiers...', 3, OMEKA_PATH . '/logs/main-subjects.log');
-        foreach ($rdfData as $subject => $predicates) {
-            // Skip if we already identified this subject (even as excluded)
-            if (isset($subjects[$subject])) {
-                continue;
-            }
-            
-            if (isset($predicates['http://purl.org/dc/terms/identifier'])) {
-                // Additional check: Try to determine the entity type from URI pattern
-                $isAuxiliary = false;
-                
-                // Check URI patterns that suggest auxiliary entities
-                if (strpos($subject, '/location/') !== false || 
-                    strpos($subject, '/gps/') !== false ||
-                    strpos($subject, '/Timeline/') !== false ||
-                    strpos($subject, '/archaeologist/') !== false) {
-                    $isAuxiliary = true;
-                    error_log("Skipping auxiliary entity with identifier: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
-                }
-                
-                // UPDATED: Only skip excavation/context/svu/square in arrowhead-only uploads
-                if ($itemSetId && $isArrowheadOnlyUpload) {
-                    if (strpos($subject, '/square/') !== false ||
-                        strpos($subject, '/context/') !== false ||
-                        strpos($subject, '/svu/') !== false) {
-                        $isAuxiliary = true;
-                        error_log("Skipping supporting entity in arrowhead-only upload: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
-                    }
-                    
-                    // Check if this is an excavation URI
-                    foreach ($predicates['http://purl.org/dc/terms/identifier'] as $idObj) {
-                        if ($idObj['type'] === 'literal' && strpos($idObj['value'], 'EXC-') === 0) {
-                            $isAuxiliary = true;
-                            error_log("Skipping excavation entity with identifier {$idObj['value']} in arrowhead-only upload: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
-                            break;
-                        }
-                    }
-                }
-                
-                if (!$isAuxiliary) {
-                    $subjects[$subject] = 'unknown';
-                    error_log("Added subject with identifier: $subject", 3, OMEKA_PATH . '/logs/main-subjects.log');
-                }
-            }
-        }
-    }
-    
     // Remove excluded subjects from the result
     $subjects = array_filter($subjects, function($type) {
         return $type !== 'excluded';
     });
-    
-    // If we're in an arrowhead-only upload context, prioritize items over other types
-    if ($itemSetId && $isArrowheadOnlyUpload && !empty($subjects)) {
-        $itemSubjects = array_filter($subjects, function($type) {
-            return in_array($type, ['arrowhead', 'item']);
-        });
-        
-        if (!empty($itemSubjects)) {
-            error_log('Found ' . count($itemSubjects) . ' item subjects for arrowhead-only upload to item set ' . $itemSetId, 3, OMEKA_PATH . '/logs/main-subjects.log');
-            return $itemSubjects;
-        }
-    }
     
     error_log('Final subjects identified: ' . print_r($subjects, true), 3, OMEKA_PATH . '/logs/main-subjects.log');
     
@@ -5075,40 +5094,64 @@ private function extractArrowheadContextFromTtl($ttlData) {
         error_log("Found date in TTL: {$context['date']}", 3, OMEKA_PATH . '/logs/encounter-validation.log');
     }
     
-    
-    // Extract context reference
+    // FIXED: Extract context reference - get the actual context identifier
     if (preg_match('/excav:foundInContext\s+<([^>]+)>/i', $ttlData, $matches)) {
         $contextUri = $matches[1];
-        $context['context'] = $this->extractIdentifierFromUri($contextUri);
+        // Extract the last segment after /context/
+        if (preg_match('/\/context\/([^\/]+)$/', $contextUri, $contextMatches)) {
+            $context['context'] = $contextMatches[1];
+        } else {
+            $context['context'] = $this->extractIdentifierFromUri($contextUri);
+        }
         error_log("Found context reference: {$context['context']}", 3, OMEKA_PATH . '/logs/encounter-validation.log');
     }
     
-    // Extract SVU reference
+    // FIXED: Extract SVU reference - get the actual SVU identifier  
     if (preg_match('/excav:foundInSVU\s+<([^>]+)>/i', $ttlData, $matches)) {
         $svuUri = $matches[1];
-        $context['svu'] = $this->extractIdentifierFromUri($svuUri);
+        // Extract the last segment after /svu/
+        if (preg_match('/\/svu\/([^\/]+)$/', $svuUri, $svuMatches)) {
+            $context['svu'] = $svuMatches[1];
+        } else {
+            $context['svu'] = $this->extractIdentifierFromUri($svuUri);
+        }
         error_log("Found SVU reference: {$context['svu']}", 3, OMEKA_PATH . '/logs/encounter-validation.log');
     }
     
-    // Extract square reference
+    // FIXED: Extract square reference - get the actual square identifier
     if (preg_match('/excav:foundInSquare\s+<([^>]+)>/i', $ttlData, $matches)) {
         $squareUri = $matches[1];
-        $context['square'] = $this->extractIdentifierFromUri($squareUri);
+        // Extract the last segment after /square/
+        if (preg_match('/\/square\/([^\/]+)$/', $squareUri, $squareMatches)) {
+            $context['square'] = $squareMatches[1];
+        } else {
+            $context['square'] = $this->extractIdentifierFromUri($squareUri);
+        }
         error_log("square uri: $squareUri", 3, OMEKA_PATH . '/logs/encounterlllll.log');  
         error_log("Found square reference: {$context['square']}", 3, OMEKA_PATH . '/logs/encounter-validation.log');
     }
     
-    // Extract location reference
+    // FIXED: Extract location reference - get the actual location identifier
     if (preg_match('/excav:foundInLocation\s+<([^>]+)>/i', $ttlData, $matches)) {
         $locationUri = $matches[1];
-        $context['location'] = $this->extractIdentifierFromUri($locationUri);
+        // Extract the last segment after /location/
+        if (preg_match('/\/location\/([^\/]+)$/', $locationUri, $locationMatches)) {
+            $context['location'] = $locationMatches[1];
+        } else {
+            $context['location'] = $this->extractIdentifierFromUri($locationUri);
+        }
         error_log("Found location reference: {$context['location']}", 3, OMEKA_PATH . '/logs/encounter-validation.log');
     }
     
-    // Extract excavation reference (usually the base URI)
+    // FIXED: Extract excavation reference - get the actual excavation identifier
     if (preg_match('/excav:foundInExcavation\s+<([^>]+)>/i', $ttlData, $matches)) {
         $excavationUri = $matches[1];
-        $context['excavation'] = $this->extractIdentifierFromUri($excavationUri);
+        // Extract the excavation identifier from the URI pattern
+        if (preg_match('/\/excavation\/([^\/]+)$/', $excavationUri, $excavationMatches)) {
+            $context['excavation'] = $excavationMatches[1];
+        } else {
+            $context['excavation'] = $this->extractIdentifierFromUri($excavationUri);
+        }
         error_log("Found excavation reference: {$context['excavation']}", 3, OMEKA_PATH . '/logs/encounter-validation.log');
     }
     
@@ -5126,6 +5169,9 @@ private function validateContextRelationships($arrowheadContext, $itemSetId) {
     error_log("Excavation relationships retrieved: " . json_encode($excavationRelationships), 3, OMEKA_PATH . '/logs/encounter-resource.log');
     $errors = [];
     $details = [];
+
+    // log the context 
+    error_log("Arrowhead context for validation: " . json_encode($arrowheadContext), 3, OMEKA_PATH . '/logs/encounter-context-v.log');
     
     // Check if context exists
     if ($arrowheadContext['context'] && !in_array($arrowheadContext['context'], $excavationRelationships['contexts'])) {
@@ -6280,11 +6326,26 @@ ASK {
     return $locationUri;
 }
 
-/**
- * NEW: Extract meaningful identifiers from URI structure
- */
 private function extractIdentifierFromUriStructure($resourceUri) {
     error_log("Analyzing URI structure: $resourceUri", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+    
+    // Pattern for SVU URIs: extract the last segment after /svu/
+    if (preg_match('/\/svu\/([^\/]+)$/', $resourceUri, $matches)) {
+        error_log("Found SVU identifier: {$matches[1]}", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        return $matches[1];
+    }
+    
+    // Pattern for context URIs: extract the last segment after /context/
+    if (preg_match('/\/context\/([^\/]+)$/', $resourceUri, $matches)) {
+        error_log("Found context identifier: {$matches[1]}", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        return $matches[1];
+    }
+    
+    // Pattern for square URIs: extract the last segment after /square/
+    if (preg_match('/\/square\/([^\/]+)$/', $resourceUri, $matches)) {
+        error_log("Found square identifier: {$matches[1]}", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        return $matches[1];
+    }
     
     // Pattern 1: https://purl.org/megalod/2043/context/item-2048
     // Should extract the original context identifier, not "item-2048"
@@ -6304,9 +6365,9 @@ private function extractIdentifierFromUriStructure($resourceUri) {
         // Fallback: generate a reasonable identifier based on type
         switch (strtolower($resourceType)) {
             case 'context':
-                return "CV-" . str_pad($itemId % 1000, 3, '0', STR_PAD_LEFT); // CV-001, CV-002, etc.
+                return "CTX-" . str_pad($itemId % 1000, 3, '0', STR_PAD_LEFT); // CTX-001, CTX-002, etc.
             case 'svu':
-                return "CV-001-" . ($itemId % 10); // CV-001-1, CV-001-2, etc.
+                return "Layer-" . str_pad($itemId % 100, 2, '0', STR_PAD_LEFT); // Layer-01, Layer-02, etc.
             case 'square':
                 $letters = ['A', 'B', 'C', 'D'];
                 $letter = $letters[($itemId - 1) % 4];
@@ -6317,8 +6378,8 @@ private function extractIdentifierFromUriStructure($resourceUri) {
         }
     }
     
-    // Pattern 2: https://purl.org/megalod/2043/context/CV-001
-    // This should directly extract CV-001
+    // Pattern 2: https://purl.org/megalod/2043/context/CTX-001
+    // This should directly extract CTX-001
     if (preg_match('/\/([^\/]+)\/([^\/]+)$/', $resourceUri, $matches)) {
         $resourceType = $matches[1];
         $identifier = $matches[2];

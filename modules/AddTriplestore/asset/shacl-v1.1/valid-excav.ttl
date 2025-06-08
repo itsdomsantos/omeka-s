@@ -23,8 +23,8 @@
 
 # =========== MAIN EXCAVATION ===========
 
-<https://purl.org/megalod/excavation/alto-castelinho-2022> a excav:Excavation ;
-    dct:identifier "ALC-2022"^^xsd:literal;
+<https://purl.org/megalod/excavation/alto-castelinho-2021> a excav:Excavation ;
+    dct:identifier "ALC-2021"^^xsd:literal;
     dul:hasLocation <https://purl.org/megalod/location/alto-castelinho> ;
     excav:hasPersonInCharge <https://purl.org/megalod/archaeologist/maria-santos> ;
     excav:hasSquare <https://purl.org/megalod/square/A1>, 
