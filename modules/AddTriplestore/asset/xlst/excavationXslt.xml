@@ -23,7 +23,11 @@
     
     <xsl:template match="excavation">
         <xsl:variable name="excavationId" select="@id"/>
-        <xsl:variable name="excavationUri" select="concat('https://purl.org/megalod/excavation/', $excavationId)"/>
+        <xsl:variable name="excavationIdentifier" select="identifier"/>
+        
+        <!-- FIXED: Use excavationIdentifier for the URI, not excavationId -->
+        <xsl:variable name="baseUri" select="concat('https://purl.org/megalod/', $excavationIdentifier)"/>
+        <xsl:variable name="excavationUri" select="concat($baseUri, '/excavation/', $excavationIdentifier)"/>
         
         <!-- Main Excavation -->
         <rdf:Description rdf:about="{$excavationUri}">
@@ -31,33 +35,33 @@
             
             <!-- Identifier -->
             <dcterms:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
-                <xsl:value-of select="$excavationId"/>
+                <xsl:value-of select="$excavationIdentifier"/>
             </dcterms:identifier>
             
             <!-- Location -->
             <xsl:if test="location">
-                <excav:hasLocation rdf:resource="{concat($excavationUri, '/location/', location/@id)}"/>
+                <dul:hasLocation rdf:resource="{concat($baseUri, '/excavation/', $excavationIdentifier, '/location/', location/@id)}"/>
             </xsl:if>
             
             <!-- Person in Charge -->
             <xsl:if test="archaeologist">
-                <excav:hasPersonInCharge rdf:resource="{concat($excavationUri, '/archaeologist/', archaeologist/@id)}"/>
+                <excav:hasPersonInCharge rdf:resource="{concat($baseUri, '/excavation/', $excavationIdentifier, '/archaeologist/', archaeologist/@id)}"/>
             </xsl:if>
             
             <!-- Squares -->
             <xsl:for-each select="squares/square">
-                <excav:hasSquare rdf:resource="{concat($excavationUri, '/square/', @id)}"/>
+                <excav:hasSquare rdf:resource="{concat($baseUri, '/excavation/', $excavationIdentifier, '/square/', @id)}"/>
             </xsl:for-each>
             
             <!-- Contexts -->
             <xsl:for-each select="contexts/context">
-                <excav:hasContext rdf:resource="{concat($excavationUri, '/context/', @id)}"/>
+                <excav:hasContext rdf:resource="{concat($baseUri, '/excavation/', $excavationIdentifier, '/context/', @id)}"/>
             </xsl:for-each>
         </rdf:Description>
         
         <!-- Location -->
         <xsl:if test="location">
-            <rdf:Description rdf:about="{concat($excavationUri, '/location/', location/@id)}">
+            <rdf:Description rdf:about="{concat($baseUri, '/excavation/', $excavationIdentifier, '/location/', location/@id)}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Location"/>
                 
                 <xsl:if test="location/name">
@@ -79,14 +83,14 @@
                 </xsl:if>
                 
                 <xsl:if test="location/gpsCoordinates">
-                    <excav:hasGPSCoordinates rdf:resource="{concat($excavationUri, '/gps/', location/@id, '-gps')}"/>
+                    <excav:hasGPSCoordinates rdf:resource="{concat($baseUri, '/excavation/', $excavationIdentifier, '/gps/', location/@id, '-gps')}"/>
                 </xsl:if>
             </rdf:Description>
         </xsl:if>
         
         <!-- GPS Coordinates -->
         <xsl:if test="location/gpsCoordinates">
-            <rdf:Description rdf:about="{concat($excavationUri, '/gps/', location/@id, '-gps')}">
+            <rdf:Description rdf:about="{concat($baseUri, '/excavation/', $excavationIdentifier, '/gps/', location/@id, '-gps')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/GPSCoordinates"/>
                 <geo:lat rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">
                     <xsl:value-of select="location/gpsCoordinates/latitude"/>
@@ -113,7 +117,7 @@
         
         <!-- Archaeologist -->
         <xsl:if test="archaeologist">
-            <rdf:Description rdf:about="{concat($excavationUri, '/archaeologist/', archaeologist/@id)}">
+            <rdf:Description rdf:about="{concat($baseUri, '/excavation/', $excavationIdentifier, '/archaeologist/', archaeologist/@id)}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Archaeologist"/>
                 
                 <xsl:if test="archaeologist/orcid">
@@ -134,7 +138,7 @@
         
         <!-- Squares -->
         <xsl:for-each select="squares/square">
-            <rdf:Description rdf:about="{concat($excavationUri, '/square/', @id)}">
+            <rdf:Description rdf:about="{concat($baseUri, '/excavation/', $excavationIdentifier, '/square/', @id)}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Square"/>
                 
                 <dcterms:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
@@ -157,7 +161,7 @@
         
         <!-- Contexts -->
         <xsl:for-each select="contexts/context">
-            <rdf:Description rdf:about="{concat($excavationUri, '/context/', @id)}">
+            <rdf:Description rdf:about="{concat($baseUri, '/excavation/', $excavationIdentifier, '/context/', @id)}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Context"/>
                 
                 <dcterms:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
@@ -172,14 +176,14 @@
                 
                 <!-- Link to SVUs -->
                 <xsl:for-each select="svus/svu">
-                    <excav:hasSVU rdf:resource="{concat($excavationUri, '/svu/', @id)}"/>
+                    <excav:hasSVU rdf:resource="{concat($baseUri, '/excavation/', $excavationIdentifier, '/svu/', @id)}"/>
                 </xsl:for-each>
             </rdf:Description>
         </xsl:for-each>
         
         <!-- Stratigraphic Volume Units -->
         <xsl:for-each select="contexts/context/svus/svu | svus/svu">
-            <rdf:Description rdf:about="{concat($excavationUri, '/svu/', @id)}">
+            <rdf:Description rdf:about="{concat($baseUri, '/excavation/', $excavationIdentifier, '/svu/', @id)}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/StratigraphicVolumeUnit"/>
                 
                 <dcterms:identifier rdf:datatype="http://www.w3.org/2001/XMLSchema#literal">
@@ -193,29 +197,29 @@
                 </xsl:if>
                 
                 <xsl:if test="timeline">
-                    <excav:hasTimeline rdf:resource="{concat($excavationUri, '/timeline/', @id, '-timeline')}"/>
+                    <excav:hasTimeline rdf:resource="{concat($baseUri, '/excavation/', $excavationIdentifier, '/timeline/', @id, '-timeline')}"/>
                 </xsl:if>
             </rdf:Description>
         </xsl:for-each>
         
         <!-- Timelines -->
         <xsl:for-each select="contexts/context/svus/svu[timeline] | svus/svu[timeline]">
-            <rdf:Description rdf:about="{concat($excavationUri, '/timeline/', @id, '-timeline')}">
+            <rdf:Description rdf:about="{concat($baseUri, '/excavation/', $excavationIdentifier, '/timeline/', @id, '-timeline')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/TimeLine"/>
                 
                 <xsl:if test="timeline/beginning">
-                    <time:hasBeginning rdf:resource="{concat($excavationUri, '/instant/', @id, '-beginning')}"/>
+                    <time:hasBeginning rdf:resource="{concat($baseUri, '/excavation/', $excavationIdentifier, '/instant/', @id, '-beginning')}"/>
                 </xsl:if>
                 
                 <xsl:if test="timeline/end">
-                    <time:hasEnd rdf:resource="{concat($excavationUri, '/instant/', @id, '-end')}"/>
+                    <time:hasEnd rdf:resource="{concat($baseUri, '/excavation/', $excavationIdentifier, '/instant/', @id, '-end')}"/>
                 </xsl:if>
             </rdf:Description>
         </xsl:for-each>
         
         <!-- Time Instants - Beginning -->
         <xsl:for-each select="contexts/context/svus/svu[timeline/beginning] | svus/svu[timeline/beginning]">
-            <rdf:Description rdf:about="{concat($excavationUri, '/instant/', @id, '-beginning')}">
+            <rdf:Description rdf:about="{concat($baseUri, '/excavation/', $excavationIdentifier, '/instant/', @id, '-beginning')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Instant"/>
                 
                 <excav:bcad rdf:resource="{concat('https://purl.org/megalod/kos/MegaLOD-BCAD/', timeline/beginning/era)}"/>
@@ -235,7 +239,7 @@
         
         <!-- Time Instants - End -->
         <xsl:for-each select="contexts/context/svus/svu[timeline/end] | svus/svu[timeline/end]">
-            <rdf:Description rdf:about="{concat($excavationUri, '/instant/', @id, '-end')}">
+            <rdf:Description rdf:about="{concat($baseUri, '/excavation/', $excavationIdentifier, '/instant/', @id, '-end')}">
                 <rdf:type rdf:resource="https://purl.org/megalod/ms/excavation/Instant"/>
                 
                 <excav:bcad rdf:resource="{concat('https://purl.org/megalod/kos/MegaLOD-BCAD/', timeline/end/era)}"/>
