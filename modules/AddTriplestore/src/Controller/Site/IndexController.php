@@ -473,7 +473,7 @@ private function generateContextTtl($contextUri, $context, $allEntities, $baseUr
 
 
 /**
- * FIXED: Generate clean location TTL without duplicate URI declarations
+ * FIXED: Generate clean location TTL without duplicate informationName
  */
 private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationData)
 {
@@ -482,7 +482,7 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
     // MAIN LOCATION ENTITY - clean single type
     $ttl .= "<$locationUri> a excav:Location ;\n";
     
-    // Use site_name as the informationName
+    // FIXED: Use site_name as the informationName ONLY if we don't already have one
     if (!empty($excavationData['site_name'])) {
         $ttl .= "    dbo:informationName \"" . $excavationData['site_name'] . "\"^^xsd:literal ;\n";
     }
@@ -516,7 +516,6 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
         $countrySlug = str_replace(' ', '_', $excavationData['country']);
         $countryUri = "http://dbpedia.org/resource/" . $countrySlug;
         $ttl .= "    dbo:Country <$countryUri> ;\n";
-
     }
     
     // FIXED: Reference to separate GPS coordinates object
@@ -547,10 +546,8 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
             $ttl .= "<{$entitiesToDeclare['parish']['uri']}> a dbo:Parish .\n";
         }
         
-
         $ttl .= "\n";
     }
-    
     
     return $ttl;
 }
@@ -5590,6 +5587,9 @@ private function createNewEncounterEvent($context, $itemSetId, $signature) {
 }
 
 
+/**
+ * FIXED: Check if location exists before declaring it
+ */
 private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
     error_log("Using excavation identifier: $excavationIdentifier", 3, OMEKA_PATH . '/logs/encounter-validationnnnnnn.log');
@@ -5619,11 +5619,6 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     // FIXED: Use correct arrowhead URI format (not /item/ path)       
     $encounterDefinition .= "    crmsci:O19_encountered_object <https://purl.org/megalod/$itemSetId/item/$itemIdentifier> ;\n";
     
-    // Add excavation reference
-    if ($arrowheadContext['excavation']) {
-        $encounterDefinition .= "    excav:foundInExcavation <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier> ;\n";
-    }
-    
     // Add context reference
     if ($arrowheadContext['context']) {                   
         $encounterDefinition .= "    excav:foundInContext <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}> ;\n";
@@ -5637,68 +5632,36 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     // Close the encounter event definition
     $encounterDefinition .= "    .\n";
     
-    // 3. Add declarations for referenced resources
+    // 3. Add declarations for referenced resources ONLY if they don't already exist
     $encounterDefinition .= "\n# =========== CONTEXT ENTITY DECLARATIONS ===========\n\n";
     
-    // Add context declaration if present
-    if ($arrowheadContext['context']) {
+    // Check if declarations already exist before adding them
+    $existingDeclarations = $this->checkExistingDeclarations($enhancedTtl, $itemSetId, $excavationIdentifier);
+    
+    // Add context declaration if present AND doesn't already exist
+    if ($arrowheadContext['context'] && !$existingDeclarations['context']) {
         $contextUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}";
-        // Check if this declaration already exists in the TTL data
         if (strpos($enhancedTtl, "<$contextUri> a excav:Context") === false) {
             $encounterDefinition .= "<$contextUri> a excav:Context ;\n";
             $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['context']}\"^^xsd:literal .\n\n";
         }
     }
     
-    // Add SVU declaration if present
-    if ($arrowheadContext['svu']) {
+    // Add SVU declaration if present AND doesn't already exist
+    if ($arrowheadContext['svu'] && !$existingDeclarations['svu']) {
         $svuUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/svu/{$arrowheadContext['svu']}";
-        // Check if this declaration already exists in the TTL data
         if (strpos($enhancedTtl, "<$svuUri> a excav:StratigraphicVolumeUnit") === false) {
             $encounterDefinition .= "<$svuUri> a excav:StratigraphicVolumeUnit ;\n";
             $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['svu']}\"^^xsd:literal .\n\n";
         }
     }
     
-    // FIXED: Add location declaration ONLY if it doesn't already exist
-    if ($arrowheadContext['location']) {
-        $locationUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
-        
-        // Check if the location declaration already exists in the TTL
-        if (strpos($enhancedTtl, "<$locationUri> a excav:Location") === false) {
-            // Try to get real location data from excavation
-            $locationData = $this->getLocationDataFromExcavation($itemSetId);
-            
-            $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
-            
-            if ($locationData && !empty($locationData['name'])) {
-                $encounterDefinition .= "    dbo:informationName \"{$locationData['name']}\"^^xsd:literal ;\n";
-                
-                if (!empty($locationData['district'])) {
-                    $encounterDefinition .= "    dbo:District <{$locationData['district']}> ;\n";
-                }
-                if (!empty($locationData['parish'])) {
-                    $encounterDefinition .= "    dbo:Parish <{$locationData['parish']}> ;\n";
-                }
-                if (!empty($locationData['country'])) {
-                    $encounterDefinition .= "    dbo:Country <{$locationData['country']}> ;\n";
-                }
-                if (!empty($locationData['lat']) && !empty($locationData['long'])) {
-                    $encounterDefinition .= "    geo:lat \"{$locationData['lat']}\"^^xsd:decimal ;\n";
-                    $encounterDefinition .= "    geo:long \"{$locationData['long']}\"^^xsd:decimal ;\n";
-                }
-            } else {
-                $encounterDefinition .= "    dbo:informationName \"Archaeological Site Location\"^^xsd:literal ;\n";
-            }
-            
-            $encounterDefinition = rtrim($encounterDefinition, " ;\n") . " .\n\n";
-        }
-    }
+    // CRITICAL FIX: NEVER add location declaration here if it's from an existing excavation
+    // The location should already exist from the excavation data
     
     // Add square declaration if present and doesn't already exist
-    if ($arrowheadContext['square']) {
+    if ($arrowheadContext['square'] && !$existingDeclarations['square']) {
         $squareUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/square/{$arrowheadContext['square']}";
-        // Check if this declaration already exists in the TTL data
         if (strpos($enhancedTtl, "<$squareUri> a excav:Square") === false) {
             $encounterDefinition .= "<$squareUri> a excav:Square ;\n";
             $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['square']}\"^^xsd:literal .\n\n";
@@ -5708,6 +5671,40 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     error_log("Generated encounter event TTL:\n$encounterDefinition", 3, OMEKA_PATH . '/logs/encounter-ttl.log');
     error_log("Enhanced TTL with encounter event reference: " . $enhancedTtl . $encounterDefinition . "\n", 3, OMEKA_PATH . '/logs/encounter-tttt.log');
     return $enhancedTtl . $encounterDefinition;
+}
+
+/**
+ * NEW: Check if resource declarations already exist to prevent duplicates
+ */
+private function checkExistingDeclarations($ttlData, $itemSetId, $excavationIdentifier) {
+    $existing = [
+        'context' => false,
+        'svu' => false,
+        'square' => false,
+        'location' => false
+    ];
+    
+    // Check for existing context declarations
+    if (preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/context\/[^>]+>\s+a\s+excav:Context/", $ttlData)) {
+        $existing['context'] = true;
+    }
+    
+    // Check for existing SVU declarations
+    if (preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/svu\/[^>]+>\s+a\s+excav:StratigraphicVolumeUnit/", $ttlData)) {
+        $existing['svu'] = true;
+    }
+    
+    // Check for existing square declarations
+    if (preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/square\/[^>]+>\s+a\s+excav:Square/", $ttlData)) {
+        $existing['square'] = true;
+    }
+    
+    // Check for existing location declarations
+    if (preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/location\/[^>]+>\s+a\s+excav:Location/", $ttlData)) {
+        $existing['location'] = true;
+    }
+    
+    return $existing;
 }
 /**
  * Generate encounter title
@@ -10670,7 +10667,7 @@ private function generateMainExcavationTtl($excavationUri, $excavationIdentifier
 }
 
 /**
- * Generate location TTL from item
+ * FIXED: Generate location TTL from item - prevent duplicate informationName
  */
 private function generateLocationTtlFromItem($location, $baseUri, $excavationIdentifier)
 {
@@ -10681,10 +10678,23 @@ private function generateLocationTtlFromItem($location, $baseUri, $excavationIde
     
     $ttl = "<$locationUri> a excav:Location ;\n";
     
-    // Extract location name
-    if (isset($values['Location Name'])) {
+    // FIXED: Only add ONE informationName
+    $informationNameAdded = false;
+    
+    // Extract location name - try different property names
+    if (isset($values['Location Name']) && !$informationNameAdded) {
         $locationName = $values['Location Name']['values'][0]->value();
         $ttl .= "    dbo:informationName \"$locationName\"^^xsd:literal ;\n";
+        $informationNameAdded = true;
+    } elseif (isset($values['dbo:informationName']) && !$informationNameAdded) {
+        $locationName = $values['dbo:informationName']['values'][0]->value();
+        $ttl .= "    dbo:informationName \"$locationName\"^^xsd:literal ;\n";
+        $informationNameAdded = true;
+    } elseif (!$informationNameAdded) {
+        // Fallback: use the location title or a default name
+        $fallbackName = $location->displayTitle() ?: "Archaeological Site Location";
+        $ttl .= "    dbo:informationName \"$fallbackName\"^^xsd:literal ;\n";
+        $informationNameAdded = true;
     }
     
     // Extract district, parish, country
@@ -10739,35 +10749,28 @@ private function generateLocationTtlFromItem($location, $baseUri, $excavationIde
     }
     
     // Add GPS coordinates object
-    // In generateLocationTtlFromItem method, replace the GPS section with:
-if (isset($values['GPS Latitude']) && isset($values['GPS Longitude'])) {
-    $lat = $values['GPS Latitude']['values'][0]->value();
-    $long = $values['GPS Longitude']['values'][0]->value();
-    
-    $ttl .= "    excav:hasGPSCoordinates <$gpsUri> ;\n";
-    
-    // Later, add the GPS object with actual coordinates:
-    $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
-    $ttl .= "    geo:lat \"$lat\"^^xsd:decimal ;\n";
-    $ttl .= "    geo:long \"$long\"^^xsd:decimal .\n\n";
-} else {
-    // Check for combined GPS coordinates
-    if (isset($values['GPS Coordinates'])) {
-        $gpsString = $values['GPS Coordinates']['values'][0]->value();
-        // Parse "Latitude: 41.2081, Longitude: -8.6150"
-        if (preg_match('/Latitude:\s*([0-9.-]+),\s*Longitude:\s*([0-9.-]+)/', $gpsString, $matches)) {
-            $lat = $matches[1];
-            $long = $matches[2];
-            
-            $ttl .= "    excav:hasGPSCoordinates <$gpsUri> ;\n";
-            
-            // Add GPS object
-            $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
-            $ttl .= "    geo:lat \"$lat\"^^xsd:decimal ;\n";
-            $ttl .= "    geo:long \"$long\"^^xsd:decimal .\n\n";
+    if (isset($values['GPS Latitude']) && isset($values['GPS Longitude'])) {
+        $lat = $values['GPS Latitude']['values'][0]->value();
+        $long = $values['GPS Longitude']['values'][0]->value();
+        
+        $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
+        $ttl .= "    geo:lat \"$lat\"^^xsd:decimal ;\n";
+        $ttl .= "    geo:long \"$long\"^^xsd:decimal .\n\n";
+    } else {
+        // Check for combined GPS coordinates
+        if (isset($values['GPS Coordinates'])) {
+            $gpsString = $values['GPS Coordinates']['values'][0]->value();
+            // Parse "Latitude: 41.2081, Longitude: -8.6150"
+            if (preg_match('/Latitude:\s*([0-9.-]+),\s*Longitude:\s*([0-9.-]+)/', $gpsString, $matches)) {
+                $lat = $matches[1];
+                $long = $matches[2];
+                
+                $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
+                $ttl .= "    geo:lat \"$lat\"^^xsd:decimal ;\n";
+                $ttl .= "    geo:long \"$long\"^^xsd:decimal .\n\n";
+            }
         }
     }
-}
     
     return $ttl;
 }
