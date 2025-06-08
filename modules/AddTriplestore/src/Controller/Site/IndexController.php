@@ -2362,7 +2362,13 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
                 $updatedCount = 0;
                 
 foreach ($createdItems as $item) {
-    $itemId = $item['o:id']; // Get the Omeka assigned ID
+    if (is_array($item) && isset($item['o:id'])) {
+        $itemId = $item['o:id']; // Get the Omeka assigned ID
+    }
+    else {
+        error_log('Invalid item structure: ' . print_r($item, true), 3, OMEKA_PATH . '/logs/invalid-item.log');
+        $itemId = null;
+    }
     
     // Update titles based on content type
     if ($isExcavation) {
@@ -3353,7 +3359,7 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
     error_log("Upload type: isCompleteExcavation=$isCompleteExcavationUpload, isArrowheadOnly=$isArrowheadOnlyUpload", 3, OMEKA_PATH . '/logs/main-subjects.log');
 
     // CRITICAL FIX: If uploading to an existing item set, ONLY process arrowhead items (not context/svu/square)
-    if ($itemSetId) {
+    if ($itemSetId && !$isCompleteExcavationUpload) {
         error_log("ItemSet ID provided: $itemSetId - ONLY including arrowhead/item and encounter subjects", 3, OMEKA_PATH . '/logs/main-subjects.log');
 
         // Find arrowhead/item subjects
@@ -5633,9 +5639,6 @@ private function createNewEncounterEvent($context, $itemSetId, $signature) {
 }
 
 
-/**
- * FIXED: Check if location exists before declaring it
- */
 private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
     error_log("Using excavation identifier: $excavationIdentifier", 3, OMEKA_PATH . '/logs/encounter-validationnnnnnn.log');
@@ -5665,17 +5668,20 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     // FIXED: Use correct arrowhead URI format (not /item/ path)       
     $encounterDefinition .= "    crmsci:O19_encountered_object <https://purl.org/megalod/$itemSetId/item/$itemIdentifier> ;\n";
     
-    $encounterDefinition .= "    excav:foundInExcavation <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier> ;\n";
-
+    // FIXED: Declare excavation with proper type
+    $excavationUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier";
+    $encounterDefinition .= "    excav:foundInExcavation <$excavationUri> ;\n";
 
     // Add context reference
-    if ($arrowheadContext['context']) {                   
-        $encounterDefinition .= "    excav:foundInContext <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}> ;\n";
+    if ($arrowheadContext['context']) {
+        $contextUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}";
+        $encounterDefinition .= "    excav:foundInContext <$contextUri> ;\n";
     }
     
     // Add SVU reference
     if ($arrowheadContext['svu']) {
-        $encounterDefinition .= "    excav:foundInSVU <https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/svu/{$arrowheadContext['svu']}> ;\n";
+        $svuUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/svu/{$arrowheadContext['svu']}";
+        $encounterDefinition .= "    excav:foundInSVU <$svuUri> ;\n";
     }
     
     // Close the encounter event definition
@@ -5687,34 +5693,38 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     // Check if declarations already exist before adding them
     $existingDeclarations = $this->checkExistingDeclarations($enhancedTtl, $itemSetId, $excavationIdentifier);
     
+    // REQUIRED: Add explicit excavation declaration with type
+    if (!$existingDeclarations['excavation']) {
+        $encounterDefinition .= "<$excavationUri> a excav:Excavation ;\n";
+        $encounterDefinition .= "    dct:identifier \"$excavationIdentifier\"^^xsd:literal .\n\n";
+    }
+    
     // Add context declaration if present AND doesn't already exist
     if ($arrowheadContext['context'] && !$existingDeclarations['context']) {
         $contextUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}";
-        if (strpos($enhancedTtl, "<$contextUri> a excav:Context") === false) {
-            $encounterDefinition .= "<$contextUri> a excav:Context ;\n";
-            $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['context']}\"^^xsd:literal .\n\n";
-        }
+        $encounterDefinition .= "<$contextUri> a excav:Context ;\n";
+        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['context']}\"^^xsd:literal .\n\n";
     }
     
     // Add SVU declaration if present AND doesn't already exist
     if ($arrowheadContext['svu'] && !$existingDeclarations['svu']) {
         $svuUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/svu/{$arrowheadContext['svu']}";
-        if (strpos($enhancedTtl, "<$svuUri> a excav:StratigraphicVolumeUnit") === false) {
-            $encounterDefinition .= "<$svuUri> a excav:StratigraphicVolumeUnit ;\n";
-            $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['svu']}\"^^xsd:literal .\n\n";
-        }
+        $encounterDefinition .= "<$svuUri> a excav:StratigraphicVolumeUnit ;\n";
+        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['svu']}\"^^xsd:literal .\n\n";
     }
     
-    // CRITICAL FIX: NEVER add location declaration here if it's from an existing excavation
-    // The location should already exist from the excavation data
+    // REQUIRED: Add location declaration if referenced and doesn't already exist
+    if ($arrowheadContext['location'] && !$existingDeclarations['location']) {
+        $locationUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
+        $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
+        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['location']}\"^^xsd:literal .\n\n";
+    }
     
     // Add square declaration if present and doesn't already exist
     if ($arrowheadContext['square'] && !$existingDeclarations['square']) {
         $squareUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/square/{$arrowheadContext['square']}";
-        if (strpos($enhancedTtl, "<$squareUri> a excav:Square") === false) {
-            $encounterDefinition .= "<$squareUri> a excav:Square ;\n";
-            $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['square']}\"^^xsd:literal .\n\n";
-        }
+        $encounterDefinition .= "<$squareUri> a excav:Square ;\n";
+        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['square']}\"^^xsd:literal .\n\n";
     }
     
     error_log("Generated encounter event TTL:\n$encounterDefinition", 3, OMEKA_PATH . '/logs/encounter-ttl.log');
@@ -5722,16 +5732,20 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     return $enhancedTtl . $encounterDefinition;
 }
 
-/**
- * NEW: Check if resource declarations already exist to prevent duplicates
- */
+
 private function checkExistingDeclarations($ttlData, $itemSetId, $excavationIdentifier) {
     $existing = [
         'context' => false,
         'svu' => false,
         'square' => false,
-        'location' => false
+        'location' => false,
+        'excavation' => false
     ];
+    
+    // Check for existing excavation declaration
+    if (preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier>\s+a\s+excav:Excavation/", $ttlData)) {
+        $existing['excavation'] = true;
+    }
     
     // Check for existing context declarations
     if (preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/context\/[^>]+>\s+a\s+excav:Context/", $ttlData)) {
@@ -8060,7 +8074,13 @@ private function sendToOmekaS($omekaData, $itemSetId = null) {
             error_log('Omeka S API Error: ' . $response->getBody());
         } else {
             $createdItem = json_decode($response->getBody(), true);
-            $itemId = $createdItem['o:id'];
+            if ($createdItem && isset($createdItem['o:id'])) { // Assuming $createdItem might be an object with array-like access or an array
+                $itemId = $createdItem['o:id'];
+            } else {
+                
+                $itemId = null; // Or some other appropriate default
+                error_log('Warning: $createdItem is null or o:id not found at ' . __FILE__ . ' on line ' . __LINE__);
+            }
             
             // Handle media files if they exist
             $this->attachMediaToItem($itemId);
