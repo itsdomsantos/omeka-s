@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <arrowheads>
     <arrowhead id="003">
-        <identifier>ah-025</identifier>
+        <identifier>ah-056</identifier>
         
         <!-- Images/Web Resources -->
         <images>
@@ -80,7 +80,7 @@
         
         <!-- Archaeological Context -->
         <context>
-            <excavation>https://purl.org/megalod/location/alto-castelinho</excavation>
+            <excavation>https://purl.org/megalod/exacavation/alto-castelinho</excavation>
             <location>https://purl.org/megalod/location/alto-castelinho</location>
             <square>https://purl.org/megalod/square/A1</square>
             <contextId>https://purl.org/megalod/context/CTX-001</contextId>

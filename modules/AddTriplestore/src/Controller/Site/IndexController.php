@@ -5590,9 +5590,6 @@ private function createNewEncounterEvent($context, $itemSetId, $signature) {
 }
 
 
-/**
- * Add encounter event reference to TTL with complete context data
- */
 private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
     error_log("Using excavation identifier: $excavationIdentifier", 3, OMEKA_PATH . '/logs/encounter-validationnnnnnn.log');
@@ -5646,54 +5643,66 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     // Add context declaration if present
     if ($arrowheadContext['context']) {
         $contextUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}";
-        $encounterDefinition .= "<$contextUri> a excav:Context ;\n";
-        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['context']}\"^^xsd:literal .\n\n";
+        // Check if this declaration already exists in the TTL data
+        if (strpos($enhancedTtl, "<$contextUri> a excav:Context") === false) {
+            $encounterDefinition .= "<$contextUri> a excav:Context ;\n";
+            $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['context']}\"^^xsd:literal .\n\n";
+        }
     }
     
     // Add SVU declaration if present
     if ($arrowheadContext['svu']) {
         $svuUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/svu/{$arrowheadContext['svu']}";
-        $encounterDefinition .= "<$svuUri> a excav:StratigraphicVolumeUnit ;\n";
-        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['svu']}\"^^xsd:literal .\n\n";
+        // Check if this declaration already exists in the TTL data
+        if (strpos($enhancedTtl, "<$svuUri> a excav:StratigraphicVolumeUnit") === false) {
+            $encounterDefinition .= "<$svuUri> a excav:StratigraphicVolumeUnit ;\n";
+            $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['svu']}\"^^xsd:literal .\n\n";
+        }
     }
     
-    // FIXED: Add complete location declaration  
-if ($arrowheadContext['location']) {
-    $locationUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
-    
-    // Try to get real location data from excavation
-    $locationData = $this->getLocationDataFromExcavation($itemSetId);
-    
-    $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
-    
-    if ($locationData && !empty($locationData['name'])) {
-        $encounterDefinition .= "    dbo:informationName \"{$locationData['name']}\"^^xsd:literal ;\n";
+    // FIXED: Add location declaration ONLY if it doesn't already exist
+    if ($arrowheadContext['location']) {
+        $locationUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
         
-        if (!empty($locationData['district'])) {
-            $encounterDefinition .= "    dbo:District <{$locationData['district']}> ;\n";
+        // Check if the location declaration already exists in the TTL
+        if (strpos($enhancedTtl, "<$locationUri> a excav:Location") === false) {
+            // Try to get real location data from excavation
+            $locationData = $this->getLocationDataFromExcavation($itemSetId);
+            
+            $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
+            
+            if ($locationData && !empty($locationData['name'])) {
+                $encounterDefinition .= "    dbo:informationName \"{$locationData['name']}\"^^xsd:literal ;\n";
+                
+                if (!empty($locationData['district'])) {
+                    $encounterDefinition .= "    dbo:District <{$locationData['district']}> ;\n";
+                }
+                if (!empty($locationData['parish'])) {
+                    $encounterDefinition .= "    dbo:Parish <{$locationData['parish']}> ;\n";
+                }
+                if (!empty($locationData['country'])) {
+                    $encounterDefinition .= "    dbo:Country <{$locationData['country']}> ;\n";
+                }
+                if (!empty($locationData['lat']) && !empty($locationData['long'])) {
+                    $encounterDefinition .= "    geo:lat \"{$locationData['lat']}\"^^xsd:decimal ;\n";
+                    $encounterDefinition .= "    geo:long \"{$locationData['long']}\"^^xsd:decimal ;\n";
+                }
+            } else {
+                $encounterDefinition .= "    dbo:informationName \"Archaeological Site Location\"^^xsd:literal ;\n";
+            }
+            
+            $encounterDefinition = rtrim($encounterDefinition, " ;\n") . " .\n\n";
         }
-        if (!empty($locationData['parish'])) {
-            $encounterDefinition .= "    dbo:Parish <{$locationData['parish']}> ;\n";
-        }
-        if (!empty($locationData['country'])) {
-            $encounterDefinition .= "    dbo:Country <{$locationData['country']}> ;\n";
-        }
-        if (!empty($locationData['lat']) && !empty($locationData['long'])) {
-            $encounterDefinition .= "    geo:lat \"{$locationData['lat']}\"^^xsd:decimal ;\n";
-            $encounterDefinition .= "    geo:long \"{$locationData['long']}\"^^xsd:decimal ;\n";
-        }
-    } else {
-        $encounterDefinition .= "    dbo:informationName \"Archaeological Site Location\"^^xsd:literal ;\n";
     }
     
-    $encounterDefinition = rtrim($encounterDefinition, " ;\n") . " .\n\n";
-}
-    
-    // Add square declaration if present
+    // Add square declaration if present and doesn't already exist
     if ($arrowheadContext['square']) {
         $squareUri = "https://purl.org/megalod/$itemSetId/excavation/$excavationIdentifier/square/{$arrowheadContext['square']}";
-        $encounterDefinition .= "<$squareUri> a excav:Square ;\n";
-        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['square']}\"^^xsd:literal .\n\n";
+        // Check if this declaration already exists in the TTL data
+        if (strpos($enhancedTtl, "<$squareUri> a excav:Square") === false) {
+            $encounterDefinition .= "<$squareUri> a excav:Square ;\n";
+            $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['square']}\"^^xsd:literal .\n\n";
+        }
     }
     
     error_log("Generated encounter event TTL:\n$encounterDefinition", 3, OMEKA_PATH . '/logs/encounter-ttl.log');
