@@ -32,7 +32,6 @@
         <!-- Show form selection buttons -->
         <div class="button-group" style="margin-bottom: 20px;">
             <button id="showFileUpload" class="button">Upload File</button>
-            <button id="showForm" class="button">Add by Form</button>
             <a href="<?php echo $this->url('site/collecting', [
                 'site-slug' => $this->currentSite()->slug(),
                 'form-id' => 1, // Use the collecting form with ID 1
@@ -149,10 +148,6 @@
             document.getElementById('showFileUpload').onclick = function() {
                 document.getElementById('fileUploadForm').style.display = 'block';
                 document.getElementById('manualForm').style.display = 'none';
-            }
-            document.getElementById('showForm').onclick = function() {
-                document.getElementById('fileUploadForm').style.display = 'none';
-                document.getElementById('manualForm').style.display = 'block';
             }
         </script>
     <?php endif; ?>
