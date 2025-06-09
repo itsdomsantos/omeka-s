@@ -1,8 +1,22 @@
 <?php
-$this->collectingPrepareForm(); // Call the CollectingPrepareForm view helper
+$identity = $this->identity();
+if (!$identity) {
+    // Redirect to login or show error
+    echo '<div class="error-message">';
+    echo '<h3>Access Denied</h3>';
+    echo '<p>You must be logged in to add arrowheads.</p>';
+    echo '<a href="' . $this->url('login') . '" class="button">Login</a>';
+    echo '</div>';
+    return;
+}
+
+// Rest of your existing template code...
+$this->collectingPrepareForm();
 $success = $this->params()->fromQuery('success', false);
+
 $result = $this->params()->fromQuery('result', '');
 $itemSetId = $this->params()->fromQuery('item_set_id');
+
 ?>
 
 <style>

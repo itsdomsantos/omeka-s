@@ -2,6 +2,7 @@
 $translate = $this->plugin('translate');
 $escape = $this->plugin('escapeHtml');
 $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'AddTriplestore') . '?v=' . time());
+$isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
 ?>
 
 
@@ -12,116 +13,20 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
         <p>Upload and manage archaeological excavations and artifacts</p>
     </div>
 
-    <?php if (!empty($result) && strpos($result, 'successfully') !== false): ?>
-        <div class="success-message">
-            <strong><?php echo $this->escapeHtml($result); ?></strong>
+    <?php if (!$isLoggedIn): ?>
+        <!-- Show login prompt for non-logged users -->
+        <div class="login-required-section">
+            <div class="alert alert-info">
+                <h3>🔒 Login Required</h3>
+                <p>You must be logged in to add excavations and artifacts. You can still search and view existing data.</p>
+                <div class="button-group">
+                    <a href="<?php echo $this->url('login'); ?>" class="btn-primary">Login</a>
+                </div>
+            </div>
         </div>
         
-        <?php if (isset($excavationItemSetId) && $excavationItemSetId): ?>
-            <!-- Initial excavation upload successful - show arrowhead upload option -->
-            <div id="arrowhead-upload-section">
-                <p>Excavation uploaded successfully! Would you like to upload arrowheads to this excavation?</p>
-                <div class="button-group">
-                    <button id="upload-arrowhead-btn" class="button">Upload Arrowheads</button>
-                    <button id="exit-upload-btn" class="button">Exit</button>
-                </div>
-                
-                <div id="upload-form-container" style="display: none; margin-top: 20px;">
-                    <h3>Upload Arrowhead</h3>
-                    <form action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], true); ?>" method="post" enctype="multipart/form-data">
-                        <div>
-                            <label for="file">Select arrowhead file to upload:</label>
-                            <input type="file" name="file" id="file" required>
-                        </div>
-                        <div>
-                            <input type="hidden" name="upload_type" value="arrowhead">
-                            <input type="hidden" name="item_set_id" value="<?php echo $excavationItemSetId; ?>">
-                            <input type="hidden" name="continuous_upload" value="1">
-                        </div>
-                        <div>
-                            <input type="submit" value="Upload" name="submit">
-                        </div>
-                    </form>
-                </div>
-            </div>
-        <?php elseif ($this->params()->fromPost('continuous_upload') || $this->params()->fromQuery('continuous_upload')): ?>
-            <!-- This is a continuous upload - arrowhead was just uploaded, ask for another -->
-            <?php 
-            $itemSetId = $this->params()->fromPost('item_set_id') ?: $this->params()->fromQuery('item_set_id');
-            ?>
-            
-            <div id="continue-upload-section">
-                <p>Arrowhead uploaded successfully! Would you like to upload another arrowhead?</p>
-                <div class="button-group">
-                    <button id="upload-another-btn" class="button">Upload Another</button>
-                    <button id="exit-upload-btn" class="button">Exit</button>
-                </div>
-                
-                <div id="upload-form-container" style="display: none; margin-top: 20px;">
-                    <h3>Upload Another Arrowhead</h3>
-                    <form action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], true); ?>" method="post" enctype="multipart/form-data">
-                        <div>
-                            <label for="file">Select arrowhead file to upload:</label>
-                            <input type="file" name="file" id="file" required>
-                        </div>
-                        <div>
-                            <input type="hidden" name="upload_type" value="arrowhead">
-                            <input type="hidden" name="item_set_id" value="<?php echo $itemSetId; ?>">
-                            <input type="hidden" name="continuous_upload" value="1">
-                        </div>
-                        <div>
-                            <input type="submit" value="Upload" name="submit">
-                        </div>
-                    </form>
-                </div>
-            </div>
-        <?php endif; ?>
-        
-        <!-- JavaScript for all upload scenarios -->
-        <script>
-            // Show the upload form when the appropriate button is clicked
-            document.addEventListener('DOMContentLoaded', function() {
-                var uploadArrowheadBtn = document.getElementById('upload-arrowhead-btn');
-                var uploadAnotherBtn = document.getElementById('upload-another-btn');
-                var exitUploadBtn = document.getElementById('exit-upload-btn');
-                var uploadFormContainer = document.getElementById('upload-form-container');
-                
-                if (uploadArrowheadBtn) {
-                    uploadArrowheadBtn.addEventListener('click', function() {
-                        uploadFormContainer.style.display = 'block';
-                    });
-                }
-                
-                if (uploadAnotherBtn) {
-                    uploadAnotherBtn.addEventListener('click', function() {
-                        uploadFormContainer.style.display = 'block';
-                    });
-                }
-                
-                if (exitUploadBtn) {
-                    exitUploadBtn.addEventListener('click', function() {
-                        window.location.href = '<?php echo $this->url('site', ['site-slug' => $site->slug()], true); ?>';
-                    });
-                }
-            });
-        </script>
-    <?php else: ?>
-        <!-- Initial upload options - show when no upload has been done yet -->
-        <div class="main-actions">
-            <div class="action-card">
-                <div class="card-icon">🏛️</div>
-                <h3>Add Excavation</h3>
-                <p>Create a new archaeological excavation site</p>
-                <button type="button" class="btn-primary" onclick="showUploadOptions('excavation')">Get Started</button>
-            </div>
-
-            <div class="action-card">
-                <div class="card-icon">🏹</div>
-                <h3>Add Artifacts</h3>
-                <p>Upload arrowheads and other archaeological finds</p>
-                <button type="button" class="btn-primary" onclick="showUploadOptions('arrowhead')">Add Artifact</button>
-            </div>
-
+        <!-- Public search section -->
+        <div class="public-actions">
             <div class="action-card">
                 <div class="card-icon">🔍</div>
                 <h3>Search Data</h3>
@@ -129,72 +34,236 @@ $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'A
                 <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]); ?>" class="btn-primary">Search Now</a>
             </div>
         </div>
+    <?php else: ?>
 
-        <div id="upload-options" style="display: none;" class="upload-options">
-            <h2>Choose Upload Method</h2>
-            <div class="method-buttons">
-                <button type="button" class="method-btn" onclick="showUploadForm('upload')">Upload File</button>
-                <button type="button" class="method-btn" onclick="showUploadForm('form')">Use Form</button>
+        <?php if (!empty($result) && strpos($result, 'successfully') !== false): ?>
+            <div class="success-message">
+                <strong><?php echo $this->escapeHtml($result); ?></strong>
             </div>
-        </div>
-
-        <div id="upload-form" style="display: none;" class="upload-form-section">
-            <h2>Upload Data</h2>
-            <form action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], true); ?>" method="post" enctype="multipart/form-data">
-                <div class="form-group">
-                    <label for="file">Select file to upload:</label>
-                    <input type="file" name="file" id="file" class="form-control">
+            
+            <?php if (isset($excavationItemSetId) && $excavationItemSetId): ?>
+                <!-- Initial excavation upload successful - show arrowhead upload option -->
+                <div id="arrowhead-upload-section">
+                    <p>Excavation uploaded successfully! Would you like to upload arrowheads to this excavation?</p>
+                    <div class="button-group">
+                        <button id="upload-arrowhead-btn" class="button">Upload Arrowheads</button>
+                        <button id="exit-upload-btn" class="button">Exit</button>
+                    </div>
+                    
+                    <div id="upload-form-container" style="display: none; margin-top: 20px;">
+                        <h3>Upload Arrowhead</h3>
+                        <form action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], true); ?>" method="post" enctype="multipart/form-data">
+                            <div>
+                                <label for="file">Select arrowhead file to upload:</label>
+                                <input type="file" name="file" id="file" required>
+                            </div>
+                            <div>
+                                <input type="hidden" name="upload_type" value="arrowhead">
+                                <input type="hidden" name="item_set_id" value="<?php echo $excavationItemSetId; ?>">
+                                <input type="hidden" name="continuous_upload" value="1">
+                            </div>
+                            <div>
+                                <input type="submit" value="Upload" name="submit">
+                            </div>
+                        </form>
+                    </div>
                 </div>
-                <div>
-                    <input type="hidden" name="upload_type" id="upload_type" value="">
-                </div>
-                <div class="form-actions">
-                    <input type="submit" value="Upload" name="submit" class="btn-primary">
-                </div>
-            </form>
-        </div>
-
-        <div id="remote-form" style="display: none;" class="remote-form-section">
-            <h2>Use Collection Form</h2>
-            <p>Choose the appropriate form:</p>
-            <div class="form-buttons">
-                <button type="button" class="form-btn" onclick="redirectToForm('arrowhead', <?php echo 1; ?>)">Arrowhead Form</button>
-                <button type="button" class="form-btn" onclick="redirectToForm('excavation', <?php echo 2; ?>)">Excavation Form</button>
-            </div>
-        </div>
-        
-        <script>
-            function showUploadOptions(option) {
-                document.getElementById('upload-options').style.display = 'block';
-                document.getElementById('upload_type').value = option;
+            <?php elseif ($this->params()->fromPost('continuous_upload') || $this->params()->fromQuery('continuous_upload')): ?>
+                <!-- This is a continuous upload - arrowhead was just uploaded, ask for another -->
+                <?php 
+                $itemSetId = $this->params()->fromPost('item_set_id') ?: $this->params()->fromQuery('item_set_id');
+                ?>
                 
-                // Hide main actions
-                document.querySelector('.main-actions').style.display = 'none';
-            }
+                <div id="continue-upload-section">
+                    <p>Arrowhead uploaded successfully! Would you like to upload another arrowhead?</p>
+                    <div class="button-group">
+                        <button id="upload-another-btn" class="button">Upload Another</button>
+                        <button id="exit-upload-btn" class="button">Exit</button>
+                    </div>
+                    
+                    <div id="upload-form-container" style="display: none; margin-top: 20px;">
+                        <h3>Upload Another Arrowhead</h3>
+                        <form action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], true); ?>" method="post" enctype="multipart/form-data">
+                            <div>
+                                <label for="file">Select arrowhead file to upload:</label>
+                                <input type="file" name="file" id="file" required>
+                            </div>
+                            <div>
+                                <input type="hidden" name="upload_type" value="arrowhead">
+                                <input type="hidden" name="item_set_id" value="<?php echo $itemSetId; ?>">
+                                <input type="hidden" name="continuous_upload" value="1">
+                            </div>
+                            <div>
+                                <input type="submit" value="Upload" name="submit">
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            <?php endif; ?>
+            
+            <!-- JavaScript for all upload scenarios -->
+            <script>
+                // Show the upload form when the appropriate button is clicked
+                document.addEventListener('DOMContentLoaded', function() {
+                    var uploadArrowheadBtn = document.getElementById('upload-arrowhead-btn');
+                    var uploadAnotherBtn = document.getElementById('upload-another-btn');
+                    var exitUploadBtn = document.getElementById('exit-upload-btn');
+                    var uploadFormContainer = document.getElementById('upload-form-container');
+                    
+                    if (uploadArrowheadBtn) {
+                        uploadArrowheadBtn.addEventListener('click', function() {
+                            uploadFormContainer.style.display = 'block';
+                        });
+                    }
+                    
+                    if (uploadAnotherBtn) {
+                        uploadAnotherBtn.addEventListener('click', function() {
+                            uploadFormContainer.style.display = 'block';
+                        });
+                    }
+                    
+                    if (exitUploadBtn) {
+                        exitUploadBtn.addEventListener('click', function() {
+                            window.location.href = '<?php echo $this->url('site', ['site-slug' => $site->slug()], true); ?>';
+                        });
+                    }
+                });
+            </script>
+        <?php else: ?>
+            <!-- Initial upload options - show when no upload has been done yet -->
+            <div class="main-actions">
+                <div class="action-card">
+                    <div class="card-icon">🏛️</div>
+                    <h3>Add Excavation</h3>
+                    <p>Create a new archaeological excavation site</p>
+                    <button type="button" class="btn-primary" onclick="showUploadOptions('excavation')">Get Started</button>
+                </div>
 
-            function showUploadForm(method) {
-                document.getElementById('upload-options').style.display = 'none';
-                if (method === 'upload') {
-                    document.getElementById('upload-form').style.display = 'block';
-                    document.getElementById('remote-form').style.display = 'none';
-                } else if (method === 'form') {
-                    document.getElementById('upload-form').style.display = 'none';
-                    document.getElementById('remote-form').style.display = 'block';
-                }
-            }
+                <div class="action-card">
+                    <div class="card-icon">🏹</div>
+                    <h3>Add Artifacts</h3>
+                    <p>Upload arrowheads and other archaeological finds</p>
+                    <button type="button" class="btn-primary" onclick="showUploadOptions('arrowhead')">Add Artifact</button>
+                </div>
 
-            function redirectToForm(formType, formId) {
-                if (formType === 'arrowhead') {
-                    window.location.href = '<?php echo $this->url('site/collecting', ['form-id' => 1, 'action' => 'uploadArrowheadForm'], true); ?>';
-                } else if (formType === 'excavation') {
-                    window.location.href = '<?php echo $this->url('site/collecting', ['form-id' => 2, 'action' => 'uploadExcavationForm'], true); ?>';
+                <div class="action-card">
+                    <div class="card-icon">🔍</div>
+                    <h3>Search Data</h3>
+                    <p>Find and explore existing archaeological data</p>
+                    <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]); ?>" class="btn-primary">Search Now</a>
+                </div>
+            </div>
+
+            <div id="upload-options" style="display: none;" class="upload-options">
+                <h2>Choose Upload Method</h2>
+                <div class="method-buttons">
+                    <button type="button" class="method-btn" onclick="showUploadForm('upload')">Upload File</button>
+                    <button type="button" class="method-btn" onclick="showUploadForm('form')">Use Form</button>
+                </div>
+            </div>
+
+            <div id="upload-form" style="display: none;" class="upload-form-section">
+                <h2>Upload Data</h2>
+                <form action="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], true); ?>" method="post" enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label for="file">Select file to upload:</label>
+                        <input type="file" name="file" id="file" class="form-control">
+                    </div>
+                    <div>
+                        <input type="hidden" name="upload_type" id="upload_type" value="">
+                    </div>
+                    <div class="form-actions">
+                        <input type="submit" value="Upload" name="submit" class="btn-primary">
+                    </div>
+                </form>
+            </div>
+
+            <div id="remote-form" style="display: none;" class="remote-form-section">
+                <h2>Use Collection Form</h2>
+                <p>Choose the appropriate form:</p>
+                <div class="form-buttons">
+                    <button type="button" class="form-btn" onclick="redirectToForm('arrowhead', <?php echo 1; ?>)">Arrowhead Form</button>
+                    <button type="button" class="form-btn" onclick="redirectToForm('excavation', <?php echo 2; ?>)">Excavation Form</button>
+                </div>
+            </div>
+            
+            <script>
+                function showUploadOptions(option) {
+                    document.getElementById('upload-options').style.display = 'block';
+                    document.getElementById('upload_type').value = option;
+                    
+                    // Hide main actions
+                    document.querySelector('.main-actions').style.display = 'none';
                 }
-            }
-        </script>
+
+                function showUploadForm(method) {
+                    document.getElementById('upload-options').style.display = 'none';
+                    if (method === 'upload') {
+                        document.getElementById('upload-form').style.display = 'block';
+                        document.getElementById('remote-form').style.display = 'none';
+                    } else if (method === 'form') {
+                        document.getElementById('upload-form').style.display = 'none';
+                        document.getElementById('remote-form').style.display = 'block';
+                    }
+                }
+
+                function redirectToForm(formType, formId) {
+                    if (formType === 'arrowhead') {
+                        window.location.href = '<?php echo $this->url('site/collecting', ['form-id' => 1, 'action' => 'uploadArrowheadForm'], true); ?>';
+                    } else if (formType === 'excavation') {
+                        window.location.href = '<?php echo $this->url('site/collecting', ['form-id' => 2, 'action' => 'uploadExcavationForm'], true); ?>';
+                    }
+                }
+            </script>
+        <?php endif; ?>
     <?php endif; ?>
 </div>
 
 <style>
+.login-required-section {
+    max-width: 600px;
+    margin: 40px auto;
+}
+
+.alert {
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+}
+
+.alert-info {
+    background-color: #e3f2fd;
+    border: 1px solid #2196f3;
+    color: #1976d2;
+}
+
+.public-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 40px;
+}
+
+.public-actions .action-card {
+    max-width: 300px;
+}
+
+.btn-secondary {
+    display: inline-block;
+    background: #2196F3;
+    color: white;
+    padding: 12px 24px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background 0.2s ease;
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.btn-secondary:hover {
+    background: #1976D2;
+}
 
 
 .nav-link {

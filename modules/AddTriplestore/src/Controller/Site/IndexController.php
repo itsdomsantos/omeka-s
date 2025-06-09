@@ -36,11 +36,26 @@ class IndexController extends AbstractActionController
         $this->httpClient = $httpClient;
     }
 
-    public function indexAction()
-    {
-        $site = $this->currentSite();
-        return new ViewModel(['site' => $site]);
+    private function requireLogin()
+{
+    if (!$this->identity()) {
+        $this->messenger()->addError('You must be logged in to access this feature.');
+        return $this->redirect()->toRoute('login');
     }
+    return null;
+}
+
+public function indexAction()
+{
+    // Check if user is logged in for functionality access
+    $site = $this->currentSite();
+    $isLoggedIn = (bool) $this->identity();
+    
+    return new ViewModel([
+        'site' => $site,
+        'isLoggedIn' => $isLoggedIn
+    ]);
+}
     
 
     
@@ -88,8 +103,11 @@ private function getTtlPrefixes()
     public function uploadAction()
     {
         // Get all POST data
+        $redirect = $this->requireLogin();
+            if ($redirect) return $redirect;
+
         $postData = $this->params()->fromPost();
-        
+
         // Check if this is a continuous arrowhead upload
         $uploadType = $this->params()->fromQuery('upload_type') ?: $this->params()->fromPost('upload_type');
         $itemSetId = $this->params()->fromQuery('item_set_id') ?: $this->params()->fromPost('item_set_id');
@@ -1901,6 +1919,8 @@ if ($locationUri) {
 
     public function processCollectingFormAction()
     {
+        $redirect = $this->requireLogin();
+        if ($redirect) return $redirect;
         // Get the item set ID and upload type from query parameters
         $itemSetId = $this->params()->fromQuery('item_set_id');
         $uploadType = $this->params()->fromQuery('upload_type', 'arrowhead');
@@ -5638,33 +5658,7 @@ private function createNewEncounterEvent($context, $itemSetId, $signature) {
     }
 }
 
-/** 
- * Add this method to your IndexController class to check authentication
- */
-private function requireAuthentication()
-{
-    // Get the current user
-    $identity = $this->identity();
-    
-    // Redirect to login if no user is logged in
-    if (!$identity) {
-        $this->messenger()->addError('You must be logged in to add artifacts or excavation data.');
-        
-        // Get the login URL
-        $loginUrl = $this->url()->fromRoute('login', [], [
-            'query' => ['redirect' => $this->url()->fromRoute(null, [], [], true)]
-        ]);
-        
-        // Save the intended target URL in session for after login
-        $session = new \Laminas\Session\Container('AddTriplestore');
-        $session->redirectUrl = $this->getRequest()->getRequestUri();
-        
-        // Redirect to login page
-        return $this->redirect()->toUrl($loginUrl);
-    }
-    
-    return true;
-}
+
 
 private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);

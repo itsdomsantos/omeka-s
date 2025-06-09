@@ -1,5 +1,16 @@
 <?php
-// modules/Collecting/view/collecting/site/index/upload-excavation-form.phtml
+// Check if user is logged in
+$identity = $this->identity();
+if (!$identity) {
+    echo '<div class="error-message">';
+    echo '<h3>Access Denied</h3>';
+    echo '<p>You must be logged in to add excavations.</p>';
+    echo '<a href="' . $this->url('login') . '" class="button">Login</a>';
+    echo '</div>';
+    return;
+}
+
+// Rest of your existing template code...
 $this->collectingPrepareForm();
 $this->headScript()->appendFile($this->assetUrl('js/excavation-form.js', 'AddTriplestore'));
 
