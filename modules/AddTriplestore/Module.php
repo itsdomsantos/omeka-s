@@ -28,6 +28,7 @@ class Module extends AbstractModule
      */
 
      
+
 public function onBootstrap(MvcEvent $event)
 {
     parent::onBootstrap($event);
@@ -50,8 +51,17 @@ public function onBootstrap(MvcEvent $event)
     $acl->allow(
         null,
         ['AddTriplestore\Controller\Site\Index'],
-        ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout', 'dashboard']
+        ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout', 'dashboard', 'myData', 'processFileUpload', 'uploadTtlData']
     );
+    
+    // Give specific permission to site-only users for upload and data manipulation
+    $acl->allow('guest', [
+        'Omeka\Entity\Item',
+        'Omeka\Entity\ItemSet',
+        'Omeka\Entity\Media',
+        'Omeka\Api\Adapter\ItemAdapter',
+        'Omeka\Api\Adapter\ItemSetAdapter'
+    ], ['create', 'update', 'delete']);
     
     // List of admin controllers to deny access for guest users
     $adminControllers = [
@@ -86,8 +96,60 @@ public function onBootstrap(MvcEvent $event)
         [$this, 'redirectGuestsFromAdmin'],
         -100
     );
+    
+    // Add API authorization for guests to upload content
+    $sharedEventManager->attach(
+        'Omeka\Api\Adapter\ItemAdapter',
+        'api.create.pre',
+        [$this, 'allowGuestUserCreateItems']
+    );
+    
+    $sharedEventManager->attach(
+        'Omeka\Api\Adapter\ItemSetAdapter',
+        'api.create.pre',
+        [$this, 'allowGuestUserCreateItemSets']
+    );
 }
 
+/**
+ * Allow guest users to create items through the API
+ */
+public function allowGuestUserCreateItems($event)
+{
+    $services = $this->getServiceLocator();
+    $auth = $services->get('Omeka\AuthenticationService');
+    
+    if ($auth->hasIdentity()) {
+        $user = $auth->getIdentity();
+        if ($user->getRole() === 'guest') {
+            // Override the owner_id in the request to be the current user
+            $request = $event->getParam('request');
+            $data = $request->getContent();
+            $data['o:owner'] = ['o:id' => $user->getId()];
+            $request->setContent($data);
+        }
+    }
+}
+
+/**
+ * Allow guest users to create item sets through the API
+ */
+public function allowGuestUserCreateItemSets($event)
+{
+    $services = $this->getServiceLocator();
+    $auth = $services->get('Omeka\AuthenticationService');
+    
+    if ($auth->hasIdentity()) {
+        $user = $auth->getIdentity();
+        if ($user->getRole() === 'guest') {
+            // Override the owner_id in the request to be the current user
+            $request = $event->getParam('request');
+            $data = $request->getContent();
+            $data['o:owner'] = ['o:id' => $user->getId()];
+            $request->setContent($data);
+        }
+    }
+}
 /**
  * Redirect guest users away from admin sections
  */
@@ -472,7 +534,7 @@ LIMIT 50";
             
             // Count triples before deletion
             $countQuery = $this->buildCountQuery($graphUri, $identifier);
-            $countResponse = $this->executeSparqlQuery($this->graphdbQueryEndpoint, $countQuery);
+            $countResponse = $this->executeSparqlQuery($baseDataGraphUri, $countQuery);
             
             $countData = json_decode($countResponse->getBody(), true);
             $tripleCount = 0;
@@ -499,7 +561,7 @@ LIMIT 50";
                     $this->debugGraphContents($fallbackGraph, $identifier);
                     
                     $fallbackCountQuery = $this->buildCountQuery($fallbackGraph, $identifier);
-                    $fallbackCountResponse = $this->executeSparqlQuery($this->graphdbQueryEndpoint, $fallbackCountQuery);
+                    $fallbackCountResponse = $this->executeSparqlQuery($baseDataGraphUri, $fallbackCountQuery);
                     $fallbackCountData = json_decode($fallbackCountResponse->getBody(), true);
                     
                     if ($fallbackCountData && isset($fallbackCountData['results']['bindings']) && 

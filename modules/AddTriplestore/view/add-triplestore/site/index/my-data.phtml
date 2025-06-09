@@ -1,0 +1,246 @@
+<?php $this->htmlElement('body')->appendAttribute('class', 'my-data browse'); ?>
+
+<div class="my-data-dashboard">
+    <h2 class="page-title"><?php echo $this->translate('My Data'); ?></h2>
+    
+    <div class="data-section">
+        <h3 class="section-title"><?php echo $this->translate('My Uploads'); ?></h3>
+        
+        <?php if ($totalItems > 0): ?>
+            <div class="browse-controls">
+                <div class="item-count"><?php echo sprintf($this->translate('%s items'), $totalItems); ?></div>
+            </div>
+            
+            <ul class="resource-list">
+            <?php foreach ($items as $item): ?>
+                <li class="item-card">
+                    <div class="item-header">
+                        <h4 class="item-title"><?php echo $this->escapeHtml($item->displayTitle()); ?></h4>
+                    </div>
+                    <div class="item-body">
+                        <?php if ($item->thumbnail()): ?>
+                        <div class="item-thumbnail">
+                            <?php echo $item->linkPretty('medium'); ?>
+                        </div>
+                        <?php endif; ?>
+                        <div class="item-details">
+                            <div class="description">
+                                <?php
+                                $description = $item->displayDescription();
+                                echo $description ? $this->escapeHtml($description) : $this->translate('[No description]');
+                                ?>
+                            </div>
+                            <div class="meta">
+                                <?php echo $this->translate('Added on:'); ?> 
+                                <?php echo $this->i18n()->dateFormat($item->created()); ?>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="item-actions">
+                        <?php echo $item->link($this->translate('View Details'), null, ['class' => 'view-button']); ?>
+                        <a href="<?php echo $this->url('site/add-triplestore/download-ttl', ['site-slug' => $site->slug()], ['query' => ['id' => $item->id(), 'type' => 'item']]); ?>" class="download-button"><?php echo $this->translate('Download TTL'); ?></a>
+                    </div>
+                </li>
+            <?php endforeach; ?>
+            </ul>
+        <?php else: ?>
+            <div class="no-resources">
+                <div class="empty-state">
+                    <i class="fas fa-file-upload empty-icon"></i>
+                    <p><?php echo $this->translate('You have not yet uploaded any items.'); ?></p>
+                    <a href="<?php echo $this->url('site/add-triplestore', ['site-slug' => $site->slug()]); ?>" class="upload-button"><?php echo $this->translate('Upload Data'); ?></a>
+                </div>
+            </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<style>
+.my-data-dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+    color: black;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+}
+
+.page-title {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    color: #333;
+    border-bottom: 2px solid #764ba2;
+    padding-bottom: 0.5rem;
+}
+
+.section-title {
+    font-size: 1.5rem;
+    margin: 1.5rem 0;
+    color: white;
+
+}
+
+.browse-controls {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.item-count {
+    font-size: 0.9rem;
+    color: #666;
+    font-weight: 500;
+}
+
+.resource-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+    gap: 20px;
+}
+
+.item-card {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    transition: transform 0.2s, box-shadow 0.2s;
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+}
+
+.item-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.item-header {
+    padding: 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+}
+
+.item-title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.item-body {
+    padding: 15px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.item-thumbnail {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.item-thumbnail img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+}
+
+.item-details {
+    flex-grow: 1;
+}
+
+.description {
+    font-size: 0.9rem;
+    color: #555;
+    margin-bottom: 10px;
+    max-height: 100px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 4;
+    -webkit-box-orient: vertical;
+}
+
+.meta {
+    font-size: 0.8rem;
+    color: #888;
+    margin-top: auto;
+}
+
+.item-actions {
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    border-top: 1px solid #eee;
+}
+
+.view-button, .download-button, .upload-button {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.view-button {
+    background-color: #667eea;
+    color: white;
+}
+
+.view-button:hover {
+    background-color: #5a6ecc;
+}
+
+.download-button {
+    background-color: #764ba2;
+    color: white;
+}
+
+.download-button:hover {
+    background-color: #673b8f;
+}
+
+.no-resources {
+    padding: 30px;
+    text-align: center;
+}
+
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background-color: #f9f9f9;
+    padding: 60px 30px;
+    border-radius: 8px;
+}
+
+.empty-icon {
+    font-size: 48px;
+    color: #ccc;
+    margin-bottom: 20px;
+}
+
+.upload-button {
+    background-color: #764ba2;
+    color: white;
+    margin-top: 20px;
+}
+
+.upload-button:hover {
+    background-color: #673b8f;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .resource-list {
+        grid-template-columns: 1fr;
+    }
+}
+</style>

@@ -56,8 +56,8 @@ $this->headTitle('My Dashboard - ' . $site->title());
             <div class="quick-actions">
                 <h4>Quick Actions</h4>
                 <ul>
-                    <li><a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()]); ?>">🏺 Upload Arrowhead</a></li>
-                    <li><a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['upload_type' => 'excavation']]); ?>">⛏️ Add Excavation</a></li>
+                    <li><a href="<?php echo $this->url('site/add-triplestore', ['site-slug' => $site->slug()]); ?>">🏺 Upload Arrowhead</a></li>
+                    <li><a href="<?php echo $this->url('site/add-triplestore', ['site-slug' => $site->slug()], ['query' => ['upload_type' => 'excavation']]); ?>">⛏️ Add Excavation</a></li>
                     <li><a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()]); ?>">🔍 Search Database</a></li>
                     <li><a href="<?php echo $this->url('site/add-triplestore/logout', ['site-slug' => $site->slug()]); ?>">🚪 Logout</a></li>
                 </ul>

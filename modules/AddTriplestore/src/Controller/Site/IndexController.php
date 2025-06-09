@@ -297,6 +297,53 @@ private function userHasAdminAccess($user)
     return in_array($role, $adminRoles);
 }
 
+
+/**
+ * Display user's data and uploads
+ */
+public function myDataAction()
+{
+    $redirect = $this->requireLogin();
+    if ($redirect) return $redirect;
+    
+    $user = $this->identity();
+    
+    // If this is an admin user, redirect to actual admin dashboard
+    if ($this->userHasAdminAccess($user)) {
+        return $this->redirect()->toUrl('/admin');
+    }
+    
+    // Get the user's items and uploads
+    $userId = $user->getId();
+    $items = [];
+    
+    try {
+        // Get items created by this user
+        $response = $this->api()->search('items', [
+            'owner_id' => $userId,
+            'sort_by' => 'created',
+            'sort_order' => 'desc',
+            'limit' => 50 // Limit to the latest 50 items
+        ]);
+        $items = $response->getContent();
+    } catch (\Exception $e) {
+        $this->messenger()->addError('Failed to load your items: ' . $e->getMessage());
+    }
+    
+    // Show user data page
+    $view = new ViewModel([
+        'user' => $user,
+        'site' => $this->currentSite(),
+        'items' => $items,
+        'totalItems' => count($items),
+        'isLoggedIn' => true,
+        'userRole' => $user->getRole()
+    ]);
+    $view->setTemplate('add-triplestore/site/index/my-data');
+    
+    return $view;
+}
+
 // Update your loginAction to handle user access levels:
 public function loginAction()
 {
@@ -367,27 +414,17 @@ public function loginAction()
 private function requireLogin()
 {
     if (!$this->identity()) {
-        $this->messenger()->addError('You must be logged in to access this feature.');
-        // Store current URL for redirect after login
-        $currentUrl = $this->getRequest()->getUri();
-        return $this->redirect()->toRoute('site/add-triplestore/login', 
-            ['site-slug' => $this->currentSite()->slug()], 
-            ['query' => ['redirect' => $currentUrl]]
-        );
+        $this->messenger()->addError('You must log in to access this page');
+        return $this->redirect()->toRoute('site/add-triplestore/login', [
+            'site-slug' => $this->currentSite()->slug()
+        ]);
     }
     
-    // Check if this is a site-only user trying to access admin features
+    // Log the current user for debugging
     $user = $this->identity();
-    $session = new Container('site_user');
+    error_log('User in requireLogin: ' . $user->getEmail() . ' with role: ' . $user->getRole(), 3, OMEKA_PATH . '/logs/access-check.log');
     
-    if ($session->siteOnly && !$this->userHasAdminAccess($user)) {
-        // Ensure site-only users stay within their allowed site
-        if ($session->allowedSite !== $this->currentSite()->slug()) {
-            $this->messenger()->addError('Access denied to this site.');
-            return $this->redirect()->toRoute('site', ['site-slug' => $session->allowedSite]);
-        }
-    }
-    
+    // Allow guest users to proceed
     return null;
 }
 
@@ -522,7 +559,11 @@ private function getTtlPrefixes()
     {
         // Get all POST data
         $redirect = $this->requireLogin();
-            if ($redirect) return $redirect;
+        if ($redirect) return $redirect;
+
+        // Log the current user role for debugging
+        $user = $this->identity();
+        error_log('User attempting upload: ' . $user->getEmail() . ' with role: ' . $user->getRole(), 3, OMEKA_PATH . '/logs/upload-access.log');
 
         $postData = $this->params()->fromPost();
 
@@ -2581,6 +2622,10 @@ private function getExcavationLocationUri($excavationId, $itemSetId = null) {
         error_log('File type: ' . $fileType, 3, OMEKA_PATH . '/logs/file-upload.log');
     
         try {
+            if (!isset($_FILES['file']) || empty($_FILES['file']['tmp_name'])) {
+                error_log('No file uploaded', 3, OMEKA_PATH . '/logs/file-upload.log');
+            return 'Error: No file uploaded';
+        }
             if ($fileType === 'application/xml' || $fileType === 'text/xml') {
                 $rdfXmlData = $this->xmlParser($file);
                 if (is_string($rdfXmlData) && strpos($rdfXmlData, 'Failed') === false) {

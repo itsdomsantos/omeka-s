@@ -123,6 +123,15 @@ return [
                                     ],
                                 ],
                             ],
+                            'my-data' => [
+                                'type' => 'Segment',
+                                'options' => [
+                                    'route' => '/my-data',
+                                    'defaults' => [
+                                        'action' => 'myData',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],
