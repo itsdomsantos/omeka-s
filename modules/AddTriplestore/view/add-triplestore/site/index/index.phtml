@@ -20,7 +20,9 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
                 <h3>🔒 Login Required</h3>
                 <p>You must be logged in to add excavations and artifacts. You can still search and view existing data.</p>
                 <div class="button-group">
-                    <a href="<?php echo $this->url('login'); ?>" class="btn-primary">Login</a>
+                    <a href="<?php echo $this->url('site/add-triplestore/login', ['site-slug' => $this->currentSite()->slug()]); ?>" class="btn-primary">Login</a>
+                    <a href="<?php echo $this->url('site/add-triplestore/signup', ['site-slug' => $this->currentSite()->slug()]); ?>" class="btn-secondary">Sign Up</a>
+                    <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]); ?>" class="btn-secondary">Search Data</a>
                 </div>
             </div>
         </div>
@@ -35,7 +37,12 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
             </div>
         </div>
     <?php else: ?>
-
+        <div class="user-menu">
+            <div class="user-info">
+                <span class="welcome-text">Welcome, <?php echo $this->escapeHtml($this->identity()->getName()); ?>!</span>
+                <a href="<?php echo $this->url('site/add-triplestore/logout', ['site-slug' => $this->currentSite()->slug()]); ?>" class="logout-link">Logout</a>
+            </div>
+        </div>
         <?php if (!empty($result) && strpos($result, 'successfully') !== false): ?>
             <div class="success-message">
                 <strong><?php echo $this->escapeHtml($result); ?></strong>
@@ -470,6 +477,50 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
     
     .button-group {
         flex-direction: column;
+    }
+}
+
+/* Add this to your existing style section */
+.user-menu {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.user-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.welcome-text {
+    color: #333;
+    font-weight: 500;
+}
+
+.logout-link {
+    color: #dc3545;
+    text-decoration: none;
+    font-size: 14px;
+    padding: 5px 10px;
+    border: 1px solid #dc3545;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.logout-link:hover {
+    background: #dc3545;
+    color: white;
+    text-decoration: none;
+}
+
+@media (max-width: 768px) {
+    .user-info {
+        flex-direction: column;
+        gap: 10px;
     }
 }
 </style>

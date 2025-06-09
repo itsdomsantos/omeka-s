@@ -12,6 +12,7 @@ use Laminas\Log\Writer\Stream;
 use EasyRdf\Graph;
 use Laminas\Form\FormInterface;
 use Laminas\Router\RouteStackInterface;
+use Laminas\Session\Container;
 
 class IndexController extends AbstractActionController
 {
@@ -36,14 +37,201 @@ class IndexController extends AbstractActionController
         $this->httpClient = $httpClient;
     }
 
-    private function requireLogin()
+// Update the requireLogin method to redirect to site login
+private function requireLogin()
 {
     if (!$this->identity()) {
         $this->messenger()->addError('You must be logged in to access this feature.');
-        return $this->redirect()->toRoute('login');
+        // Store current URL for redirect after login
+        $currentUrl = $this->getRequest()->getUri();
+        return $this->redirect()->toRoute('site/add-triplestore/login', 
+            ['site-slug' => $this->currentSite()->slug()], 
+            ['query' => ['redirect' => $currentUrl]]
+        );
     }
     return null;
 }
+
+public function loginAction()
+{
+    // If already logged in, redirect to main page
+    if ($this->identity()) {
+        return $this->redirect()->toRoute('site', ['site-slug' => $this->currentSite()->slug()]);
+    }
+
+    $form = $this->getServiceLocator()->get('FormElementManager')->get(\Omeka\Form\LoginForm::class);
+    $view = new ViewModel([
+        'form' => $form,
+        'site' => $this->currentSite()
+    ]);
+    $view->setTemplate('add-triplestore/site/index/login');
+    
+    if ($this->getRequest()->isPost()) {
+        $data = $this->params()->fromPost();
+        $form->setData($data);
+        
+        if ($form->isValid()) {
+            $validatedData = $form->getData();
+            $sessionManager = Container::getDefaultManager();
+            $sessionManager->regenerateId();
+            
+            $authService = $this->getServiceLocator()->get('Omeka\AuthenticationService');
+            $adapter = $authService->getAdapter();
+            $adapter->setIdentity($validatedData['email']);
+            $adapter->setCredential($validatedData['password']);
+            $result = $authService->authenticate();
+            
+            if ($result->isValid()) {
+                $this->messenger()->addSuccess('Successfully logged in');
+                // Redirect back to the referring page or main triplestore page
+                $redirect = $this->params()->fromQuery('redirect');
+                if ($redirect) {
+                    return $this->redirect()->toUrl($redirect);
+                }
+                return $this->redirect()->toRoute('site/add-triplestore', ['site-slug' => $this->currentSite()->slug()]);
+            } else {
+                $this->messenger()->addError('Email or password is invalid');
+            }
+        } else {
+            $this->messenger()->addError('Email or password is invalid');
+        }
+    }
+    
+    return $view;
+}
+
+
+public function signupAction()
+{
+    // If already logged in, redirect to main page
+    if ($this->identity()) {
+        return $this->redirect()->toRoute('site', ['site-slug' => $this->currentSite()->slug()]);
+    }
+
+    $form = $this->getSignupForm();
+    $view = new ViewModel([
+        'form' => $form,
+        'site' => $this->currentSite()
+    ]);
+    $view->setTemplate('add-triplestore/site/index/signup');
+    
+    if ($this->getRequest()->isPost()) {
+        $data = $this->params()->fromPost();
+        $form->setData($data);
+        
+        if ($form->isValid()) {
+            $validatedData = $form->getData();
+            
+            // Instead of searching for existing users, try creating directly
+            // and catch the error if the email already exists
+            try {
+                $userData = [
+                    'o:email' => $validatedData['email'],
+                    'o:name' => $validatedData['name'],
+                    'o:role' => 'researcher', // or whatever default role you want
+                    'o:is_active' => true,
+                    'o:password' => $validatedData['password']
+                ];
+                
+                $response = $this->api()->create('users', $userData);
+                
+                // If creation succeeds, proceed with success handling
+                $this->messenger()->addSuccess('Account created successfully! You can now log in.');
+                return $this->redirect()->toRoute('site/add-triplestore/login', ['site-slug' => $this->currentSite()->slug()]);
+                
+            } catch (\Exception $e) {
+                // Check if the error is related to duplicate email
+                if (strpos($e->getMessage(), 'email') !== false && strpos($e->getMessage(), 'taken') !== false) {
+                    $this->messenger()->addError('A user with this email already exists');
+                } else {
+                    // Some other error
+                    $this->messenger()->addError('Error creating account: ' . $e->getMessage());
+                }
+                return $view;
+            }
+        }
+    }
+    
+    return $view;
+}
+
+public function logoutAction()
+{
+    $auth = $this->getServiceLocator()->get('Omeka\AuthenticationService');
+    $auth->clearIdentity();
+    $sessionManager = Container::getDefaultManager();
+    $sessionManager->destroy();
+    
+    $this->messenger()->addSuccess('Successfully logged out');
+    return $this->redirect()->toRoute('site', ['site-slug' => $this->currentSite()->slug()]);
+}
+
+private function getSignupForm()
+{
+    $form = new \Laminas\Form\Form('signup');
+    $form->setAttribute('method', 'post');
+    
+    $form->add([
+        'name' => 'name',
+        'type' => 'text',
+        'options' => [
+            'label' => 'Full Name'
+        ],
+        'attributes' => [
+            'required' => true,
+            'class' => 'form-control'
+        ]
+    ]);
+    
+    $form->add([
+        'name' => 'email',
+        'type' => 'email',
+        'options' => [
+            'label' => 'Email'
+        ],
+        'attributes' => [
+            'required' => true,
+            'class' => 'form-control'
+        ]
+    ]);
+    
+    $form->add([
+        'name' => 'password',
+        'type' => 'password',
+        'options' => [
+            'label' => 'Password'
+        ],
+        'attributes' => [
+            'required' => true,
+            'class' => 'form-control'
+        ]
+    ]);
+    
+    $form->add([
+        'name' => 'confirm_password',
+        'type' => 'password',
+        'options' => [
+            'label' => 'Confirm Password'
+        ],
+        'attributes' => [
+            'required' => true,
+            'class' => 'form-control'
+        ]
+    ]);
+    
+    $form->add([
+        'name' => 'submit',
+        'type' => 'submit',
+        'attributes' => [
+            'value' => 'Create Account',
+            'class' => 'btn btn-primary'
+        ]
+    ]);
+    
+    return $form;
+}
+
+
 
 public function indexAction()
 {

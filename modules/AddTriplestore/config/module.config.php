@@ -51,6 +51,36 @@ return [
                                     ],
                                 ],
                             ],
+                            'login' => [
+                            'type' => 'Literal',
+                            'options' => [
+                                'route' => '/login',
+                                'defaults' => [
+                                    'controller' => 'AddTriplestore\Controller\Site\Index',
+                                    'action' => 'login',
+                                ],
+                            ],
+                        ],
+                        'signup' => [
+                            'type' => 'Literal',
+                            'options' => [
+                                'route' => '/signup',
+                                'defaults' => [
+                                    'controller' => 'AddTriplestore\Controller\Site\Index',
+                                    'action' => 'signup',
+                                ],
+                            ],
+                        ],
+                        'logout' => [
+                            'type' => 'Literal',
+                            'options' => [
+                                'route' => '/logout',
+                                'defaults' => [
+                                    'controller' => 'AddTriplestore\Controller\Site\Index',
+                                    'action' => 'logout',
+                                ],
+                            ],
+                        ],
                             'view-details' => [
                                 'type' => 'Segment',
                                 'options' => [

@@ -26,22 +26,23 @@ class Module extends AbstractModule
      *
      * @param MvcEvent $event
      */
-    public function onBootstrap(MvcEvent $event)
-    {
-        parent::onBootstrap($event);
-        $this->attachListeners($event->getApplication()->getServiceManager()->get('SharedEventManager'));
-        
-        // Add ACL rules for public access
-        $services = $event->getApplication()->getServiceManager();
-        $acl = $services->get('Omeka\Acl');
-        
-        // Allow anyone (including guests) to access site actions
-        $acl->allow(
-            null,
-            ['AddTriplestore\Controller\Site\Index'],
-            ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload']
-        );
-    }
+
+public function onBootstrap(MvcEvent $event)
+{
+    parent::onBootstrap($event);
+    $this->attachListeners($event->getApplication()->getServiceManager()->get('SharedEventManager'));
+    
+    // Add ACL rules for public access
+    $services = $event->getApplication()->getServiceManager();
+    $acl = $services->get('Omeka\Acl');
+    
+    // Allow anyone (including guests) to access site actions
+    $acl->allow(
+        null,
+        ['AddTriplestore\Controller\Site\Index'],
+        ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout'] // Added login, signup, logout
+    );
+}
 
     public function attachListeners(SharedEventManagerInterface $sharedEventManager)
     {
