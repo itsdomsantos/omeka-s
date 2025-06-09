@@ -1,0 +1,222 @@
+<?php
+// Save as: modules/AddTriplestore/view/add-triplestore/site/index/user-dashboard.phtml
+$this->headTitle('My Dashboard - ' . $site->title());
+?>
+
+<div class="user-dashboard">
+    <div class="dashboard-header">
+        <h1>🏛️ Welcome, <?php echo $this->escapeHtml($user->getName()); ?>!</h1>
+        <p class="user-role">Archaeological Researcher</p>
+    </div>
+    
+    <div class="dashboard-content">
+        <div class="dashboard-cards">
+            <div class="dashboard-card">
+                <div class="card-icon">📊</div>
+                <h3>Upload Data</h3>
+                <p>Contribute archaeological excavation and artifact data</p>
+                <a href="<?php echo $this->url('site/add-triplestore', ['site-slug' => $site->slug()]); ?>" 
+                   class="card-button">Start Upload</a>
+            </div>
+            
+            <div class="dashboard-card">
+                <div class="card-icon">🔍</div>
+                <h3>Search & Browse</h3>
+                <p>Explore archaeological data and findings</p>
+                <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()]); ?>" 
+                   class="card-button">Search Data</a>
+            </div>
+            
+            <div class="dashboard-card">
+                <div class="card-icon">📈</div>
+                <h3>My Contributions</h3>
+                <p>View your uploaded data and statistics</p>
+                <a href="<?php echo $this->url('site/add-triplestore/my-data', ['site-slug' => $site->slug()]); ?>" 
+                   class="card-button">View My Data</a>
+            </div>
+            
+            <div class="dashboard-card">
+                <div class="card-icon">ℹ️</div>
+                <h3>Help & Support</h3>
+                <p>Learn how to use the system effectively</p>
+                <a href="<?php echo $this->url('site/add-triplestore/about-us', ['site-slug' => $site->slug()]); ?>" 
+                   class="card-button">Get Help</a>
+            </div>
+        </div>
+        
+        <div class="dashboard-sidebar">
+            <div class="user-info">
+                <h4>Account Information</h4>
+                <p><strong>Name:</strong> <?php echo $this->escapeHtml($user->getName()); ?></p>
+                <p><strong>Email:</strong> <?php echo $this->escapeHtml($user->getEmail()); ?></p>
+                <p><strong>Role:</strong> Archaeological Researcher</p>
+                <p><strong>Member since:</strong> <?php echo $user->getCreated()->format('F Y'); ?></p>
+            </div>
+            
+            <div class="quick-actions">
+                <h4>Quick Actions</h4>
+                <ul>
+                    <li><a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()]); ?>">🏺 Upload Arrowhead</a></li>
+                    <li><a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['upload_type' => 'excavation']]); ?>">⛏️ Add Excavation</a></li>
+                    <li><a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()]); ?>">🔍 Search Database</a></li>
+                    <li><a href="<?php echo $this->url('site/add-triplestore/logout', ['site-slug' => $site->slug()]); ?>">🚪 Logout</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.user-dashboard {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.dashboard-header {
+    text-align: center;
+    margin-bottom: 40px;
+    padding: 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 12px;
+}
+
+.dashboard-header h1 {
+    margin: 0 0 10px 0;
+    font-size: 2.5rem;
+}
+
+.user-role {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    margin: 0;
+}
+
+.dashboard-content {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 30px;
+    align-items: start;
+}
+
+.dashboard-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 20px;
+}
+
+.dashboard-card {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border: 1px solid #e0e0e0;
+    text-align: center;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.card-icon {
+    font-size: 3rem;
+    margin-bottom: 15px;
+}
+
+.dashboard-card h3 {
+    color: #333;
+    margin: 0 0 10px 0;
+    font-size: 1.3rem;
+}
+
+.dashboard-card p {
+    color: #666;
+    margin: 0 0 20px 0;
+    line-height: 1.5;
+}
+
+.card-button {
+    display: inline-block;
+    background: #4CAF50;
+    color: white;
+    text-decoration: none;
+    padding: 12px 24px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: background 0.2s ease;
+}
+
+.card-button:hover {
+    background: #45a049;
+    text-decoration: none;
+    color: white;
+}
+
+.dashboard-sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.user-info, .quick-actions {
+    background: white;
+    border-radius: 12px;
+    padding: 25px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border: 1px solid #e0e0e0;
+}
+
+.user-info h4, .quick-actions h4 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.1rem;
+    border-bottom: 2px solid #4CAF50;
+    padding-bottom: 8px;
+}
+
+.user-info p {
+    margin: 8px 0;
+    color: #666;
+}
+
+.quick-actions ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.quick-actions li {
+    margin-bottom: 10px;
+}
+
+.quick-actions a {
+    text-decoration: none;
+    color: #333;
+    padding: 8px 12px;
+    border-radius: 6px;
+    display: block;
+    transition: background 0.2s ease;
+}
+
+.quick-actions a:hover {
+    background: #f0f0f0;
+    text-decoration: none;
+}
+
+@media (max-width: 768px) {
+    .dashboard-content {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .dashboard-header h1 {
+        font-size: 2rem;
+    }
+}
+</style>

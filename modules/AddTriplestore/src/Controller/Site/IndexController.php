@@ -37,70 +37,119 @@ class IndexController extends AbstractActionController
         $this->httpClient = $httpClient;
     }
 
-// Update the requireLogin method to redirect to site login
-private function requireLogin()
+
+
+
+
+/**
+ * Add this method to your IndexController to create a universal access check
+ */
+public function preDispatch(\Laminas\Mvc\MvcEvent $e)
 {
-    if (!$this->identity()) {
-        $this->messenger()->addError('You must be logged in to access this feature.');
-        // Store current URL for redirect after login
-        $currentUrl = $this->getRequest()->getUri();
-        return $this->redirect()->toRoute('site/add-triplestore/login', 
-            ['site-slug' => $this->currentSite()->slug()], 
-            ['query' => ['redirect' => $currentUrl]]
-        );
+    // Call parent preDispatch if it exists
+    if (method_exists(get_parent_class(), 'preDispatch')) {
+        parent::preDispatch($e);
     }
-    return null;
+    
+    $this->preventAdminAccess($e);
 }
 
-public function loginAction()
+/**
+ * Prevent site-only users from accessing admin areas
+ */
+private function preventAdminAccess(\Laminas\Mvc\MvcEvent $e)
 {
-    // If already logged in, redirect to main page
-    if ($this->identity()) {
-        return $this->redirect()->toRoute('site', ['site-slug' => $this->currentSite()->slug()]);
-    }
-
-    $form = $this->getServiceLocator()->get('FormElementManager')->get(\Omeka\Form\LoginForm::class);
-    $view = new ViewModel([
-        'form' => $form,
-        'site' => $this->currentSite()
-    ]);
-    $view->setTemplate('add-triplestore/site/index/login');
+    $request = $e->getRequest();
+    $uri = $request->getUri();
+    $path = $uri->getPath();
     
-    if ($this->getRequest()->isPost()) {
-        $data = $this->params()->fromPost();
-        $form->setData($data);
-        
-        if ($form->isValid()) {
-            $validatedData = $form->getData();
-            $sessionManager = Container::getDefaultManager();
-            $sessionManager->regenerateId();
-            
-            $authService = $this->getServiceLocator()->get('Omeka\AuthenticationService');
-            $adapter = $authService->getAdapter();
-            $adapter->setIdentity($validatedData['email']);
-            $adapter->setCredential($validatedData['password']);
-            $result = $authService->authenticate();
-            
-            if ($result->isValid()) {
-                $this->messenger()->addSuccess('Successfully logged in');
-                // Redirect back to the referring page or main triplestore page
-                $redirect = $this->params()->fromQuery('redirect');
-                if ($redirect) {
-                    return $this->redirect()->toUrl($redirect);
-                }
-                return $this->redirect()->toRoute('site/add-triplestore', ['site-slug' => $this->currentSite()->slug()]);
-            } else {
-                $this->messenger()->addError('Email or password is invalid');
-            }
-        } else {
-            $this->messenger()->addError('Email or password is invalid');
+    // Check if user is trying to access admin areas
+    $adminPaths = ['/admin', '/api', '/application'];
+    
+    $isAdminPath = false;
+    foreach ($adminPaths as $adminPath) {
+        if (strpos($path, $adminPath) === 0) {
+            $isAdminPath = true;
+            break;
         }
     }
+    
+    if ($isAdminPath && $this->identity()) {
+        $user = $this->identity();
+        
+        // If user is a site-only user (guest role), redirect them away from admin
+        if ($user->getRole() === 'guest') {
+            $this->messenger()->addError('Access denied. You do not have permission to access administrative areas.');
+            
+            // Redirect to their allowed site
+            $session = new Container('site_user');
+            $siteSlug = $session->allowedSite ?: $this->currentSite()->slug();
+            
+            $response = $e->getResponse();
+            $response->getHeaders()->addHeaderLine('Location', $this->url()->fromRoute('site', ['site-slug' => $siteSlug]));
+            $response->setStatusCode(302);
+            return $response;
+        }
+    }
+}
+
+/**
+ * Add this method to show a user dashboard for site-only users
+ */
+public function dashboardAction()
+{
+    $redirect = $this->requireLogin();
+    if ($redirect) return $redirect;
+    
+    $user = $this->identity();
+    
+    // If this is an admin user, redirect to actual admin dashboard
+    if ($this->userHasAdminAccess($user)) {
+        return $this->redirect()->toUrl('/admin');
+    }
+    
+    // Show site-only user dashboard
+    $view = new ViewModel([
+        'user' => $user,
+        'site' => $this->currentSite(),
+        'isLoggedIn' => true,
+        'userRole' => $user->getRole()
+    ]);
+    $view->setTemplate('add-triplestore/site/index/user-dashboard');
     
     return $view;
 }
 
+/**
+ * Update your logout to clear site-only session data
+ */
+public function logoutAction()
+{
+    $auth = $this->getServiceLocator()->get('Omeka\AuthenticationService');
+    $auth->clearIdentity();
+    
+    // Clear site-only user session data
+    $session = new Container('site_user');
+    $session->getManager()->getStorage()->clear();
+    
+    $sessionManager = Container::getDefaultManager();
+    $sessionManager->destroy();
+    
+    $this->messenger()->addSuccess('Successfully logged out');
+    return $this->redirect()->toRoute('site', ['site-slug' => $this->currentSite()->slug()]);
+}
 
+// Add this method to your IndexController class to maintain backward compatibility
+// This allows all your existing methods to continue working without changes
+
+private function getServiceLocator()
+{
+    // Get the application service manager from the MVC event
+    $serviceManager = $this->getEvent()->getApplication()->getServiceManager();
+    return $serviceManager;
+}
+
+// And update your signupAction to use the simpler approach:
 public function signupAction()
 {
     // If already logged in, redirect to main page
@@ -122,49 +171,230 @@ public function signupAction()
         if ($form->isValid()) {
             $validatedData = $form->getData();
             
-            // Instead of searching for existing users, try creating directly
-            // and catch the error if the email already exists
-            try {
-                $userData = [
-                    'o:email' => $validatedData['email'],
-                    'o:name' => $validatedData['name'],
-                    'o:role' => 'researcher', // or whatever default role you want
-                    'o:is_active' => true,
-                    'o:password' => $validatedData['password']
-                ];
-                
-                $response = $this->api()->create('users', $userData);
-                
-                // If creation succeeds, proceed with success handling
-                $this->messenger()->addSuccess('Account created successfully! You can now log in.');
-                return $this->redirect()->toRoute('site/add-triplestore/login', ['site-slug' => $this->currentSite()->slug()]);
-                
-            } catch (\Exception $e) {
-                // Check if the error is related to duplicate email
-                if (strpos($e->getMessage(), 'email') !== false && strpos($e->getMessage(), 'taken') !== false) {
-                    $this->messenger()->addError('A user with this email already exists');
-                } else {
-                    // Some other error
-                    $this->messenger()->addError('Error creating account: ' . $e->getMessage());
-                }
+            // Check if passwords match
+            if ($validatedData['password'] !== $validatedData['confirm_password']) {
+                $this->messenger()->addError('Passwords do not match');
                 return $view;
             }
+            
+            try {
+                $result = $this->createSiteOnlyUser($validatedData);
+                
+                if ($result['success']) {
+                    $this->messenger()->addSuccess('Account created successfully! You can now log in.');
+                    return $this->redirect()->toRoute('site/add-triplestore/login', ['site-slug' => $this->currentSite()->slug()]);
+                } else {
+                    $this->messenger()->addError($result['error']);
+                    return $view;
+                }
+                
+            } catch (\Exception $e) {
+                error_log('Error creating user: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/user-creation.log');
+                error_log('Stack trace: ' . $e->getTraceAsString(), 3, OMEKA_PATH . '/logs/user-creation.log');
+                $this->messenger()->addError('Error creating account: ' . $e->getMessage());
+                return $view;
+            }
+        } else {
+            $this->messenger()->addError('Please correct the errors in the form');
         }
     }
     
     return $view;
 }
 
-public function logoutAction()
+/**
+ * Create a user with no admin access - only site functionality
+ */
+private function createSiteOnlyUser($userData)
 {
-    $auth = $this->getServiceLocator()->get('Omeka\AuthenticationService');
-    $auth->clearIdentity();
-    $sessionManager = Container::getDefaultManager();
-    $sessionManager->destroy();
-    
-    $this->messenger()->addSuccess('Successfully logged out');
-    return $this->redirect()->toRoute('site', ['site-slug' => $this->currentSite()->slug()]);
+    try {
+        $connection = $this->getServiceLocator()->get('Omeka\Connection');
+        
+        // Check if user exists
+        $checkSql = "SELECT id FROM user WHERE email = ?";
+        $stmt = $connection->prepare($checkSql);
+        $stmt->execute([$userData['email']]);
+        
+        if ($stmt->fetch()) {
+            return ['success' => false, 'error' => 'A user with this email already exists'];
+        }
+        
+        // Hash password
+        $hashedPassword = password_hash($userData['password'], PASSWORD_DEFAULT);
+        
+        // Insert user with 'guest' role (no admin access)
+        $insertSql = "INSERT INTO user (email, name, role, is_active, password_hash, created) VALUES (?, ?, ?, ?, ?, ?)";
+        $stmt = $connection->prepare($insertSql);
+        
+        $result = $stmt->execute([
+            $userData['email'],
+            $userData['name'],
+            'guest', // This is key - 'guest' role has no admin access
+            1, // is_active
+            $hashedPassword,
+            date('Y-m-d H:i:s')
+        ]);
+        
+        if ($result) {
+            $userId = $connection->lastInsertId();
+            
+            // Optional: Add user to current site with viewer permissions
+            $this->addUserToSite($userId, $this->currentSite()->id());
+            
+            error_log('Site-only user created successfully: ' . $userData['email'], 3, OMEKA_PATH . '/logs/user-creation.log');
+            return ['success' => true];
+        } else {
+            return ['success' => false, 'error' => 'Failed to create user account'];
+        }
+        
+    } catch (\Exception $e) {
+        error_log('Error creating site-only user: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/user-creation.log');
+        error_log('Stack trace: ' . $e->getTraceAsString(), 3, OMEKA_PATH . '/logs/user-creation.log');
+        
+        if (strpos($e->getMessage(), 'email') !== false || strpos($e->getMessage(), 'Duplicate') !== false) {
+            return ['success' => false, 'error' => 'A user with this email already exists'];
+        } else {
+            return ['success' => false, 'error' => 'Failed to create account: ' . $e->getMessage()];
+        }
+    }
 }
+
+/**
+ * Add user to the current site with viewer permissions
+ */
+private function addUserToSite($userId, $siteId)
+{
+    try {
+        $connection = $this->getServiceLocator()->get('Omeka\Connection');
+        
+        // Add user to site_permission table with 'viewer' role
+        $insertSql = "INSERT INTO site_permission (site_id, user_id, role) VALUES (?, ?, ?)";
+        $stmt = $connection->prepare($insertSql);
+        $stmt->execute([$siteId, $userId, 'viewer']);
+        
+        error_log("Added user $userId to site $siteId with viewer permissions", 3, OMEKA_PATH . '/logs/user-creation.log');
+        
+    } catch (\Exception $e) {
+        error_log('Error adding user to site: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/user-creation.log');
+        // Don't fail the whole process if this fails
+    }
+}
+
+/**
+ * Check if user has admin access (not a site-only user)
+ */
+private function userHasAdminAccess($user)
+{
+    if (!$user) {
+        return false;
+    }
+    
+    $role = $user->getRole();
+    
+    // Admin roles that can access the dashboard
+    $adminRoles = ['global_admin', 'site_admin', 'editor', 'reviewer', 'author'];
+    
+    return in_array($role, $adminRoles);
+}
+
+// Update your loginAction to handle user access levels:
+public function loginAction()
+{
+    // If already logged in, redirect to main page
+    if ($this->identity()) {
+        $user = $this->identity();
+        
+        // If user is a guest, send to site dashboard
+        if ($user->getRole() === 'guest') {
+            return $this->redirect()->toRoute('site/add-triplestore/dashboard', [
+                'site-slug' => $this->currentSite()->slug()
+            ]);
+        } else {
+            // Admin users can go to admin dashboard
+            return $this->redirect()->toUrl('/admin');
+        }
+    }
+
+    $form = $this->getServiceLocator()->get('FormElementManager')->get(\Omeka\Form\LoginForm::class);
+    $view = new ViewModel([
+        'form' => $form,
+        'site' => $this->currentSite()
+    ]);
+    $view->setTemplate('add-triplestore/site/index/login');
+    
+
+    if ($this->getRequest()->isPost()) {
+        $data = $this->params()->fromPost();
+        $form->setData($data);
+        
+        if ($form->isValid()) {
+            $validatedData = $form->getData();
+            $sessionManager = Container::getDefaultManager();
+            $sessionManager->regenerateId();
+            
+            $authService = $this->getServiceLocator()->get('Omeka\AuthenticationService');
+            $adapter = $authService->getAdapter();
+            $adapter->setIdentity($validatedData['email']);
+            $adapter->setCredential($validatedData['password']);
+            $result = $authService->authenticate();
+            
+            if ($result->isValid()) {
+                // Check if user is a guest/site-only user
+                $user = $authService->getIdentity();
+                if ($user->getRole() === 'guest') {
+                    // Guest users go to custom dashboard
+                    return $this->redirect()->toRoute('site/add-triplestore/dashboard', [
+                        'site-slug' => $this->currentSite()->slug()
+                    ]);
+                } else {
+                    // Admins can go to regular admin area
+                    return $this->redirect()->toUrl('/admin');
+                }
+                } else {
+                $this->messenger()->addError('Email or password is invalid');
+            }
+        } else {
+            $this->messenger()->addError('Email or password is invalid');
+        }
+    }
+    
+    return $view;
+}
+
+/**
+ * Enhanced requireLogin method that checks for site-only users
+ */
+private function requireLogin()
+{
+    if (!$this->identity()) {
+        $this->messenger()->addError('You must be logged in to access this feature.');
+        // Store current URL for redirect after login
+        $currentUrl = $this->getRequest()->getUri();
+        return $this->redirect()->toRoute('site/add-triplestore/login', 
+            ['site-slug' => $this->currentSite()->slug()], 
+            ['query' => ['redirect' => $currentUrl]]
+        );
+    }
+    
+    // Check if this is a site-only user trying to access admin features
+    $user = $this->identity();
+    $session = new Container('site_user');
+    
+    if ($session->siteOnly && !$this->userHasAdminAccess($user)) {
+        // Ensure site-only users stay within their allowed site
+        if ($session->allowedSite !== $this->currentSite()->slug()) {
+            $this->messenger()->addError('Access denied to this site.');
+            return $this->redirect()->toRoute('site', ['site-slug' => $session->allowedSite]);
+        }
+    }
+    
+    return null;
+}
+
+
+
+
+
 
 private function getSignupForm()
 {

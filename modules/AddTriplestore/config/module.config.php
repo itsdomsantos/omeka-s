@@ -10,9 +10,12 @@ return [
             'site' => [
                 'child_routes' => [
                     'add-triplestore' => [
-                        'type' => 'Literal',
+                        'type' => 'Segment',
                         'options' => [
-                            'route' => '/add-triplestore',
+                            'route' => '/add-triplestore[/:action]',
+                            'constraints' => [
+                                'action' => '[a-zA-Z][a-zA-Z0-9_-]*',
+                            ],
                             'defaults' => [
                                 '__NAMESPACE__' => 'AddTriplestore\Controller\Site',
                                 'controller' => 'Index',
@@ -108,6 +111,15 @@ return [
                                     'defaults' => [
                                         'controller' => 'AddTriplestore\Controller\Site\Index',
                                         'action' => 'aboutUs',
+                                    ],
+                                ],
+                            ],
+                            'dashboard' => [
+                                'type' => 'Segment',
+                                'options' => [
+                                    'route' => '/dashboard',
+                                    'defaults' => [
+                                        'action' => 'dashboard',
                                     ],
                                 ],
                             ],

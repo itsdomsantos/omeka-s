@@ -27,6 +27,7 @@ class Module extends AbstractModule
      * @param MvcEvent $event
      */
 
+     
 public function onBootstrap(MvcEvent $event)
 {
     parent::onBootstrap($event);
@@ -36,12 +37,96 @@ public function onBootstrap(MvcEvent $event)
     $services = $event->getApplication()->getServiceManager();
     $acl = $services->get('Omeka\Acl');
     
+    // Register the 'guest' role if it doesn't exist
+    if (!$acl->hasRole('guest')) {
+        // Add 'guest' role (inheriting from 'researcher' which is the most restricted role)
+        $acl->addRole('guest', 'researcher');
+        
+        // Add a label for the guest role
+        $acl->addRoleLabel('guest', 'Site Visitor');
+    }
+    
     // Allow anyone (including guests) to access site actions
     $acl->allow(
         null,
         ['AddTriplestore\Controller\Site\Index'],
-        ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout'] // Added login, signup, logout
+        ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout', 'dashboard']
     );
+    
+    // List of admin controllers to deny access for guest users
+    $adminControllers = [
+        'Omeka\Controller\Admin\Index',
+        'Omeka\Controller\Admin\Item',
+        'Omeka\Controller\Admin\ItemSet',
+        'Omeka\Controller\Admin\Media',
+        'Omeka\Controller\Admin\User',
+        'Omeka\Controller\Admin\Module',
+        'Omeka\Controller\Admin\Site',
+        'Omeka\Controller\Admin\Setting',
+        'Omeka\Controller\Admin\Job',
+        'Omeka\Controller\Admin\ResourceTemplate',
+        'Omeka\Controller\Admin\SystemInfo'
+    ];
+    
+    // CRITICAL: Register resources before denying access to them
+    foreach ($adminControllers as $controller) {
+        if (!$acl->hasResource($controller)) {
+            $acl->addResource($controller);
+        }
+    }
+    
+    // Now deny access to these resources for guest users
+    $acl->deny('guest', $adminControllers);
+
+    // Register a listener to intercept admin page access attempts
+    $sharedEventManager = $services->get('SharedEventManager');
+    $sharedEventManager->attach(
+        '*',
+        'route',
+        [$this, 'redirectGuestsFromAdmin'],
+        -100
+    );
+}
+
+/**
+ * Redirect guest users away from admin sections
+ */
+public function redirectGuestsFromAdmin(MvcEvent $event)
+{
+    $match = $event->getRouteMatch();
+    if (!$match) {
+        return;
+    }
+
+    $routeName = $match->getMatchedRouteName();
+    
+    // Check if this is an admin route
+    if (strpos($routeName, 'admin') === 0) {
+        $auth = $event->getApplication()->getServiceManager()->get('Omeka\AuthenticationService');
+        $user = $auth->getIdentity();
+        
+        // If user is logged in and has 'guest' role
+        if ($user && $user->getRole() === 'guest') {
+            // Get current site
+            $api = $event->getApplication()->getServiceManager()->get('Omeka\ApiManager');
+            $sites = $api->search('sites', [])->getContent();
+            $site = reset($sites);
+            $siteSlug = $site ? $site->slug() : 'first-site';
+            
+            // Redirect to our custom dashboard
+            $router = $event->getRouter();
+            $url = $router->assemble(
+                ['site-slug' => $siteSlug],
+                ['name' => 'site/add-triplestore/dashboard']
+            );
+            
+            $response = $event->getResponse();
+            $response->getHeaders()->addHeaderLine('Location', $url);
+            $response->setStatusCode(302);
+            $event->stopPropagation(true);
+            return $response;
+        }
+    }
 }
 
     public function attachListeners(SharedEventManagerInterface $sharedEventManager)
