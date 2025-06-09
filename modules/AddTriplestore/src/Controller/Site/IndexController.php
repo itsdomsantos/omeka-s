@@ -5638,6 +5638,33 @@ private function createNewEncounterEvent($context, $itemSetId, $signature) {
     }
 }
 
+/** 
+ * Add this method to your IndexController class to check authentication
+ */
+private function requireAuthentication()
+{
+    // Get the current user
+    $identity = $this->identity();
+    
+    // Redirect to login if no user is logged in
+    if (!$identity) {
+        $this->messenger()->addError('You must be logged in to add artifacts or excavation data.');
+        
+        // Get the login URL
+        $loginUrl = $this->url()->fromRoute('login', [], [
+            'query' => ['redirect' => $this->url()->fromRoute(null, [], [], true)]
+        ]);
+        
+        // Save the intended target URL in session for after login
+        $session = new \Laminas\Session\Container('AddTriplestore');
+        $session->redirectUrl = $this->getRequest()->getRequestUri();
+        
+        // Redirect to login page
+        return $this->redirect()->toUrl($loginUrl);
+    }
+    
+    return true;
+}
 
 private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
