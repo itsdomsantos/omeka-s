@@ -72,31 +72,41 @@ $this->htmlElement('body')->appendAttribute('class', 'about-us-page');
     margin: 0 auto;
     padding: 2rem 1rem;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    color: black;
 }
 
 .about-section {
     margin-bottom: 3rem;
     line-height: 1.6;
+    background-color: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border: 1px solid #e0e0e0;
 }
 
 h1 {
     font-size: 2.5rem;
     margin-bottom: 2rem;
-    color:rgb(198, 198, 198);
-    border-bottom: 2px solid #eaeaea;
-    padding-bottom: 0.5rem;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 1.5rem;
+    border-radius: 12px;
+    text-align: center;
 }
 
 h2 {
     font-size: 1.8rem;
     margin-bottom: 1.2rem;
-    color:rgb(41, 28, 16);
+    color: #333;
+    border-bottom: 2px solid #764ba2;
+    padding-bottom: 0.5rem;
 }
 
 h3 {
     font-size: 1.3rem;
     margin-bottom: 0.8rem;
-    color:rgb(178, 83, 0);
+    color: #764ba2;
 }
 
 ul {
@@ -106,6 +116,7 @@ ul {
 
 li {
     margin-bottom: 0.5rem;
+    line-height: 1.5;
 }
 
 .features-grid {
@@ -116,17 +127,18 @@ li {
 }
 
 .feature-card {
-    color: black;
-    background-color: #f8f9fa;
+    background: white;
+    color: #333;
     border-radius: 8px;
     padding: 1.5rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    border: 1px solid #e0e0e0;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .feature-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
 }
 
 .team-members {
@@ -138,21 +150,53 @@ li {
 
 .team-member {
     background-color: #ffffff;
-    border-left: 4px solid #3498db;
+    border-left: 4px solid #764ba2;
     padding: 1.5rem;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.08);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+    transition: transform 0.2s ease;
+    border-radius: 0 8px 8px 0;
+}
+
+.team-member:hover {
+    transform: translateY(-3px);
 }
 
 .member-title {
     font-style: italic;
-    color: #7f8c8d;
+    color: #666;
     margin-top: -0.5rem;
     margin-bottom: 1rem;
+}
+
+/* Buttons and links styling to match other pages */
+.about-section a {
+    display: inline-block;
+    background: #764ba2;
+    color: white;
+    text-decoration: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: background 0.2s ease;
+}
+
+.about-section a:hover {
+    background: #673b8f;
+    text-decoration: none;
+    color: white;
 }
 
 @media (max-width: 768px) {
     .features-grid, .team-members {
         grid-template-columns: 1fr;
+    }
+    
+    h1 {
+        font-size: 2rem;
+    }
+    
+    .about-section {
+        padding: 20px;
     }
 }
 </style>
