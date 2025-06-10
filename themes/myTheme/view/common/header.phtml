@@ -8,11 +8,15 @@
 
             <a href="<?php echo $this->url('site/add-triplestore', ['site-slug' => $site->slug()]); ?>">Main Menu</a>
             <?php if ($this->identity()): ?>
-                <a href="<?php echo $this->url('admin'); ?>" class="user-name">
-                    <?php echo $this->escapeHtml($this->identity()->getName()); ?>
-                </a>
-            <?php else: ?>
-                <a href="<?php echo $this->url('login'); ?>" class="sign-in">Sign in</a>
+                <?php if ($this->identity()->getRole() === 'guest'): ?>
+                    <a href="<?php echo $this->url('site/add-triplestore/dashboard', ['site-slug' => $site->slug()]); ?>" class="user-name">
+                        <?php echo $this->identity()->getName(); ?>
+                    </a>
+                <?php else: ?>
+                    <a href="<?php echo $this->url('admin/id', ['id' => $this->identity()->getId()]); ?>" class="user-name">
+                        <?php echo $this->identity()->getName(); ?>
+                    </a>
+                <?php endif; ?>
             <?php endif; ?>
         </nav>
     </div>

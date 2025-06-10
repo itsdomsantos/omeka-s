@@ -741,14 +741,23 @@ private function getTtlPrefixes()
                         ]));
                     }
                 } catch (\Exception $e) {
-                    error_log('Error creating excavation item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-collecting-form.log');
-                    return $this->redirect()->toUrl($this->url()->fromRoute('site', [
+                    // Check specifically for permission errors
+                    if (strpos($e->getMessage(), 'permission') !== false) {
+                        error_log('Permission error during excavation creation: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/permission-error.log');
+                        $this->messenger()->addError('You do not have permission to create excavations. Please contact an administrator.');
+                    } else {
+                        error_log('Error creating excavation item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-collecting-form.log');
+                        $this->messenger()->addError('Failed to create excavation: ' . $e->getMessage());
+                    }
+                    if (!$this->canUserCreateResource('ItemSet')) {
+    $this->messenger()->addError('You do not have permission to create excavations.');
+    return $this->redirect()->toRoute('site/add-triplestore/dashboard', [
+        'site-slug' => $this->currentSite()->slug()
+    ]);
+}
+                    return $this->redirect()->toRoute('site/add-triplestore/dashboard', [
                         'site-slug' => $this->currentSite()->slug()
-                    ], [
-                        'query' => [
-                            'result' => 'Error: Failed to create excavation - ' . $e->getMessage()
-                        ]
-                    ]));
+                    ]);
                 }
             }
             
@@ -842,6 +851,27 @@ private function getTtlPrefixes()
 
 
 
+/**
+ * Check if the current user can create the specified resource type
+ */
+private function canUserCreateResource($resourceType) 
+{
+    $user = $this->identity();
+    if (!$user) {
+        return false;
+    }
+    
+    // Get the ACL service
+    $acl = $this->getServiceLocator()->get('Omeka\Acl');
+    
+    // Check if the user has permission to create this resource type
+    $canCreate = $acl->userIsAllowed("Omeka\Entity\\$resourceType", 'create');
+    
+    error_log("Permission check for user {$user->getEmail()} to create $resourceType: " . ($canCreate ? 'ALLOWED' : 'DENIED'), 
+              3, OMEKA_PATH . '/logs/permission-check.log');
+              
+    return $canCreate;
+}
 
 /**
  * Process archaeologist data from the collecting form

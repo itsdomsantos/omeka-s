@@ -32,83 +32,36 @@ class Module extends AbstractModule
 public function onBootstrap(MvcEvent $event)
 {
     parent::onBootstrap($event);
-    $this->attachListeners($event->getApplication()->getServiceManager()->get('SharedEventManager'));
     
-    // Add ACL rules for public access
-    $services = $event->getApplication()->getServiceManager();
-    $acl = $services->get('Omeka\Acl');
+    $acl = $this->getServiceLocator()->get('Omeka\Acl');
     
-    // Register the 'guest' role if it doesn't exist
+    // Make sure guest role exists
     if (!$acl->hasRole('guest')) {
-        // Add 'guest' role (inheriting from 'researcher' which is the most restricted role)
         $acl->addRole('guest', 'researcher');
-        
-        // Add a label for the guest role
         $acl->addRoleLabel('guest', 'Site Visitor');
     }
     
-    // Allow anyone (including guests) to access site actions
+    // Allow guests to access site actions
     $acl->allow(
         null,
         ['AddTriplestore\Controller\Site\Index'],
         ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout', 'dashboard', 'myData', 'processFileUpload', 'uploadTtlData']
     );
     
-    // Give specific permission to site-only users for upload and data manipulation
+    // CRITICAL: Grant explicit create permissions for item sets and items
     $acl->allow('guest', [
         'Omeka\Entity\Item',
         'Omeka\Entity\ItemSet',
         'Omeka\Entity\Media',
         'Omeka\Api\Adapter\ItemAdapter',
-        'Omeka\Api\Adapter\ItemSetAdapter'
+        'Omeka\Api\Adapter\ItemSetAdapter',
+        'Omeka\Api\Adapter\MediaAdapter'
     ], ['create', 'update', 'delete']);
     
-    // List of admin controllers to deny access for guest users
-    $adminControllers = [
-        'Omeka\Controller\Admin\Index',
-        'Omeka\Controller\Admin\Item',
-        'Omeka\Controller\Admin\ItemSet',
-        'Omeka\Controller\Admin\Media',
-        'Omeka\Controller\Admin\User',
-        'Omeka\Controller\Admin\Module',
-        'Omeka\Controller\Admin\Site',
-        'Omeka\Controller\Admin\Setting',
-        'Omeka\Controller\Admin\Job',
-        'Omeka\Controller\Admin\ResourceTemplate',
-        'Omeka\Controller\Admin\SystemInfo'
-    ];
-    
-    // CRITICAL: Register resources before denying access to them
-    foreach ($adminControllers as $controller) {
-        if (!$acl->hasResource($controller)) {
-            $acl->addResource($controller);
-        }
-    }
-    
-    // Now deny access to these resources for guest users
-    $acl->deny('guest', $adminControllers);
-
-    // Register a listener to intercept admin page access attempts
-    $sharedEventManager = $services->get('SharedEventManager');
-    $sharedEventManager->attach(
-        '*',
-        'route',
-        [$this, 'redirectGuestsFromAdmin'],
-        -100
-    );
-    
-    // Add API authorization for guests to upload content
-    $sharedEventManager->attach(
-        'Omeka\Api\Adapter\ItemAdapter',
-        'api.create.pre',
-        [$this, 'allowGuestUserCreateItems']
-    );
-    
-    $sharedEventManager->attach(
-        'Omeka\Api\Adapter\ItemSetAdapter',
-        'api.create.pre',
-        [$this, 'allowGuestUserCreateItemSets']
-    );
+    // Also add ability to create through the API
+    $acl->allow('guest', [
+        'Omeka\Controller\Api',
+    ], ['create', 'update', 'delete']);
 }
 
 /**
@@ -150,9 +103,9 @@ public function allowGuestUserCreateItemSets($event)
         }
     }
 }
-/**
- * Redirect guest users away from admin sections
- */
+
+
+
 public function redirectGuestsFromAdmin(MvcEvent $event)
 {
     $match = $event->getRouteMatch();
@@ -162,8 +115,12 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
 
     $routeName = $match->getMatchedRouteName();
     
-    // Check if this is an admin route
-    if (strpos($routeName, 'admin') === 0) {
+    // Specifically check for admin/id route (user profile route)
+    $isAdminRoute = strpos($routeName, 'admin') === 0;
+    $isUserProfileRoute = $routeName === 'admin/id';
+    
+    // Check if this is an admin route OR a user page route
+    if ($isAdminRoute || $isUserProfileRoute) {
         $auth = $event->getApplication()->getServiceManager()->get('Omeka\AuthenticationService');
         $user = $auth->getIdentity();
         
@@ -171,13 +128,18 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
         if ($user && $user->getRole() === 'guest') {
             // Get current site
             $api = $event->getApplication()->getServiceManager()->get('Omeka\ApiManager');
-            $sites = $api->search('sites', [])->getContent();
-            $site = reset($sites);
-            $siteSlug = $site ? $site->slug() : 'first-site';
+            $sites = $api->search('sites', ['limit' => 1])->getContent();
+            $site = isset($sites[0]) ? $sites[0] : null;
             
-            // Redirect to our custom dashboard
-            $router = $event->getRouter();
-            $url = $router->assemble(
+            // Log redirect attempt
+            error_log('Redirecting guest user away from admin route: ' . $routeName, 3, OMEKA_PATH . '/logs/guest-redirect.log');
+            
+            // Get site slug to redirect to
+            $session = new \Laminas\Session\Container('site_user');
+            $siteSlug = $session->allowedSite ?: ($site ? $site->slug() : 'default');
+            
+            // Redirect to custom dashboard
+            $url = $event->getRouter()->assemble(
                 ['site-slug' => $siteSlug],
                 ['name' => 'site/add-triplestore/dashboard']
             );
@@ -185,7 +147,6 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
             $response = $event->getResponse();
             $response->getHeaders()->addHeaderLine('Location', $url);
             $response->setStatusCode(302);
-            $event->stopPropagation(true);
             return $response;
         }
     }
@@ -218,6 +179,19 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
             'api.update.post',
             [$this, 'trackItemItemSetRelationship']
         );
+        // Add this to catch all MVC route events
+    $sharedEventManager->attach(
+        'Zend\Mvc\Application',  // For older Omeka-S versions
+        'route',
+        [$this, 'redirectGuestsFromAdmin']
+    );
+    
+    // For newer Laminas-based Omeka-S versions, also add:
+    $sharedEventManager->attach(
+        'Laminas\Mvc\Application',
+        'route',
+        [$this, 'redirectGuestsFromAdmin']
+    );
     }
 
 
