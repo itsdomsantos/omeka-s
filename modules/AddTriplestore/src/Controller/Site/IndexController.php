@@ -433,7 +433,8 @@ public function myDataAction()
                 $nonArrowheadPatterns = [
                     '/^context/i', '/^ctx-/i', '/^square/i', 
                     '/^svu/i', '/^layer-/i', '/^stratigraphic/i',
-                    '/^excav/i', '/^excavation/i', '/^location/i'
+                    '/^excav/i', '/^excavation/i', '/^location/i',
+                    '/^archaeological encounter/i'
                 ];
                 
                 $isNonArrowhead = false;
