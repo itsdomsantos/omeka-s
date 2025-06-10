@@ -56,10 +56,12 @@ public function onBootstrap(MvcEvent $event)
     ], ['create', 'update', 'delete', 'read']); // ADD 'read' permission
 }
 
+
      
 /**
  * Allow guest users to create items through the API
  */
+
 public function allowGuestUserCreateItems($event)
 {
     $services = $this->getServiceLocator();
