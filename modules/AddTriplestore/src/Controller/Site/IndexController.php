@@ -202,9 +202,7 @@ public function signupAction()
     return $view;
 }
 
-/**
- * Create a user with no admin access - only site functionality
- */
+
 private function createSiteOnlyUser($userData)
 {
     try {
@@ -219,8 +217,11 @@ private function createSiteOnlyUser($userData)
             return ['success' => false, 'error' => 'A user with this email already exists'];
         }
         
-        // Hash password
-        $hashedPassword = password_hash($userData['password'], PASSWORD_DEFAULT);
+        // Hash password using Omeka's method to ensure compatibility with login
+        $hashedPassword = $this->getServiceLocator()
+            ->get('Omeka\EntityManager')
+            ->getRepository('Omeka\Entity\User')
+            ->hashPassword($userData['password']);
         
         // Insert user with 'guest' role (no admin access)
         $insertSql = "INSERT INTO user (email, name, role, is_active, password_hash, created) VALUES (?, ?, ?, ?, ?, ?)";
@@ -238,7 +239,7 @@ private function createSiteOnlyUser($userData)
         if ($result) {
             $userId = $connection->lastInsertId();
             
-            // Optional: Add user to current site with viewer permissions
+            // Add user to the current site with viewer permissions
             $this->addUserToSite($userId, $this->currentSite()->id());
             
             error_log('Site-only user created successfully: ' . $userData['email'], 3, OMEKA_PATH . '/logs/user-creation.log');
@@ -344,15 +345,17 @@ public function myDataAction()
     return $view;
 }
 
-// Update your loginAction to handle user access levels:
+
 public function loginAction()
 {
+    error_log('Login action called', 3, OMEKA_PATH . '/logs/login-debug.log');
     // If already logged in, redirect to main page
     if ($this->identity()) {
         $user = $this->identity();
         
-        // If user is a guest, send to site dashboard
+        // Check if user is a guest/site-only user
         if ($user->getRole() === 'guest') {
+            // Guest users go to custom dashboard
             return $this->redirect()->toRoute('site/add-triplestore/dashboard', [
                 'site-slug' => $this->currentSite()->slug()
             ]);
@@ -368,26 +371,54 @@ public function loginAction()
         'site' => $this->currentSite()
     ]);
     $view->setTemplate('add-triplestore/site/index/login');
+    error_log('Rendering login form', 3, OMEKA_PATH . '/logs/login-debug.log');
     
-
     if ($this->getRequest()->isPost()) {
+        // Get POST data and add the CSRF security element
         $data = $this->params()->fromPost();
-        $form->setData($data);
         
+        // Check if csrf element exists in the form
+        $csrfElement = $form->get('loginform_csrf');
+        if ($csrfElement) {
+            // If CSRF element exists in the form but not in data, add it
+            if (!isset($data['loginform_csrf'])) {
+                $data['loginform_csrf'] = $csrfElement->getValue();
+            }
+        }
+        
+        $form->setData($data);
+        error_log('Form data received: ' . print_r($data, true), 3, OMEKA_PATH . '/logs/login-debug.log');
+        
+        error_log('Form validation started', 3, OMEKA_PATH . '/logs/login-debug.log');
+        // log form error messages
+        if (!$form->isValid()) {
+            $errors = $form->getMessages();
+            error_log('Form validation errors: ' . print_r($errors, true), 3, OMEKA_PATH . '/logs/login-debug.log');
+        }
         if ($form->isValid()) {
             $validatedData = $form->getData();
             $sessionManager = Container::getDefaultManager();
             $sessionManager->regenerateId();
             
+            // Use Omeka's authentication service directly
             $authService = $this->getServiceLocator()->get('Omeka\AuthenticationService');
             $adapter = $authService->getAdapter();
             $adapter->setIdentity($validatedData['email']);
             $adapter->setCredential($validatedData['password']);
+            
+            // Log the login attempt for debugging
+            error_log("Login attempt for: " . $validatedData['email'], 3, OMEKA_PATH . '/logs/login-debug.log');
+            
             $result = $authService->authenticate();
             
             if ($result->isValid()) {
+                // Log successful login
+                error_log("Successful login for: " . $validatedData['email'], 3, OMEKA_PATH . '/logs/login-debug.log');
+                
                 // Check if user is a guest/site-only user
                 $user = $authService->getIdentity();
+                error_log("User role: " . $user->getRole(), 3, OMEKA_PATH . '/logs/login-debug.log');
+                
                 if ($user->getRole() === 'guest') {
                     // Guest users go to custom dashboard
                     return $this->redirect()->toRoute('site/add-triplestore/dashboard', [
@@ -397,7 +428,9 @@ public function loginAction()
                     // Admins can go to regular admin area
                     return $this->redirect()->toUrl('/admin');
                 }
-                } else {
+            } else {
+                // Log authentication error details
+                error_log("Login failed for: " . $validatedData['email'] . ". Reason: " . $result->getMessages()[0], 3, OMEKA_PATH . '/logs/login-debug.log');
                 $this->messenger()->addError('Email or password is invalid');
             }
         } else {
