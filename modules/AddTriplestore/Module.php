@@ -21,14 +21,6 @@ class Module extends AbstractModule
         return include __DIR__ . '/config/module.config.php';
     }
 
-    /**
-     * Register event listeners during bootstrap
-     *
-     * @param MvcEvent $event
-     */
-
-     
-
 public function onBootstrap(MvcEvent $event)
 {
     parent::onBootstrap($event);
@@ -48,22 +40,23 @@ public function onBootstrap(MvcEvent $event)
         ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout', 'dashboard', 'myData', 'processFileUpload', 'uploadTtlData']
     );
     
-    // CRITICAL: Grant explicit create permissions for item sets and items
+    // CRITICAL: Grant explicit permissions for items and item sets
     $acl->allow('guest', [
         'Omeka\Entity\Item',
-        'Omeka\Entity\ItemSet',
+        'Omeka\Entity\ItemSet', 
         'Omeka\Entity\Media',
         'Omeka\Api\Adapter\ItemAdapter',
         'Omeka\Api\Adapter\ItemSetAdapter',
         'Omeka\Api\Adapter\MediaAdapter'
-    ], ['create', 'update', 'delete']);
+    ], ['create', 'update', 'delete', 'read']); // ADD 'read' permission
     
-    // Also add ability to create through the API
+    // Also add ability to read through the API
     $acl->allow('guest', [
         'Omeka\Controller\Api',
-    ], ['create', 'update', 'delete']);
+    ], ['create', 'update', 'delete', 'read']); // ADD 'read' permission
 }
 
+     
 /**
  * Allow guest users to create items through the API
  */

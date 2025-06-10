@@ -299,9 +299,6 @@ private function userHasAdminAccess($user)
 }
 
 
-/**
- * Display user's data and uploads
- */
 public function myDataAction()
 {
     $redirect = $this->requireLogin();
@@ -317,26 +314,165 @@ public function myDataAction()
     // Get the user's items and uploads
     $userId = $user->getId();
     $items = [];
+    $itemSets = [];
+    
+    error_log("=== MY DATA DEBUG for User ID: $userId ===", 3, OMEKA_PATH . '/logs/my-data-debug.log');
     
     try {
-        // Get items created by this user
+        // Strategy 1: Try to get items created by this user
         $response = $this->api()->search('items', [
             'owner_id' => $userId,
             'sort_by' => 'created',
             'sort_order' => 'desc',
-            'limit' => 50 // Limit to the latest 50 items
+            'limit' => 50
         ]);
         $items = $response->getContent();
+        error_log("Strategy 1 - Found " . count($items) . " items by owner_id", 3, OMEKA_PATH . '/logs/my-data-debug.log');
+        
+        // Strategy 2: Also get item sets created by this user
+        $itemSetResponse = $this->api()->search('item_sets', [
+            'owner_id' => $userId,
+            'sort_by' => 'created', 
+            'sort_order' => 'desc',
+            'limit' => 50
+        ]);
+        $itemSets = $itemSetResponse->getContent();
+        error_log("Strategy 2 - Found " . count($itemSets) . " item sets by owner_id", 3, OMEKA_PATH . '/logs/my-data-debug.log');
+        
+        // Strategy 3: If no items found, try searching all items and filter by current user manually
+        if (empty($items)) {
+            error_log("No items found by owner_id, trying manual search", 3, OMEKA_PATH . '/logs/my-data-debug.log');
+            
+            // Get all items and manually filter
+            $allItemsResponse = $this->api()->search('items', [
+                'sort_by' => 'created',
+                'sort_order' => 'desc',
+                'limit' => 200 // Increase limit to catch more items
+            ]);
+            $allItems = $allItemsResponse->getContent();
+            
+            error_log("Found " . count($allItems) . " total items in system", 3, OMEKA_PATH . '/logs/my-data-debug.log');
+            
+            foreach ($allItems as $item) {
+                $owner = $item->owner();
+                if ($owner && $owner->id() == $userId) {
+                    $items[] = $item;
+                    error_log("Found user's item: " . $item->displayTitle() . " (ID: " . $item->id() . ")", 3, OMEKA_PATH . '/logs/my-data-debug.log');
+                }
+            }
+        }
+        
+        // Strategy 4: Also check for items in item sets owned by this user
+        foreach ($itemSets as $itemSet) {
+            $itemSetItems = $this->api()->search('items', [
+                'item_set_id' => $itemSet->id(),
+                'limit' => 50
+            ])->getContent();
+            
+            foreach ($itemSetItems as $item) {
+                // Add to items list if not already there
+                $found = false;
+                foreach ($items as $existingItem) {
+                    if ($existingItem->id() == $item->id()) {
+                        $found = true;
+                        break;
+                    }
+                }
+                if (!$found) {
+                    $items[] = $item;
+                    error_log("Found item in user's item set: " . $item->displayTitle() . " (ID: " . $item->id() . ")", 3, OMEKA_PATH . '/logs/my-data-debug.log');
+                }
+            }
+        }
+        
+        // FILTER OUT non-arrowhead items
+        $filteredItems = [];
+        foreach ($items as $item) {
+            // Check if it's an arrowhead by:
+            // 1. Looking at resource class
+            // 2. Looking for specific properties (arrowhead shape, variant, etc.)
+            // 3. Looking at the title pattern
+            
+            $isArrowhead = false;
+            
+            // Method 1: Check resource class
+            $resourceClass = $item->resourceClass();
+            if ($resourceClass && strpos(strtolower($resourceClass->label()), 'arrowhead') !== false) {
+                $isArrowhead = true;
+            }
+            
+            // Method 2: Check for arrowhead-specific properties
+            if (!$isArrowhead) {
+                $values = $item->values();
+                $arrowheadProperties = [
+                    'Arrowhead Shape', 'Arrowhead Variant', 'Arrowhead Base',
+                    'Chipping Mode', 'Chipping Direction', 'Chipping Shape'
+                ];
+                
+                foreach ($arrowheadProperties as $property) {
+                    if (isset($values[$property]) && !empty($values[$property])) {
+                        $isArrowhead = true;
+                        break;
+                    }
+                }
+            }
+            
+            // Method 3: Check title patterns
+            if (!$isArrowhead) {
+                $title = $item->displayTitle();
+                if (strpos(strtolower($title), 'arrowhead') !== false || 
+                    strpos($title, 'AH-') === 0 ||
+                    preg_match('/^(?:item|archaeological item)\s+AH-/i', $title)) {
+                    $isArrowhead = true;
+                }
+            }
+            
+            // Method 4: Exclude known non-arrowhead types
+            if (!$isArrowhead) {
+                $title = $item->displayTitle();
+                $nonArrowheadPatterns = [
+                    '/^context/i', '/^ctx-/i', '/^square/i', 
+                    '/^svu/i', '/^layer-/i', '/^stratigraphic/i',
+                    '/^excav/i', '/^excavation/i', '/^location/i'
+                ];
+                
+                $isNonArrowhead = false;
+                foreach ($nonArrowheadPatterns as $pattern) {
+                    if (preg_match($pattern, $title)) {
+                        $isNonArrowhead = true;
+                        break;
+                    }
+                }
+                
+                $isArrowhead = !$isNonArrowhead;
+            }
+            
+            if ($isArrowhead) {
+                $filteredItems[] = $item;
+                error_log("Including arrowhead item: " . $item->displayTitle(), 3, OMEKA_PATH . '/logs/my-data-debug.log');
+            } else {
+                error_log("Excluding non-arrowhead item: " . $item->displayTitle(), 3, OMEKA_PATH . '/logs/my-data-debug.log');
+            }
+        }
+        
+        // Replace the original items array with the filtered one
+        $items = $filteredItems;
+        
     } catch (\Exception $e) {
+        error_log('Error loading user items: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/my-data-debug.log');
         $this->messenger()->addError('Failed to load your items: ' . $e->getMessage());
     }
+    
+    error_log("Final count - Arrowhead Items: " . count($items) . ", Item Sets: " . count($itemSets), 3, OMEKA_PATH . '/logs/my-data-debug.log');
     
     // Show user data page
     $view = new ViewModel([
         'user' => $user,
         'site' => $this->currentSite(),
         'items' => $items,
+        'itemSets' => $itemSets, // Add item sets to view
         'totalItems' => count($items),
+        'totalItemSets' => count($itemSets), // Add count
         'isLoggedIn' => true,
         'userRole' => $user->getRole()
     ]);
