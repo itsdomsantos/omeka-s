@@ -29,9 +29,8 @@
     edm:Webresource <https://example.com/images/arrowhead-003.jpg> ;
     dbo:Annotation "Large, stemmed arrowhead with bifacial retouch"^^xsd:literal;
     crm:E3_Condition_State true ;
-    dct:date "09-14-2013"^^xsd:literal ;
+    
     crm:E57_Material <http://vocab.getty.edu/page/aat/300057143> ;
-    excav:hasGPSCoordinates <https://purl.org/megalod/gps/ah-057-gps> ;
     excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/ah-057-coordinates> ;
     excav:foundInContext <https://purl.org/megalod/context/CTX-001> ;
     excav:foundInSVU <https://purl.org/megalod/svu/Layer-02> ;
@@ -41,7 +40,6 @@
     schema:weight <https://purl.org/megalod/weight/ah-057-weight> ;
     excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
     excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Medium> ;
-    excav:foundInLocation <https://purl.org/megalod/location/alto-castelinho> ;
     excav:foundInSquare <https://purl.org/megalod/square/A1> ;
     ah:shape <https://purl.org/megalod/kos/ah-shape/stemmed> ;
     crm:E55_Type true ;
@@ -51,19 +49,13 @@
     ah:hasBaseLength <https://purl.org/megalod/BaseLength/ah-057-baselength> ;
     ah:hasChipping <https://purl.org/megalod/Chipping/ah-057-chipping> .
 
-# =========== Location ===========
-<https://purl.org/megalod/location/alto-castelinho> a excav:Location ;
-    dbo:informationName "Alto do Castelinho Archaeological Site"^^xsd:literal;
-    dbo:District <http://dbpedia.org/resource/Porto> ;
-    dbo:Parish <http://dbpedia.org/resource/Penafiel> ;
-    dbo:Country <http://dbpedia.org/resource/Portugal> .
+
+    # ENCOUNTER DATE NON MANDATORY - If this information exists, an encounter event is automatically created
+    dct:date "09-14-2013"^^xsd:literal ;
+
+
 
 # =========== COORDINATES ===========
-
-<https://purl.org/megalod/gps/ah-057-gps> a excav:GPSCoordinates ;
-    geo:lat "41.2081"^^xsd:decimal ;
-    geo:long "-8.6150"^^xsd:decimal .
-
 
 
 <https://purl.org/megalod/coordinates/ah-057-coordinates> a excav:Coordinates ;

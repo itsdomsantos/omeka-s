@@ -53,8 +53,60 @@ $maxWeight = $this->params()->fromQuery('maxWeight', '');
                     Artifacts
                 </label>
             </div>
+
+
             
             <button type="submit" class="search-button">Search</button>
+        </div>
+
+   
+
+        <div class="filter-section excavation-filters <?php echo ($searchType === 'item_sets' || $searchType === 'all' || empty($searchType)) ? '' : 'hidden'; ?>">
+            <h3>Filter Excavations</h3>
+            
+            <div class="filter-controls">
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <label for="archaeologist">Archaeologist:</label>
+                        <select name="archaeologist" id="archaeologist">
+                            <option value="">Any Archaeologist</option>
+                            <?php foreach ($archaeologistOptions as $archaeologist): ?>
+                            <option value="<?= $this->escapeHtml($archaeologist['name']) ?>" 
+                                    <?= $filterArchaeologist == $archaeologist['name'] ? 'selected' : '' ?>>
+                                <?= $this->escapeHtml($archaeologist['name']) ?>
+                                <?= $archaeologist['orcid'] ? ' (' . $this->escapeHtml($archaeologist['orcid']) . ')' : '' ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="orcid">ORCID:</label>
+                        <input type="text" name="orcid" id="orcid" 
+                            value="<?= $this->escapeHtml($filterOrcid) ?>" 
+                            placeholder="0000-0000-0000-0000"
+                            class="orcid-input">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label for="country">Country:</label>
+                        <select name="country" id="country">
+                            <option value="">Any Country</option>
+                            <?php foreach ($countryOptions as $country): ?>
+                            <option value="<?= $this->escapeHtml($country) ?>" 
+                                    <?= $filterCountry == $country ? 'selected' : '' ?>>
+                                <?= $this->escapeHtml($country) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="filter-actions">
+                    <button type="submit" class="filter-button">Apply Filters</button>
+                    <button type="button" id="clearExcavationFilters" class="clear-button">Clear Filters</button>
+                </div>
+            </div>
         </div>
         
         <!-- Arrowhead Filter Section -->
@@ -888,6 +940,36 @@ $maxWeight = $this->params()->fromQuery('maxWeight', '');
 }
 
 
+/* Excavation filters - update to match arrowhead filter styles */
+.excavation-filters {
+    background-color: #f9f9f9;
+    border-radius: 12px;
+    padding: 15px 20px;
+    margin-top: 15px;
+    box-shadow: 0 1px 15px rgba(0,0,0,0.05);
+    transition: all 0.3s ease;
+    /* Add a subtle left border to distinguish excavation filters */
+}
+
+/* Ensure ORCID input matches select styling */
+.orcid-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 14px;
+    background-color: white;
+}
+
+/* Toggle excavation filters based on search type */
+.excavation-filters.hidden {
+    display: none;
+}
+
+/* end of .excavation-filters */
+
+
 .filter-section.hidden {
     display: none;
 }
@@ -1108,6 +1190,53 @@ function initializeMap() {
 // Add this JavaScript to the bottom of the file in a <script> tag
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Handle excavation filters visibility based on search type
+    const excavationFilters = document.querySelector('.excavation-filters');
+    const searchTypeRadios = document.querySelectorAll('input[name="type"]');
+    
+    searchTypeRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'item_sets' || this.value === 'all') {
+                excavationFilters.classList.remove('hidden');
+            } else {
+                excavationFilters.classList.add('hidden');
+            }
+        });
+    });
+    
+    // Clear excavation filters button
+    const clearExcavationFiltersBtn = document.getElementById('clearExcavationFilters');
+    if (clearExcavationFiltersBtn) {
+        clearExcavationFiltersBtn.addEventListener('click', function() {
+            document.getElementById('archaeologist').value = '';
+            document.getElementById('orcid').value = '';
+            document.getElementById('country').value = '';
+            
+            // Get the current URL
+            let currentUrl = new URL(window.location.href);
+            
+            // Remove excavation filter parameters but keep search query and type
+            let searchQuery = currentUrl.searchParams.get('query');
+            let searchType = currentUrl.searchParams.get('type');
+            
+            // Create new URL with only search query and type
+            let newUrl = new URL(currentUrl.pathname, currentUrl.origin);
+            
+            if (searchQuery) {
+                newUrl.searchParams.set('query', searchQuery);
+            }
+            
+            if (searchType) {
+                newUrl.searchParams.set('type', searchType);
+            }
+            
+            // Navigate to the new URL
+            window.location.href = newUrl.toString();
+        });
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
     // Handle toggle for advanced filters
     const toggleButton = document.getElementById('toggleAdvancedFilters');
     const advancedFilters = document.querySelector('.advanced-filters');
@@ -1133,6 +1262,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
     
     // Check if any advanced filters are active, if so, show advanced section
     const advancedFilterInputs = document.querySelectorAll(

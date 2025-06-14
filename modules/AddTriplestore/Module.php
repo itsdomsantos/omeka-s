@@ -502,7 +502,7 @@ LIMIT 50";
             $this->debugGraphContents($graphUri, $identifier);
             
             // Count triples before deletion
-            $countQuery = $this->buildCountQuery($graphUri, $identifier);
+            $countQuery = $this->buildCountQuery($graphUri, $identifier, $graphId);
             $countResponse = $this->executeSparqlQuery($baseDataGraphUri, $countQuery);
             
             $countData = json_decode($countResponse->getBody(), true);
@@ -529,7 +529,7 @@ LIMIT 50";
                     error_log("Trying fallback graph: $fallbackGraph", 3, OMEKA_PATH . '/logs/finalDelete.log');
                     $this->debugGraphContents($fallbackGraph, $identifier);
                     
-                    $fallbackCountQuery = $this->buildCountQuery($fallbackGraph, $identifier);
+                    $fallbackCountQuery = $this->buildCountQuery($fallbackGraph, $identifier, $graphId);
                     $fallbackCountResponse = $this->executeSparqlQuery($baseDataGraphUri, $fallbackCountQuery);
                     $fallbackCountData = json_decode($fallbackCountResponse->getBody(), true);
                     
@@ -579,8 +579,10 @@ LIMIT 50";
     /**
      * Build a query to count triples associated with a particular identifier
      */
-    private function buildCountQuery($graphUri, $identifier) {
-        return "
+private function buildCountQuery($graphUri, $identifier, $graphId) {
+    $itemUri = "https://purl.org/megalod/" . $graphId . "/item/" . $identifier;
+    
+    return "
 PREFIX dct: <http://purl.org/dc/terms/>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
@@ -588,25 +590,25 @@ SELECT (COUNT(*) as ?count)
 WHERE {
   GRAPH <$graphUri> {
     {
-      # Count all triples where our artifact is the subject
-      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
-      ?artifact ?p1 ?o1 .
+      # Count triples where item URI is subject
+      ?s ?p ?o .
+      FILTER(STR(?s) = \"$itemUri\" || STRSTARTS(STR(?s), \"$itemUri/\"))
     }
     UNION
     {
-      # Count all triples where our artifact is the object
-      ?s2 ?p2 ?artifact .
-      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
+      # Count triples where item URI is predicate  
+      ?s ?p ?o .
+      FILTER(STR(?p) = \"$itemUri\")
     }
     UNION
-    { 
-      # Count all triples from paths with our identifier
-      ?s3 ?p3 ?o3 .
-      FILTER(CONTAINS(STR(?s3), \"/$identifier\") || CONTAINS(STR(?o3), \"/$identifier\"))
+    {
+      # Count triples where item URI is object
+      ?s ?p ?o .
+      FILTER(STR(?o) = \"$itemUri\" || STRSTARTS(STR(?o), \"$itemUri/\"))
     }
   }
 }";
-    }
+}
 
     /**
      * Execute a SPARQL SELECT query against GraphDB
@@ -630,12 +632,15 @@ WHERE {
         }
     }
 
-    private function deleteResourceByIdentifier($endpoint, $graphUri, $identifier, $graphId)
-    {
-        error_log("=== ENHANCED DELETE WITH COMPREHENSIVE PATTERNS ===", 3, OMEKA_PATH . '/logs/finalDelete.log');
-        error_log("Deleting identifier '$identifier' from graph $graphUri", 3, OMEKA_PATH . '/logs/finalDelete.log');
-        
-        $query = "
+private function deleteResourceByIdentifier($endpoint, $graphUri, $identifier, $graphId)
+{
+    error_log("=== ENHANCED DELETE WITH COMPREHENSIVE PATTERNS ===", 3, OMEKA_PATH . '/logs/finalDelete.log');
+    error_log("Deleting identifier '$identifier' from graph $graphUri", 3, OMEKA_PATH . '/logs/finalDelete.log');
+    
+    // Build the actual URI pattern used in your GraphDB
+    $itemUri = "https://purl.org/megalod/" . $graphId . "/item/" . $identifier;
+    
+    $query = "
 PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
@@ -659,81 +664,43 @@ DELETE {
 WHERE {
   GRAPH <$graphUri> {
     {
-      # Pattern 1: Main item with exact identifier match
-      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
-      ?artifact ?p ?o .
-      BIND(?artifact AS ?s)
-    }
-    UNION
-    {
-      # Pattern 2: All triples where the artifact is the object
-      ?s ?p ?artifact .
-      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
-    }
-    UNION
-    {
-      # Pattern 3: Direct URI match for main item (handles both with and without trailing content)
+      # Pattern 1: Triples where the item URI is the subject
       ?s ?p ?o .
-      FILTER(
-        (STR(?s) = \"$graphUri$identifier\") ||
-        (STRSTARTS(STR(?s), \"$graphUri$identifier/\"))
-      )
+      FILTER(STR(?s) = \"$itemUri\")
     }
     UNION
     {
-      # Pattern 4: All triples where these URI-based resources are the object
-      ?subject ?predicate ?s .
-      FILTER(
-        (STR(?s) = \"$graphUri$identifier\") ||
-        (STRSTARTS(STR(?s), \"$graphUri$identifier/\"))
-      )
+      # Pattern 2: Triples where the item URI is the predicate
+      ?s ?p ?o .
+      FILTER(STR(?p) = \"$itemUri\")
     }
     UNION
     {
-      # Pattern 5: Encounter events that reference this artifact
-      ?encounter crmsci:O19_encountered_object ?artifact .
-      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
-      ?encounter ?p ?o .
-      BIND(?encounter AS ?s)
+      # Pattern 3: Triples where the item URI is the object
+      ?s ?p ?o .
+      FILTER(STR(?o) = \"$itemUri\")
     }
     UNION
     {
-      # Pattern 6: All triples where the encounter is the object
-      ?s ?p ?encounter .
-      ?encounter crmsci:O19_encountered_object ?artifact .
-      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
+      # Pattern 4: Related sub-resources (encounter events, etc.) 
+      # that start with the item URI
+      ?s ?p ?o .
+      FILTER(STRSTARTS(STR(?s), \"$itemUri/\"))
     }
     UNION
     {
-      # Pattern 7: Related components via direct property relationships
-      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
-      ?artifact ?relPred ?component .
-      ?component ?p ?o .
-      FILTER(
-        STRSTARTS(STR(?relPred), \"http://schema.org/\") ||
-        STRSTARTS(STR(?relPred), \"https://purl.org/megalod/ms/ah/\") ||
-        STRSTARTS(STR(?relPred), \"https://purl.org/megalod/ms/excavation/\")
-      )
-      BIND(?component AS ?s)
-    }
-    UNION
-    {
-      # Pattern 8: All triples where related components are the object
-      ?artifact dct:identifier \"$identifier\"^^xsd:literal .
-      ?artifact ?relPred ?component .
-      ?s ?p ?component .
-      FILTER(
-        STRSTARTS(STR(?relPred), \"http://schema.org/\") ||
-        STRSTARTS(STR(?relPred), \"https://purl.org/megalod/ms/ah/\") ||
-        STRSTARTS(STR(?relPred), \"https://purl.org/megalod/ms/excavation/\")
-      )
+      # Pattern 5: Triples where sub-resources are objects
+      ?s ?p ?o .
+      FILTER(STRSTARTS(STR(?o), \"$itemUri/\"))
     }
   }
 }";
 
-        error_log("ENHANCED SPARQL Delete Query: $query", 3, OMEKA_PATH . '/logs/finalDelete.log');
-        return $this->executeSparqlUpdate($endpoint, $query);
-    }
+    error_log("ENHANCED SPARQL Delete Query: $query", 3, OMEKA_PATH . '/logs/finalDelete.log');
+    error_log("Item URI being deleted: $itemUri", 3, OMEKA_PATH . '/logs/finalDelete.log');
+    
+    return $this->executeSparqlUpdate($endpoint, $query);
+}
         
         /**
      * Delete a resource from GraphDB using patterns based on Omeka ID
