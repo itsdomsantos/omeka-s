@@ -84,6 +84,16 @@ return [
                                 ],
                             ],
                         ],
+                        'sparql' => [
+                            'type' => 'Literal',
+                            'options' => [
+                                'route' => '/sparql',
+                                'defaults' => [
+                                    'controller' => 'AddTriplestore\Controller\Site\Index',
+                                    'action' => 'sparql',
+                                ],
+                            ],
+                        ],
                             'view-details' => [
                                 'type' => 'Segment',
                                 'options' => [

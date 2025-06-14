@@ -1,0 +1,146 @@
+<?php $this->headTitle('SPARQL Endpoint - GraphDB Interface'); ?>
+
+<div class="sparql-wrapper">
+    <div class="sparql-header">
+        <h1>SPARQL Query Interface</h1>
+        <p>You are accessing the GraphDB SPARQL interface with read-only permissions. You can query the data but cannot make changes.</p>
+        <div class="access-info">
+            <span class="access-badge">Read-Only Access</span>
+            <span class="user-info">Logged in as: read_only_user</span>
+        </div>
+    </div>
+    
+    <!-- Embed GraphDB interface in iframe -->
+    <div class="graphdb-container">
+        <iframe 
+            src="<?php echo $this->escapeHtmlAttr($graphdbUrl); ?>" 
+            width="100%" 
+            height="800px" 
+            frameborder="0"
+            title="GraphDB SPARQL Interface">
+        </iframe>
+    </div>
+    
+    <div class="help-section">
+        <h3>Quick Help:</h3>
+        <ul>
+            <li>Use the SPARQL query editor above to explore the archaeological data</li>
+            <li>You have read-only access - INSERT, UPDATE, DELETE operations are not allowed</li>
+            <li>Sample prefixes to use:
+                <ul>
+                    <li><code>PREFIX dct: &lt;http://purl.org/dc/terms/&gt;</code></li>
+                    <li><code>PREFIX excav: &lt;https://purl.org/megalod/ms/excavation/&gt;</code></li>
+                    <li><code>PREFIX ah: &lt;https://purl.org/megalod/ms/ah/&gt;</code></li>
+                </ul>
+            </li>
+            <li>Start with simple SELECT queries to explore the data structure</li>
+        </ul>
+    </div>
+</div>
+
+<style>
+.sparql-wrapper {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.sparql-header {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    border-left: 4px solid #007bff;
+}
+
+.sparql-header h1 {
+    margin: 0 0 10px 0;
+    color: #343a40;
+}
+
+.sparql-header p {
+    margin: 0 0 15px 0;
+    color: #6c757d;
+}
+
+.access-info {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+}
+
+.access-badge {
+    background: #28a745;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.user-info {
+    color: #6c757d;
+    font-size: 14px;
+}
+
+.graphdb-container {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.graphdb-container iframe {
+    display: block;
+    width: 100%;
+    border: none;
+}
+
+.help-section {
+    background: #e9ecef;
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.help-section h3 {
+    margin: 0 0 15px 0;
+    color: #495057;
+}
+
+.help-section ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.help-section li {
+    margin-bottom: 8px;
+    color: #6c757d;
+}
+
+.help-section code {
+    background: #f8f9fa;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 13px;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .sparql-wrapper {
+        padding: 10px;
+    }
+    
+    .graphdb-container iframe {
+        height: 600px;
+    }
+    
+    .access-info {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+}
+</style>

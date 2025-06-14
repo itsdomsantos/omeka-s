@@ -149,6 +149,25 @@ private function getServiceLocator()
     return $serviceManager;
 }
 
+// view only grapdhb
+
+public function sparqlAction()
+{
+    $view = new ViewModel();
+    $view->setTemplate('add-triplestore/site/index/sparql');
+    
+    // Pass GraphDB interface URL to the template
+    $graphdbUrl = $this->graphdbEndpoint . 
+                  http_build_query([
+                      'username' => 'read_only_user',
+                      'repository' => 'arch-project-repository'
+                  ]);
+    
+    $view->setVariable('graphdbUrl', $graphdbUrl);
+    
+    return $view;
+}
+
 // And update your signupAction to use the simpler approach:
 public function signupAction()
 {

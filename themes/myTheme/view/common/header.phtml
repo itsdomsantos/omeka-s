@@ -6,7 +6,6 @@
             <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()], ['query' => ['query' => 'excavation', 'type' => 'item_sets']]); ?>">Collections</a>
             <a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()]); ?>">Map</a>
             <a href="<?php echo $this->url('site/add-triplestore', ['site-slug' => $site->slug()]); ?>">Main Menu</a>
-            // link to sparql endpoint
             <a href="<?php echo $this->url('site/add-triplestore/sparql', ['site-slug' => $site->slug()]); ?>">SPARQL Endpoint</a>
             <?php if ($this->identity()): ?>
                 <?php if ($this->identity()->getRole() === 'guest'): ?>
