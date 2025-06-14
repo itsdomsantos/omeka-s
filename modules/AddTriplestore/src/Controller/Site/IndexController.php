@@ -3672,6 +3672,7 @@ private function fixKosUris($content)
 {
     $logger = new Logger();
     $writer = new Stream(OMEKA_PATH . '/logs/graphdb-errors.log');
+
     $logger->addWriter($writer);
 
     // Set the graph URI based on excavation ID if provided
@@ -3762,10 +3763,7 @@ private function getGraphDBCredentials()
             ];
         }
     }
-    
-    
-    
-    
+
     // Last resort fallback for backward compatibility
     return [
         'username' => 'admin',
