@@ -13,7 +13,7 @@
     <!-- Embed GraphDB interface in iframe -->
     <div class="graphdb-container">
         <iframe 
-            src="<?php echo $this->escapeHtmlAttr($graphdbUrl); ?>" 
+            src="<?php echo $this->escapeHtmlAttr($graphdbUrl ?? 'http://localhost:7200/repositories/megalod/sparql'); ?>" 
             width="100%" 
             height="800px" 
             frameborder="0"

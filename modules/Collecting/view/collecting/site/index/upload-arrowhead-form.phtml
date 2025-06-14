@@ -20,40 +20,68 @@ $itemSetId = $this->params()->fromQuery('item_set_id');
 ?>
 
 <style>
+/* Enhanced styling to match excavation form */
+.enhanced-arrowhead-form {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+    color: black;
+}
+
+/* Align with Omeka-S standard styling */
 .archaeological-context-section {
-    background-color: #f5f5f5;
-    padding: 15px;
-    margin-bottom: 20px;
-    border-radius: 5px;
-    border: 1px solid #e0e0e0;
+    background-color: #fafafa;
+    padding: 20px;
+    margin-bottom: 25px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
 }
 
 .archaeological-context-section h3 {
     margin-top: 0;
-    color: #333;
-    font-size: 18px;
-    margin-bottom: 15px;
+    color: black;
+    border-bottom: 2px solid #4CAF50;
+    padding-bottom: 10px;
+    font-size: 1.25rem;
+    margin-bottom: 1rem;
+    font-weight: normal;
 }
 
 .archaeological-context-section .form-group {
     margin-bottom: 15px;
 }
 
-.archaeological-context-section label {
+.form-group {
+    margin-bottom: 15px;
+    line-height: 1.5;
+    color: black;
+}
+
+.form-group label {
     display: block;
     font-weight: bold;
-    margin-bottom: 5px;
+    margin-bottom: .5rem;
+    font-size: 16px;
 }
 
-.archaeological-context-section select {
+.form-group select,
+.form-group input[type="text"],
+.form-group textarea {
     width: 100%;
     padding: 8px;
-    border: 1px solid #ccc;
+    border: 1px solid #ddd;
     border-radius: 4px;
+    background-color: #fff;
+    font-size: 16px;
+    line-height: 1.5;
+    color: black;
 }
 
-.form-group {
-    margin-bottom: 20px;
+.form-group small.help-text {
+    display: block;
+    color: #676767;
+    font-size: 14px;
+    margin-top: .25rem;
 }
 
 .success-message {
@@ -77,140 +105,261 @@ $itemSetId = $this->params()->fromQuery('item_set_id');
 .button-group {
     display: flex;
     gap: 10px;
-    margin-top: 20px;
+    margin-top: 30px;
+    justify-content: center;
 }
 
-.button {
+.button, 
+button[type="submit"] {
     display: inline-block;
-    padding: 10px 20px;
+    padding: 8px 15px;
     background-color: #4CAF50;
     color: white;
     border: none;
     border-radius: 4px;
     cursor: pointer;
     text-decoration: none;
+    font-size: 14px;
+    line-height: 24px;
+    transition: background-color 0.2s;
 }
 
-.button:hover {
+.button:hover, 
+button[type="submit"]:hover {
     background-color: #45a049;
+}
+
+.form-actions {
+    margin-top: 30px;
+    text-align: center;
+}
+
+.excavation-context {
+    background: #e8f5e8;
+    padding: 15px;
+    margin-bottom: 20px;
+    border-radius: 6px;
+}
+
+.alert-info {
+    background-color: #d9edf7;
+    border-color: #bce8f1;
+    color: #31708f;
+}
+
+.alert-success {
+    background-color: #dff0d8;
+    border-color: #d6e9c6;
+    color: #3c763d;
+}
+
+/* Form elements styling */
+.form-elements {
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+    border: 1px solid #ddd;
+    margin-bottom: 20px;
+}
+
+/* Add better styling for form errors */
+.form-error {
+    color: #a94442;
+    font-size: 14px;
+    margin-top: .25rem;
+}
+
+/* Required field indicator styles */
+.required-indicator {
+    color: #e53935;
+    font-weight: bold;
+    margin-left: 5px;
+}
+
+.form-group label.required::after {
+    content: " *";
+    color: #e53935;
+}
+
+.required-note {
+    color: #e53935;
+    font-size: 12px;
+    margin-top: 4px;
+    font-style: italic;
+}
+
+/* Responsive adjustments */
+@media screen and (min-width: 640px) {
+    .button-group {
+        justify-content: center;
+    }
+}
+
+.btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background-color 0.2s;
+}
+
+.btn-primary {
+    background: #4CAF50;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #45a049;
+}
+
+.btn-secondary {
+    background: #2196F3;
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #1976D2;
+}
+
+.btn-danger {
+    background: #f44336;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #d32f2f;
 }
 </style>
 
-<?php if ($itemSetId): ?>
-    <div class="excavation-context alert <?php echo $result ? 'alert-success' : 'alert-info'; ?>">
-        <p>You are adding an arrowhead to the excavation with Item Set ID: <?php echo $this->escapeHtml($itemSetId); ?></p>
-        
-        <?php if ($result): ?>
-            <div class="result-message">
-                <?php echo $this->escapeHtml($result); ?>
-            </div>
-        <?php endif; ?>
-    </div>
-<?php endif; ?>
-
-<?php if ($success): ?>
-    <div class="success-message">
-        <?php echo $this->escapeHtml($result); ?>
-    </div>
-    
-    <div class="button-group">
-        <a href="<?php echo $this->url('site/collecting', [
-            'site-slug' => $this->currentSite()->slug(),
-            'form-id' => $this->params('form-id'),
-            'action' => 'uploadArrowheadForm'
-        ], ['query' => [
-            'item_set_id' => $itemSetId
-        ]], true); ?>" class="button">
-            Add Another Arrowhead
-        </a>
-        <a href="<?php echo $this->url('site', [], true); ?>" class="button">
-            Exit
-        </a>
-    </div>
-<?php else: ?>
-    <?php echo $this->form()->openTag($form); ?>
-    
-    <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($formType); ?>">
-    
+<div class="enhanced-arrowhead-form">
     <?php if ($itemSetId): ?>
-        <input type="hidden" name="item_set_id" value="<?php echo $this->escapeHtml($itemSetId); ?>">
+        <div class="excavation-context alert <?php echo $result ? 'alert-success' : 'alert-info'; ?>">
+            <p>You are adding an arrowhead to the excavation with Item Set ID: <?php echo $this->escapeHtml($itemSetId); ?></p>
+            
+            <?php if ($result): ?>
+                <div class="result-message">
+                    <?php echo $this->escapeHtml($result); ?>
+                </div>
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
-    
-    <?php if (!empty($squares) || !empty($contexts) || !empty($svus)): ?>
-    <div class="archaeological-context-section">
-        <h3>Archaeological Context</h3>
-        
-        <?php if (!empty($squares)): ?>
-        <div class="form-group">
-            <label for="selected_square">Square</label>
-            <select name="selected_square" id="selected_square" class="form-control">
-                <option value="">-- Select Square --</option>
-                <?php foreach ($squares as $square): ?>
-                <option value="<?php echo $this->escapeHtml($square['id']); ?>">
-                    <?php echo $this->escapeHtml($square['label']); ?>
-                    <?php if (!empty($square['identifier'])): ?>
-                        (<?php echo $this->escapeHtml($square['identifier']); ?>)
-                    <?php endif; ?>
-                </option>
-                <?php endforeach; ?>
-            </select>
-            <small class="help-text">Select the square where this arrowhead was found</small>
+
+    <?php if ($success): ?>
+        <div class="success-message">
+            <?php echo $this->escapeHtml($result); ?>
         </div>
+        
+        <div class="button-group">
+            <a href="<?php echo $this->url('site/collecting', [
+                'site-slug' => $this->currentSite()->slug(),
+                'form-id' => $this->params('form-id'),
+                'action' => 'uploadArrowheadForm'
+            ], ['query' => [
+                'item_set_id' => $itemSetId
+            ]], true); ?>" class="btn btn-primary">
+                Add Another Arrowhead
+            </a>
+            <a href="<?php echo $this->url('site', [], true); ?>" class="btn btn-secondary">
+                Exit
+            </a>
+        </div>
+    <?php else: ?>
+        <?php echo $this->form()->openTag($form); ?>
+        
+        <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($formType); ?>">
+        
+        <?php if ($itemSetId): ?>
+            <input type="hidden" name="item_set_id" value="<?php echo $this->escapeHtml($itemSetId); ?>">
         <?php endif; ?>
         
-        <?php if (!empty($contexts)): ?>
-        <div class="form-group">
-            <label for="selected_context">Context</label>
-            <select name="selected_context" id="selected_context" class="form-control">
-                <option value="">-- Select Context --</option>
-                <?php foreach ($contexts as $context): ?>
-                <option value="<?php echo $this->escapeHtml($context['id']); ?>">
-                    <?php echo $this->escapeHtml($context['label']); ?>
-                    <?php if (!empty($context['identifier'])): ?>
-                        (<?php echo $this->escapeHtml($context['identifier']); ?>)
-                    <?php endif; ?>
-                </option>
-                <?php endforeach; ?>
-            </select>
-            <small class="help-text">Select the archaeological context</small>
-        </div>
-        <?php endif; ?>
-        
-        <?php if (!empty($svus)): ?>
-        <div class="form-group">
-            <label for="selected_svu">Stratigraphic Volume Unit</label>
-            <select name="selected_svu" id="selected_svu" class="form-control">
-                <option value="">-- Select SVU --</option>
-                <?php foreach ($svus as $svu): ?>
-                <option value="<?php echo $this->escapeHtml($svu['id']); ?>">
-                    <?php echo $this->escapeHtml($svu['label']); ?>
-                    <?php if (!empty($svu['identifier'])): ?>
-                        (<?php echo $this->escapeHtml($svu['identifier']); ?>)
-                    <?php endif; ?>
-                </option>
-                <?php endforeach; ?>
-            </select>
-            <small class="help-text">Select the stratigraphic volume unit</small>
-        </div>
-        <?php endif; ?>
-    </div>
-    <?php endif; ?>
-    
-    <div class="form-elements">
-        <?php foreach ($form->getElements() as $element): ?>
+        <?php if (!empty($squares) || !empty($contexts) || !empty($svus)): ?>
+        <div class="archaeological-context-section">
+            <h3>Archaeological Context</h3>
+            
+            <?php if (!empty($squares)): ?>
             <div class="form-group">
-                <?php if ($element->getLabel()): ?>
-                    <label><?php echo $this->formLabel($element); ?></label>
-                <?php endif; ?>
-                <?php echo $this->formElement($element); ?>
-                <?php echo $this->formElementErrors($element); ?>
+                <label for="selected_square">Square</label>
+                <select name="selected_square" id="selected_square" class="form-control">
+                    <option value="">-- Select Square --</option>
+                    <?php foreach ($squares as $square): ?>
+                    <option value="<?php echo $this->escapeHtml($square['id']); ?>">
+                        <?php echo $this->escapeHtml($square['label']); ?>
+                        <?php if (!empty($square['identifier'])): ?>
+                            (<?php echo $this->escapeHtml($square['identifier']); ?>)
+                        <?php endif; ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <small class="help-text">Select the square where this arrowhead was found</small>
             </div>
-        <?php endforeach; ?>
-    </div>
-    
-    <div class="form-actions">
-        <button type="submit" class="button">Submit Arrowhead</button>
-    </div>
-    
-    <?php echo $this->form()->closeTag(); ?>
-<?php endif; ?>
+            <?php endif; ?>
+            
+            <?php if (!empty($contexts)): ?>
+            <div class="form-group">
+                <label for="selected_context">Context</label>
+                <select name="selected_context" id="selected_context" class="form-control">
+                    <option value="">-- Select Context --</option>
+                    <?php foreach ($contexts as $context): ?>
+                    <option value="<?php echo $this->escapeHtml($context['id']); ?>">
+                        <?php echo $this->escapeHtml($context['label']); ?>
+                        <?php if (!empty($context['identifier'])): ?>
+                            (<?php echo $this->escapeHtml($context['identifier']); ?>)
+                        <?php endif; ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <small class="help-text">Select the archaeological context</small>
+            </div>
+            <?php endif; ?>
+            
+            <?php if (!empty($svus)): ?>
+            <div class="form-group">
+                <label for="selected_svu">Stratigraphic Volume Unit</label>
+                <select name="selected_svu" id="selected_svu" class="form-control">
+                    <option value="">-- Select SVU --</option>
+                    <?php foreach ($svus as $svu): ?>
+                    <option value="<?php echo $this->escapeHtml($svu['id']); ?>">
+                        <?php echo $this->escapeHtml($svu['label']); ?>
+                        <?php if (!empty($svu['identifier'])): ?>
+                            (<?php echo $this->escapeHtml($svu['identifier']); ?>)
+                        <?php endif; ?>
+                    </option>
+                    <?php endforeach; ?>
+                </select>
+                <small class="help-text">Select the stratigraphic volume unit</small>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
+        
+        <div class="form-elements">
+            <?php foreach ($form->getElements() as $element): ?>
+                <div class="form-group">
+                    <?php if ($element->getLabel()): ?>
+                        <?php 
+                        $isRequired = $element->getAttribute('required') || 
+                                    (method_exists($element, 'isRequired') && $element->isRequired());
+                        ?>
+                        <label class="<?php echo $isRequired ? 'required' : ''; ?>">
+                            <?php echo $this->formLabel($element); ?>
+                        </label>
+                    <?php endif; ?>
+                    <?php echo $this->formElement($element); ?>
+                    <?php echo $this->formElementErrors($element); ?>
+                    
+                    <?php if ($element->getAttribute('required') || 
+                             (method_exists($element, 'isRequired') && $element->isRequired())): ?>
+                        <div class="required-note">This field is mandatory</div>
+                    <?php endif; ?>
+                </div>
+            <?php endforeach; ?>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="button">Submit Arrowhead</button>
+        </div>
+        
+        <?php echo $this->form()->closeTag(); ?>
+    <?php endif; ?>
+</div>

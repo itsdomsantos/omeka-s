@@ -153,20 +153,20 @@ private function getServiceLocator()
 
 public function sparqlAction()
 {
+    // Auto-login to GraphDB with read-only credentials
+    $graphdbUrl = 'http://localhost:7200/'; //
+    
+    // Create a form that auto-submits to GraphDB with read-only credentials
     $view = new ViewModel();
-    $view->setTemplate('add-triplestore/site/index/sparql');
-    
-    // Pass GraphDB interface URL to the template
-    $graphdbUrl = $this->graphdbEndpoint . 
-                  http_build_query([
-                      'username' => 'read_only_user',
-                      'repository' => 'arch-project-repository'
-                  ]);
-    
     $view->setVariable('graphdbUrl', $graphdbUrl);
+    $view->setVariable('username', 'read_only_user');
+    $view->setVariable('password', ''); // No password for read_only_user
+    $view->setTemplate('add-triplestore/site/index/sparql-redirect');
     
     return $view;
 }
+
+
 
 // And update your signupAction to use the simpler approach:
 public function signupAction()
@@ -2072,6 +2072,28 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
     ];
 }
 
+private function sanitizeFilenameForUri($filename) {
+    // Get the file extension
+    $extension = pathinfo($filename, PATHINFO_EXTENSION);
+    $basename = pathinfo($filename, PATHINFO_FILENAME);
+    
+    // Remove or replace invalid characters in the basename
+    $basename = preg_replace('/[^a-zA-Z0-9_-]/', '-', $basename);
+    $basename = preg_replace('/-+/', '-', $basename); // Replace multiple hyphens with a single one
+    $basename = trim($basename, '-');
+    
+    // If empty basename, use a default name
+    if (empty($basename)) {
+        $basename = 'file';
+    }
+    
+    // Combine with extension if it exists
+    if (!empty($extension)) {
+        return $basename . '.' . $extension;
+    }
+    
+    return $basename;
+}
 
 private function processArrowheadFormData($formData, $itemSetId)
 {
@@ -2314,17 +2336,39 @@ foreach ($linkedResources as $property => $resourceUri) {
     
     // Add images/web resources
     if (!empty($formData['images'])) {
-        $images = $formData['images'];
-        if (is_array($images)) {
-            foreach ($images as $image) {
-                if (!empty($image)) {
+    $images = $formData['images'];
+    if (is_array($images)) {
+        foreach ($images as $image) {
+            if (!empty($image)) {
+                // Sanitize the image filename for URI use
+                $imageParts = parse_url($image);
+                if (isset($imageParts['path'])) {
+                    $originalFilename = basename($imageParts['path']);
+                    $sanitizedFilename = $this->sanitizeFilenameForUri($originalFilename);
+                    
+                    // Replace the original filename in the URL with the sanitized one
+                    $imageUri = str_replace($originalFilename, $sanitizedFilename, $image);
+                    $ttl .= "    edm:Webresource <$imageUri>;\n";
+                } else {
                     $ttl .= "    edm:Webresource <$image>;\n";
                 }
             }
-        } else if (!empty($images)) {
+        }
+    } else if (!empty($images)) {
+        // Handle single image case
+        $imageParts = parse_url($images);
+        if (isset($imageParts['path'])) {
+            $originalFilename = basename($imageParts['path']);
+            $sanitizedFilename = $this->sanitizeFilenameForUri($originalFilename);
+            
+            // Replace the original filename in the URL with the sanitized one
+            $imageUri = str_replace($originalFilename, $sanitizedFilename, $images);
+            $ttl .= "    edm:Webresource <$imageUri>;\n";
+        } else {
             $ttl .= "    edm:Webresource <$images>;\n";
         }
     }
+}
     
     // Close the main arrowhead resource
     $ttl .= "    .\n\n";
@@ -3651,6 +3695,9 @@ private function fixKosUris($content)
             return $errorMessage;
         }
 
+        $credentials = $this->getGraphDBCredentials();
+
+
         // 2. Upload ONLY if validation passes
         $client = new Client();
         $fullUrl = $this->graphdbEndpoint . '?graph=' . urlencode($graphUri);
@@ -3658,7 +3705,10 @@ private function fixKosUris($content)
         
         $client->setUri($fullUrl);
         $client->setMethod('POST');
-        $client->setHeaders(['Content-Type' => 'text/turtle']);
+        $client->setHeaders([
+            'Content-Type' => 'text/turtle',
+            'Authorization' => 'Basic ' . base64_encode($credentials['username'] . ':' . $credentials['password'])
+        ]);
         $client->setRawBody($data);
 
         $client->setOptions(['timeout' => 60]); // Adjust the timeout as needed
@@ -3670,6 +3720,15 @@ private function fixKosUris($content)
         $message = "Response Status: $status | Response Body: $body";
         error_log($message, 3, OMEKA_PATH . '/logs/graphdb-response.log');
         $logger->info($message);
+
+
+        if ($status == 401) {
+            $errorMessage = "Authentication failed with GraphDB. Please check your credentials.";
+            error_log($errorMessage, 3, OMEKA_PATH . '/logs/graphdb-errors.log');
+            $logger->err($errorMessage);
+            return $errorMessage;
+        }
+
 
         if ($response->isSuccess()) {
             return 'Data uploaded and validated successfully.';
@@ -3688,6 +3747,33 @@ private function fixKosUris($content)
 }
 
 
+
+
+private function getGraphDBCredentials()
+{
+    // First try to load credentials from config file
+    $configFile = OMEKA_PATH . '/modules/AddTriplestore/config/graphdb.config.php';
+    if (file_exists($configFile)) {
+        $credentials = include $configFile;
+        if (isset($credentials['username']) && isset($credentials['password'])) {
+            return [
+                'username' => $credentials['username'],
+                'password' => $credentials['password']
+            ];
+        }
+    }
+    
+    
+    
+    
+    // Last resort fallback for backward compatibility
+    return [
+        'username' => 'admin',
+        'password' => 'admin'
+    ];
+}
+
+
     private function validateData($data, $graphUri)
     {
         $errors = [];
@@ -3696,6 +3782,9 @@ private function fixKosUris($content)
         $logger->addWriter($writer);
 
         try {
+
+            $credentials = $this->getGraphDBCredentials();
+
             // 1. Prepare the validation query
             $query = "PREFIX sh: <http://www.w3.org/ns/shacl#>
             PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
@@ -3731,10 +3820,17 @@ private function fixKosUris($content)
             $client->setMethod('POST');
             $client->setHeaders([
                 'Content-Type' => 'application/sparql-query',
-                'Accept' => 'application/sparql-results+json' // Crucial: Request JSON results
+                'Accept' => 'application/sparql-results+json', // Crucial: Request JSON results
+                'Authorization' => 'Basic ' . base64_encode($credentials['username'] . ':' . $credentials['password'])
             ]);
             $client->setRawBody($query);
             $response = $client->send();
+            if ($response->getStatusCode() == 401) {
+                $errorMessage = "Authentication failed with GraphDB. Please check your credentials.";
+                $logger->err($errorMessage);
+                error_log($errorMessage);
+                return [$errorMessage];
+            }
 
             if (!$response->isSuccess()) {
                 $errorMessage = "SHACL validation query failed: " . $response->getStatusCode() . " - " . $response->getBody();
@@ -5960,10 +6056,12 @@ WHERE {
         $client = new \Laminas\Http\Client();
         $client->setUri($this->graphdbQueryEndpoint);
         $client->setMethod('POST');
+        $credentials = $this->getGraphDBCredentials();
         $client->setHeaders([
-            'Content-Type' => 'application/sparql-query',
-            'Accept' => 'application/sparql-results+json'
-        ]);
+                'Content-Type' => 'application/sparql-query',
+                'Accept' => 'application/sparql-results+json', // Crucial: Request JSON results
+                'Authorization' => 'Basic ' . base64_encode($credentials['username'] . ':' . $credentials['password'])
+            ]);
         $client->setRawBody($query);
         
         $response = $client->send();
@@ -7018,10 +7116,12 @@ ASK {
         $client = new \Laminas\Http\Client();
         $client->setUri($this->graphdbQueryEndpoint);
         $client->setMethod('POST');
+        $credentials = $this->getGraphDBCredentials();
         $client->setHeaders([
-            'Content-Type' => 'application/sparql-query',
-            'Accept' => 'application/sparql-results+json'
-        ]);
+                'Content-Type' => 'application/sparql-query',
+                'Accept' => 'application/sparql-results+json', // Crucial: Request JSON results
+                'Authorization' => 'Basic ' . base64_encode($credentials['username'] . ':' . $credentials['password'])
+            ]);
         $client->setRawBody($query);
         
         $response = $client->send();
