@@ -186,11 +186,11 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
             </div>
 
             <div id="remote-form" style="display: none;" class="remote-form-section">
-                <h2>Use Collection Form</h2>
-                <p>Choose the appropriate form:</p>
+                <h2 id="form-title">Use Collection Form</h2>
+                <p>Please proceed with the form:</p>
                 <div class="form-buttons">
-                    <button type="button" class="form-btn" onclick="redirectToForm('arrowhead', <?php echo 1; ?>)">Arrowhead Form</button>
-                    <button type="button" class="form-btn" onclick="redirectToForm('excavation', <?php echo 2; ?>)">Excavation Form</button>
+                    <button type="button" id="arrowhead-form-btn" class="form-btn" onclick="redirectToForm('arrowhead', <?php echo 1; ?>)">Arrowhead Form</button>
+                    <button type="button" id="excavation-form-btn" class="form-btn" onclick="redirectToForm('excavation', <?php echo 2; ?>)">Excavation Form</button>
                 </div>
             </div>
             
@@ -198,6 +198,9 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
                 function showUploadOptions(option) {
                     document.getElementById('upload-options').style.display = 'block';
                     document.getElementById('upload_type').value = option;
+                    
+                    // Store the selected type in a data attribute for later use
+                    document.getElementById('upload-options').setAttribute('data-type', option);
                     
                     // Hide main actions
                     document.querySelector('.main-actions').style.display = 'none';
@@ -209,8 +212,13 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
                         document.getElementById('upload-form').style.display = 'block';
                         document.getElementById('remote-form').style.display = 'none';
                     } else if (method === 'form') {
-                        document.getElementById('upload-form').style.display = 'none';
-                        document.getElementById('remote-form').style.display = 'block';
+                        // Get the selected type and directly redirect to the appropriate form
+                        const selectedType = document.getElementById('upload-options').getAttribute('data-type');
+                        if (selectedType === 'excavation') {
+                            redirectToForm('excavation', 2);
+                        } else if (selectedType === 'arrowhead') {
+                            redirectToForm('arrowhead', 1);
+                        }
                     }
                 }
 
