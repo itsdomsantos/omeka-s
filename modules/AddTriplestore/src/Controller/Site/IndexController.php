@@ -8877,6 +8877,11 @@ private function sendToOmekaS($omekaData, $itemSetId = null) {
             $createdItem = json_decode($response->getBody(), true);
             if ($createdItem && isset($createdItem['o:id'])) { // Assuming $createdItem might be an object with array-like access or an array
                 $itemId = $createdItem['o:id'];
+                // Attach media to the newly created item
+                $this->attachMediaToItem($createdItem['o:id']);
+                error_log('Omeka S Item Created Successfully: ID=' . $itemId . 
+                 ($identifier ? ", Identifier=$identifier" : ""));
+                                
             } else {
                 
                 $itemId = null; // Or some other appropriate default
@@ -8968,24 +8973,71 @@ private function extractIdentifierFromItemData($itemData) {
     }
     return null;
 }
-    private function attachMediaToItem($itemId) {
-        // Use stored files instead of $_FILES
-        if ($this->uploadedFiles && isset($this->uploadedFiles['name']) && is_array($this->uploadedFiles['name'])) {
-            $files = $this->uploadedFiles;
-            
-            foreach ($files['name'] as $index => $filename) {
-                if (!empty($filename) && $files['error'][$index] === UPLOAD_ERR_OK) {
-                    $tempFile = $files['tmp_name'][$index];
-                    $mimeType = $files['type'][$index];
+
+private function attachMediaToItem($itemId) {
+    error_log('Attempting to attach media to item ID: ' . $itemId, 3, OMEKA_PATH . '/logs/media-debug.log');
+    
+    // Use stored files instead of $_FILES
+    if ($this->uploadedFiles && isset($this->uploadedFiles['name']) && is_array($this->uploadedFiles['name'])) {
+        error_log('Found ' . count($this->uploadedFiles['name']) . ' uploaded files', 3, OMEKA_PATH . '/logs/media-debug.log');
+        
+        for ($i = 0; $i < count($this->uploadedFiles['name']); $i++) {
+            if ($this->uploadedFiles['error'][$i] === UPLOAD_ERR_OK) {
+                $tempFile = $this->uploadedFiles['tmp_name'][$i];
+                $filename = $this->uploadedFiles['name'][$i];
+                $mimeType = $this->uploadedFiles['type'][$i];
+                
+                error_log("Processing file: $filename ($mimeType)", 3, OMEKA_PATH . '/logs/media-debug.log');
+                
+                // Create media for this file
+                try {
+                    // Create the media via Omeka API
+                    $mediaData = [
+                        'o:ingester' => 'upload',
+                        'o:item' => ['o:id' => $itemId],
+                        'dcterms:title' => [
+                            [
+                                'type' => 'literal',
+                                'property_id' => 1, // dcterms:title property ID
+                                '@value' => $filename
+                            ]
+                        ]
+                    ];
                     
-                    // Create media via Omeka S API
-                    $this->createMediaForItem($itemId, $tempFile, $filename, $mimeType);
+                    // Prepare the file for upload - copy to temp location
+                    $tempDir = sys_get_temp_dir();
+                    $targetPath = $tempDir . '/' . uniqid('omeka_upload_') . '_' . basename($filename);
+                    if (copy($tempFile, $targetPath)) {
+                        error_log("Copied file to temporary location: $targetPath", 3, OMEKA_PATH . '/logs/media-debug.log');
+                        
+                        // Set up the file upload structure that Omeka expects
+                        $_FILES = [
+                            'file' => [
+                                'name' => [$filename],
+                                'type' => [$mimeType],
+                                'tmp_name' => [$targetPath],
+                                'error' => [0],
+                                'size' => [filesize($tempFile)]
+                            ]
+                        ];
+                        
+                        // Create the media
+                        $response = $this->api()->create('media', $mediaData);
+                        error_log("Successfully created media for item $itemId: " . $response->getContent()->id(), 3, OMEKA_PATH . '/logs/media-debug.log');
+                    } else {
+                        error_log("Failed to copy file to temporary location", 3, OMEKA_PATH . '/logs/media-debug.log');
+                    }
+                } catch (\Exception $e) {
+                    error_log("Failed to create media for item $itemId: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/media-debug.log');
                 }
+            } else {
+                error_log("Upload error for file index $i: " . $this->uploadedFiles['error'][$i], 3, OMEKA_PATH . '/logs/media-debug.log');
             }
         }
-        error_log('DEBUG $_FILES: ' . print_r($_FILES, true), 3, OMEKA_PATH . '/logs/ddd.log');
-        error_log('DEBUG item ID: ' . $itemId, 3, OMEKA_PATH . '/logs/ddd.log');
+    } else {
+        error_log('No valid uploaded files found to attach', 3, OMEKA_PATH . '/logs/media-debug.log');
     }
+}
 
 // Update the searchAction method to handle all filters
 public function searchAction()
