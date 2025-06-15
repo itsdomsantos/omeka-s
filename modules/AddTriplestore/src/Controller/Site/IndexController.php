@@ -6537,12 +6537,12 @@ private function createNewEncounterEvent($context, $itemSetId, $signature) {
 
 private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
-    error_log("Using excavation identifier: $excavationIdentifier", 3, OMEKA_PATH . '/logs/encounter-validationnnnnnn.log');
+    error_log("Using excavation identifier: $excavationIdentifier", 3, OMEKA_PATH . '/logs/encounter-validation.log');
     $encounterUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/encounter/encounter-{$encounterEvent['omeka_id']}";
     
     // Extract item identifier and context from TTL
     $itemIdentifier = $this->extractItemIdentifierFromTtl($ttlData);
-    error_log("Item identifier extracted: $itemIdentifier", 3, OMEKA_PATH . '/logs/encounter-validationnnn.log');
+    error_log("Item identifier extracted: $itemIdentifier", 3, OMEKA_PATH . '/logs/encounter-validation.log');
     $arrowheadContext = $this->extractArrowheadContextFromTtl($ttlData);
     
     // 1. Add encounter reference to the arrowhead item
@@ -6555,17 +6555,17 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     $enhancedTtl = preg_replace($pattern, $replacement, $ttlData, 1);
     
     // CRITICAL FIX: Remove any reference where arrowhead references itself as an excavation
-    $excavationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier";
-    $selfRefPattern = '/excav:foundInExcavation\s+<http:\/\/localhost\/megalod\/' . $itemSetId . '\/item\/' . $itemIdentifier . '>\s*;\s*\n/';
+    $selfRefPattern = '/excav:foundInExcavation\s+<http:\/\/localhost\/megalod\/' . $itemSetId . '\/item\/' . preg_quote($itemIdentifier, '/') . '>\s*;\s*\n/';
     $enhancedTtl = preg_replace($selfRefPattern, '', $enhancedTtl);
     
-    // Ensure we have only one correct excavation reference
+    // FIXED: Ensure consistent excavation reference format
+    $excavationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier";
     $excavationRefPattern = '/excav:foundInExcavation\s+<http:\/\/localhost\/megalod\/' . $itemSetId . '\/excavation\/[^>]+>\s*;\s*\n/';
     if (!preg_match($excavationRefPattern, $enhancedTtl)) {
         // Add the correct excavation reference if it's not already there
-        $excavationReference = "    excav:foundInExcavation <$excavationUri>;\n";
+        $excavationReference = "    excav:foundInExcavation <$excavationUri> ;\n";
         $enhancedTtl = preg_replace('/(crmsci:O19i_was_object_encountered_through\s+<[^>]+>\s*;)(\s*)/i', 
-                                  "$1\n$excavationReference$2", $enhancedTtl, 1);
+                                 "$1\n$excavationReference$2", $enhancedTtl, 1);
     }
     
     // 2. Add complete encounter event definition
@@ -6580,27 +6580,27 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
         $encounterDefinition .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal ;\n";
     }
     
-    // FIXED: Use correct arrowhead URI format (not /item/ path)       
-    $encounterDefinition .= "    crmsci:O19_encountered_object <http://localhost/megalod/$itemSetId/item/$itemIdentifier> ;\n";
+    // FIXED: Use correct arrowhead URI format
+    $itemUri = "http://localhost/megalod/$itemSetId/item/$itemIdentifier";
+    $encounterDefinition .= "    crmsci:O19_encountered_object <$itemUri> ;\n";
     
-    // FIXED: Declare excavation with proper type
-    $excavationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier";
-    $encounterDefinition .= "    excav:foundInExcavation <$excavationUri> ;\n";
-
-    // Add context reference
+    // Add excavation reference
+    $encounterDefinition .= "    excav:foundInExcavation <$excavationUri>";
+    
+    // Add context reference if available
     if ($arrowheadContext['context']) {
         $contextUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}";
-        $encounterDefinition .= "    excav:foundInContext <$contextUri> ;\n";
+        $encounterDefinition .= " ;\n    excav:foundInContext <$contextUri>";
     }
     
-    // Add SVU reference
+    // Add SVU reference if available
     if ($arrowheadContext['svu']) {
         $svuUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/svu/{$arrowheadContext['svu']}";
-        $encounterDefinition .= "    excav:foundInSVU <$svuUri> ;\n";
+        $encounterDefinition .= " ;\n    excav:foundInSVU <$svuUri>";
     }
     
-    // Close the encounter event definition
-    $encounterDefinition .= "    .\n";
+    // CRITICAL FIX: Ensure each statement ends properly
+    $encounterDefinition .= " .\n";
     
     // 3. Add declarations for referenced resources ONLY if they don't already exist
     $encounterDefinition .= "\n# =========== CONTEXT ENTITY DECLARATIONS ===========\n\n";
@@ -6628,33 +6628,32 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
         $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['svu']}\"^^xsd:literal .\n\n";
     }
     
-    // REQUIRED: Add location declaration with data from the excavation item set
-
-// REQUIRED: Add location declaration with data from the excavation item set
-if ($arrowheadContext['location'] && !$existingDeclarations['location']) {
-    $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
-    
-    // Query the graph for the actual information name
-    $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
-    $locationQuery = "
-        PREFIX dbo: <http://dbpedia.org/ontology/>
-        SELECT ?informationName
-        WHERE {
-            GRAPH <$graphUri> {
-                <$locationUri> dbo:informationName ?informationName .
+    // Add location declaration if needed
+    if ($arrowheadContext['location'] && !$existingDeclarations['location']) {
+        $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
+        
+        // Query the graph for the actual information name
+        $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
+        $locationQuery = "
+            PREFIX dbo: <http://dbpedia.org/ontology/>
+            SELECT ?informationName
+            WHERE {
+                GRAPH <$graphUri> {
+                    <$locationUri> dbo:informationName ?informationName .
+                }
             }
-        }
-        LIMIT 1
-    ";
-    
-    $locationResults = $this->querySparql($locationQuery);
+            LIMIT 1
+        ";
+        
+        $locationResults = $this->querySparql($locationQuery);
 
-    if (!empty($locationResults) && isset($locationResults[0]['informationName'])) {
-        $locationName = $locationResults[0]['informationName']['value'];
-        error_log("Found location information name from graph: $locationName", 3, OMEKA_PATH . '/logs/encounter-creation.log');
-    
-        $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
-        $encounterDefinition .= "    dbo:informationName \"$locationName\"^^xsd:literal .\n\n";
+        if (!empty($locationResults) && isset($locationResults[0]['informationName'])) {
+            $locationName = $locationResults[0]['informationName']['value'];
+            error_log("Found location information name from graph: $locationName", 3, OMEKA_PATH . '/logs/encounter-creation.log');
+        
+            $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
+            $encounterDefinition .= "    dbo:informationName \"$locationName\"^^xsd:literal .\n\n";
+        }
     }
     
     // Add square declaration if present and doesn't already exist
@@ -6663,7 +6662,7 @@ if ($arrowheadContext['location'] && !$existingDeclarations['location']) {
         $encounterDefinition .= "<$squareUri> a excav:Square ;\n";
         $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['square']}\"^^xsd:literal .\n\n";
     }
-}
+    
     return $enhancedTtl . $encounterDefinition;
 }
 
