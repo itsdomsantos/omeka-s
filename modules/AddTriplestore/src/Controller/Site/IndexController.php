@@ -9185,11 +9185,14 @@ public function searchAction()
         // Search for item sets if search type is 'all' or 'item_sets'
         if ($searchType === 'all' || $searchType === 'item_sets') {
             $itemSetQuery = [];
+
+            error_log('Starting item set search with query: ' . print_r($searchQuery, true), 3, OMEKA_PATH . '/logs/querysearch-debug.log');
             
             // Basic search query
             if ($searchQuery) {
                 $itemSetQuery['fulltext_search'] = $searchQuery;
             }
+            error_log('Item set search query after fulltext_search: ' . print_r($itemSetQuery, true), 3, OMEKA_PATH . '/logs/querysearch-debug.log');
             
             // Apply excavation filters if selected
             $propertyFilters = [];
@@ -9243,8 +9246,11 @@ public function searchAction()
             
             // Execute the item sets search
             $itemSetsResponse = $this->api()->search('item_sets', $itemSetQuery);
+            error_log('Item sets search response: ' . print_r($itemSetsResponse->getContent(), true), 3, OMEKA_PATH . '/logs/querysearch-debug.log');
             $results['item_sets'] = $itemSetsResponse->getContent();
+            error_log('Found ' . count($results['item_sets']) . ' item sets', 3, OMEKA_PATH . '/logs/querysearch-debug.log');
             $totalItemSets = $itemSetsResponse->getTotalResults();
+            error_log('Total item sets found: ' . $totalItemSets, 3, OMEKA_PATH . '/logs/querysearch-debug.log');
         }
         
         // Search for items if search type is 'all' or 'items'
