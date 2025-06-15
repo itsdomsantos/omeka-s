@@ -4186,8 +4186,8 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         'https://purl.org/megalod/ms/excavation/Instant',
         'excav:TimeLine',
         'excav:Instant',
-        'http://dbpedia.org/ontology/District',
-        'http://dbpedia.org/ontology/Parish',
+        'http://dbpedia.org/ontology/district',
+        'http://dbpedia.org/ontology/parish',
     ];
     
     // Add dynamic excluded types based on itemSetId
@@ -7589,17 +7589,7 @@ private function transformCollectingFormToExcavationData($formData)
             $excavationData['entities'] = $entitiesData;
         }
     }
-    
-    // Ensure we have at least a default context if none provided
-    if (empty($excavationData['entities']['contexts'])) {
-        $excavationData['entities']['contexts'] = [
-            [
-                'context_id' => 'CTX-001',
-                'context_description' => 'Default archaeological context',
-                'context_type' => 'layer'
-            ]
-        ];
-    }
+
     
     error_log('TRANSFORMED EXCAVATION DATA: ' . print_r($excavationData, true), 3, OMEKA_PATH . '/logs/excavation-transform.log');
     
@@ -7712,8 +7702,8 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                 
                 // FIXED: Process location properties with CORRECT lowercase URIs
                 $locationProperties = [
-                    'http://dbpedia.org/ontology/District' => ['District', 1555],  // lowercase 'district'
-                    'http://dbpedia.org/ontology/Parish' => ['Parish', 1681],      // lowercase 'parish'
+                    'http://dbpedia.org/ontology/district' => ['district', 1555],  // lowercase 'district'
+                    'http://dbpedia.org/ontology/parish' => ['parish', 1681],      // lowercase 'parish'
                     'http://dbpedia.org/ontology/Country' => ['Country', 1402]     // uppercase 'Country'
                 ];
                 
@@ -9132,6 +9122,9 @@ public function searchAction()
     $filterArchaeologist = $request->getQuery('archaeologist', '');
     $filterOrcid = $request->getQuery('orcid', '');
     $filterCountry = $request->getQuery('country', '');
+    // Add these lines after the existing filter parameters (around line 2762)
+    $filterDistrict = $request->getQuery('district', '');
+    $filterParish = $request->getQuery('parish', '');
     
     // Basic arrowhead filters
     $filterShape = $request->getQuery('shape', '');
@@ -9172,14 +9165,13 @@ public function searchAction()
     $parishOptions = $this->getParishOptions();
     
     $hasFilters = $filterShape || $filterVariant || $filterMaterial || $filterElongation || 
-                  $filterThickness || $filterBase || $filterCondition || $filterChippingMode || 
-                  $filterChippingDirection || $filterChippingDelineation || $filterChippingShape || 
-                  $filterChippingAmplitude || $minHeight || $maxHeight || $minWidth || $maxWidth || 
-                  $minThickness || $maxThickness || $minWeight || $maxWeight ||
-                  $filterArchaeologist || $filterOrcid || $filterCountry;
-    
+              $filterThickness || $filterBase || $filterCondition || $filterChippingMode || 
+              $filterChippingDirection || $filterChippingDelineation || $filterChippingShape || 
+              $filterChippingAmplitude || $minHeight || $maxHeight || $minWidth || $maxWidth || 
+              $minThickness || $maxThickness || $minWeight || $maxWeight ||
+              $filterArchaeologist || $filterOrcid || $filterCountry || $filterDistrict || $filterParish;
+
     if ($searchQuery || $hasFilters) {
-        // Search for item sets if search type is 'all' or 'item_sets'
         if ($searchType === 'all' || $searchType === 'item_sets') {
             $itemSetQuery = [];
             
@@ -9188,9 +9180,10 @@ public function searchAction()
                 $itemSetQuery['fulltext_search'] = $searchQuery;
             }
             
-            // Apply excavation filters if selected
+            // CRITICAL: Initialize property filters array
             $propertyFilters = [];
             
+            // Apply excavation filters
             if ($filterArchaeologist) {
                 $propertyFilters[] = [
                     'property' => 7665, // Person in Charge property ID
@@ -9215,15 +9208,37 @@ public function searchAction()
                 ];
             }
             
-            // Add property filters if any
+            // ADD THESE MISSING FILTERS
+            if ($filterDistrict) {
+                $propertyFilters[] = [
+                    'property' => 1555, // District property ID
+                    'type' => 'eq',
+                    'text' => $filterDistrict
+                ];
+            }
+            
+            if ($filterParish) {
+                $propertyFilters[] = [
+                    'property' => 1681, // Parish property ID
+                    'type' => 'eq',
+                    'text' => $filterParish
+                ];
+            }
+            
+            // CRITICAL: Add property filters to query if any exist
             if (!empty($propertyFilters)) {
                 $itemSetQuery['property'] = $propertyFilters;
+                
+                // Debug the final query
+                error_log("Final itemSetQuery: " . print_r($itemSetQuery, true), 3, OMEKA_PATH . '/logs/search-debug.log');
             }
             
             // Execute the item sets search
             $itemSetsResponse = $this->api()->search('item_sets', $itemSetQuery);
             $results['item_sets'] = $itemSetsResponse->getContent();
             $totalItemSets = $itemSetsResponse->getTotalResults();
+            
+            error_log("Applied filters, search returned: " . $totalItemSets . " results", 3, OMEKA_PATH . '/logs/search-debug.log');
         }
         
         // Search for items if search type is 'all' or 'items'
@@ -9430,7 +9445,9 @@ public function searchAction()
         'parishOptions' => $parishOptions,
         'filterArchaeologist' => $filterArchaeologist,
         'filterOrcid' => $filterOrcid,
-        'filterCountry' => $filterCountry
+        'filterCountry' => $filterCountry,
+        'filterDistrict' => $filterDistrict,
+        'filterParish' => $filterParish,
     ]);
 }
 
