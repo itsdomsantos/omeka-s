@@ -29,6 +29,19 @@ $minThickness = $this->params()->fromQuery('minThickness', '');
 $maxThickness = $this->params()->fromQuery('maxThickness', '');
 $minWeight = $this->params()->fromQuery('minWeight', '');
 $maxWeight = $this->params()->fromQuery('maxWeight', '');
+
+// Get excavation filter values
+$filterArchaeologist = isset($filterArchaeologist) ? $filterArchaeologist : '';
+$filterOrcid = isset($filterOrcid) ? $filterOrcid : '';
+$filterCountry = isset($filterCountry) ? $filterCountry : '';
+$filterDistrict = $this->params()->fromQuery('district', '');
+$filterParish = $this->params()->fromQuery('parish', '');
+
+// Ensure archaeologistOptions is defined
+$archaeologistOptions = isset($archaeologistOptions) ? $archaeologistOptions : [];
+$countryOptions = isset($countryOptions) ? $countryOptions : [];
+$districtOptions = isset($districtOptions) ? $districtOptions : [];
+$parishOptions = isset($parishOptions) ? $parishOptions : [];
 ?>
 
 
@@ -61,7 +74,7 @@ $maxWeight = $this->params()->fromQuery('maxWeight', '');
 
    
 
-        <div class="filter-section excavation-filters <?php echo ($searchType === 'item_sets' || $searchType === 'all' || empty($searchType)) ? '' : 'hidden'; ?>">
+<div class="filter-section excavation-filters <?php echo ($searchType === 'item_sets' || $searchType === 'all' || empty($searchType)) ? '' : 'hidden'; ?>"      style="<?php echo empty($searchQuery) ? 'display: none;' : ''; ?>">
             <h3>Filter Excavations</h3>
             
             <div class="filter-controls">
@@ -74,7 +87,7 @@ $maxWeight = $this->params()->fromQuery('maxWeight', '');
                             <option value="<?= $this->escapeHtml($archaeologist['name']) ?>" 
                                     <?= $filterArchaeologist == $archaeologist['name'] ? 'selected' : '' ?>>
                                 <?= $this->escapeHtml($archaeologist['name']) ?>
-                                <?= $archaeologist['orcid'] ? ' (' . $this->escapeHtml($archaeologist['orcid']) . ')' : '' ?>
+                                <?= isset($archaeologist['orcid']) && $archaeologist['orcid'] ? ' (' . $this->escapeHtml($archaeologist['orcid']) . ')' : '' ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
@@ -100,6 +113,32 @@ $maxWeight = $this->params()->fromQuery('maxWeight', '');
                             <?php endforeach; ?>
                         </select>
                     </div>
+
+                    <div class="filter-group">
+                        <label for="district">District:</label>
+                        <select name="district" id="district">
+                            <option value="">Any District</option>
+                            <?php foreach ($districtOptions as $district): ?>
+                            <option value="<?= $this->escapeHtml($district) ?>" 
+                                    <?= isset($filterDistrict) && $filterDistrict == $district ? 'selected' : '' ?>>
+                                <?= $this->escapeHtml($district) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <div class="filter-group">
+                        <label for="parish">Parish:</label>
+                        <select name="parish" id="parish">
+                            <option value="">Any Parish</option>
+                            <?php foreach ($parishOptions as $parish): ?>
+                            <option value="<?= $this->escapeHtml($parish) ?>" 
+                                    <?= isset($filterParish) && $filterParish == $parish ? 'selected' : '' ?>>
+                                <?= $this->escapeHtml($parish) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
                 </div>
                 
                 <div class="filter-actions">
@@ -110,7 +149,7 @@ $maxWeight = $this->params()->fromQuery('maxWeight', '');
         </div>
         
         <!-- Arrowhead Filter Section -->
-        <div class="filter-section <?php echo ($searchType === 'items' || $searchType === 'all' || empty($searchType)) ? '' : 'hidden'; ?>">
+<div class="filter-section <?php echo ($searchType === 'items' || $searchType === 'all' || empty($searchType)) ? '' : 'hidden'; ?>" style="<?php echo empty($searchQuery) ? 'display: none;' : ''; ?>">
             <h3>Filter Arrowheads</h3>
             
             <!-- Toggle button for advanced filters -->
@@ -510,14 +549,14 @@ $maxWeight = $this->params()->fromQuery('maxWeight', '');
         </div>
     <?php else: ?>
         <div class="search-instructions">
-            <p>Enter a search term above to find excavations and artifacts, or explore the map to see excavation locations.</p>
+            <p>Enter a search term above to find excavations and artifacts, or click one of the quick links below to browse with advanced filters.</p>
             
             <div class="quick-links">
                 <h3>Quick Links</h3>
+                <p>Click any link below to see available filter options</p>
                 <ul>
-                    <li><a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()], ['query' => ['query' => 'excavation', 'type' => 'item_sets']]); ?>">Browse All Excavations</a></li>
-                    <li><a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()], ['query' => ['query' => 'arrowhead', 'type' => 'items']]); ?>">Browse Arrowheads</a></li>
-                    <li><a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()], ['query' => ['query' => 'flint', 'type' => 'items']]); ?>">Flint Objects</a></li>
+                    <li><a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()], ['query' => ['query' => 'excavation', 'type' => 'item_sets']]); ?>" class="quick-link">Browse All Excavations</a></li>
+                    <li><a href="<?php echo $this->url('site/add-triplestore/search', ['site-slug' => $site->slug()], ['query' => ['query' => 'arrowhead', 'type' => 'items']]); ?>" class="quick-link">Browse Arrowheads</a></li>
                 </ul>
             </div>
         </div>
@@ -832,12 +871,26 @@ $maxWeight = $this->params()->fromQuery('maxWeight', '');
 }
 
 .quick-links {
-    margin-top: 25px;
+    margin-top: 30px;
+    background: #f5f9f5;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.05);
+    border: 1px solid rgba(76, 175, 80, 0.2);
 }
 
 .quick-links h3 {
-    color: #333;
-    margin-bottom: 15px;
+    margin-top: 0;
+    color: #2e7d32;
+    font-size: 1.4rem;
+    margin-bottom: 10px;
+    text-align: center;
+}
+
+.quick-links p {
+    text-align: center;
+    color: #555;
+    margin-bottom: 20px;
 }
 
 .quick-links ul {
@@ -845,7 +898,7 @@ $maxWeight = $this->params()->fromQuery('maxWeight', '');
     padding-left: 0;
     display: flex;
     justify-content: center;
-    gap: 20px;
+    gap: 25px;
     flex-wrap: wrap;
 }
 
@@ -854,16 +907,38 @@ $maxWeight = $this->params()->fromQuery('maxWeight', '');
 }
 
 .quick-links a {
-    color: #4CAF50;
+    color: white;
     text-decoration: none;
     font-weight: 500;
-    padding: 8px 16px;
-    border-radius: 6px;
-    transition: background-color 0.2s ease;
+    padding: 12px 20px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    background-color: #4CAF50;
+    display: inline-block;
+    min-width: 180px;
+    text-align: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
 .quick-links a:hover {
-    background-color: #e8f5e8;
+    background-color: #45a049;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+/* Animation for filters when they appear */
+.filter-section {
+    transition: all 0.4s ease-in-out;
+    max-height: 2000px;
+    overflow: hidden;
+}
+
+.filter-section.hidden, 
+.filter-section[style*="display: none"] {
+    max-height: 0;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
 }
 
 /* Responsive Design */
@@ -1190,50 +1265,69 @@ function initializeMap() {
 // Add this JavaScript to the bottom of the file in a <script> tag
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Handle excavation filters visibility based on search type
+    // Check if we arrived from Quick Links (has search query)
+    const urlParams = new URLSearchParams(window.location.search);
+    const hasSearchQuery = urlParams.has('query');
+    
+    // Show/hide filters based on whether we have a search query
     const excavationFilters = document.querySelector('.excavation-filters');
+    const arrowheadFilters = document.querySelector('.filter-section:not(.excavation-filters)');
+    
+    if (hasSearchQuery) {
+        // Show appropriate filters based on search type
+        const searchType = urlParams.get('type') || 'all';
+        
+        if (searchType === 'item_sets' || searchType === 'all') {
+            excavationFilters.style.display = '';
+        } else {
+            excavationFilters.style.display = 'none';
+        }
+        
+        if (searchType === 'items' || searchType === 'all') {
+            arrowheadFilters.style.display = '';
+        } else {
+            arrowheadFilters.style.display = 'none';
+        }
+    } else {
+        // Hide all filters if no search query
+        if (excavationFilters) excavationFilters.style.display = 'none';
+        if (arrowheadFilters) arrowheadFilters.style.display = 'none';
+    }
+    
+    // Update the radio button change handlers
     const searchTypeRadios = document.querySelectorAll('input[name="type"]');
     
     searchTypeRadios.forEach(radio => {
         radio.addEventListener('change', function() {
+            // Only show filters if we have a search query
+            if (!hasSearchQuery) return;
+            
             if (this.value === 'item_sets' || this.value === 'all') {
+                excavationFilters.style.display = '';
                 excavationFilters.classList.remove('hidden');
             } else {
+                excavationFilters.style.display = 'none';
                 excavationFilters.classList.add('hidden');
+            }
+            
+            if (this.value === 'items' || this.value === 'all') {
+                arrowheadFilters.style.display = '';
+                arrowheadFilters.classList.remove('hidden');
+            } else {
+                arrowheadFilters.style.display = 'none';
+                arrowheadFilters.classList.add('hidden');
             }
         });
     });
     
-    // Clear excavation filters button
-    const clearExcavationFiltersBtn = document.getElementById('clearExcavationFilters');
-    if (clearExcavationFiltersBtn) {
-        clearExcavationFiltersBtn.addEventListener('click', function() {
-            document.getElementById('archaeologist').value = '';
-            document.getElementById('orcid').value = '';
-            document.getElementById('country').value = '';
-            
-            // Get the current URL
-            let currentUrl = new URL(window.location.href);
-            
-            // Remove excavation filter parameters but keep search query and type
-            let searchQuery = currentUrl.searchParams.get('query');
-            let searchType = currentUrl.searchParams.get('type');
-            
-            // Create new URL with only search query and type
-            let newUrl = new URL(currentUrl.pathname, currentUrl.origin);
-            
-            if (searchQuery) {
-                newUrl.searchParams.set('query', searchQuery);
-            }
-            
-            if (searchType) {
-                newUrl.searchParams.set('type', searchType);
-            }
-            
-            // Navigate to the new URL
-            window.location.href = newUrl.toString();
+    // Track clicks on Quick Links
+    const quickLinks = document.querySelectorAll('.quick-links a');
+    quickLinks.forEach(link => {
+        link.addEventListener('click', function() {
+            // We'll store that this was a Quick Link click
+            localStorage.setItem('fromQuickLink', 'true');
         });
-    }
+    });
 });
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -1320,7 +1414,55 @@ document.addEventListener('DOMContentLoaded', function() {
         window.location.href = newUrl.toString();
     });
 });
-// Add this to the existing <script> section at the bottom of search.phtml
+
+
+function focusOnExcavation(excavationId) {
+    // Find the marker with this excavation ID
+    let targetMarker = null;
+    for (let i = 0; i < markers.length; i++) {
+        if (markers[i].excavationId == excavationId) {
+            targetMarker = markers[i];
+            break;
+        }
+    }
+    
+    if (targetMarker) {
+        // Reset previous selected marker if any
+        if (selectedMarker) {
+            const icon = selectedMarker.getIcon();
+            icon.options.className = icon.options.className.replace(' selected', '');
+            selectedMarker.setIcon(icon);
+        }
+        
+        // Highlight this marker
+        const icon = targetMarker.getIcon();
+        icon.options.className += ' selected';
+        targetMarker.setIcon(icon);
+        
+        // Store as selected
+        selectedMarker = targetMarker;
+        
+        // Open popup and zoom to marker
+        map.setView(targetMarker.getLatLng(), 13);
+        targetMarker.openPopup();
+        
+        // Ensure map is visible
+        const mapDiv = document.getElementById('excavationMap');
+        if (mapDiv.classList.contains('hidden')) {
+            mapDiv.classList.remove('hidden');
+            document.getElementById('toggleMap').textContent = 'Hide Map';
+            setTimeout(() => {
+                map.invalidateSize();
+                map.setView(targetMarker.getLatLng(), 13);
+            }, 300);
+        }
+        
+        // Scroll to map
+        mapDiv.scrollIntoView({ behavior: 'smooth' });
+    } else {
+        console.log(`No marker found for excavation ID: ${excavationId}`);
+    }
+}
 
 // Handle filter visibility based on search type
 document.addEventListener('DOMContentLoaded', function() {

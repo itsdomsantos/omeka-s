@@ -9132,6 +9132,8 @@ public function searchAction()
     $filterArchaeologist = $request->getQuery('archaeologist', '');
     $filterOrcid = $request->getQuery('orcid', '');
     $filterCountry = $request->getQuery('country', '');
+    $filterDistrict = $request->getQuery('district', ''); // Added district filter
+    $filterParish = $request->getQuery('parish', ''); // Added parish filter
     
     // Basic arrowhead filters
     $filterShape = $request->getQuery('shape', '');
@@ -9176,7 +9178,8 @@ public function searchAction()
                   $filterChippingDirection || $filterChippingDelineation || $filterChippingShape || 
                   $filterChippingAmplitude || $minHeight || $maxHeight || $minWidth || $maxWidth || 
                   $minThickness || $maxThickness || $minWeight || $maxWeight ||
-                  $filterArchaeologist || $filterOrcid || $filterCountry;
+                  $filterArchaeologist || $filterOrcid || $filterCountry ||
+                  $filterDistrict || $filterParish; // Added district and parish to hasFilters check
     
     if ($searchQuery || $hasFilters) {
         // Search for item sets if search type is 'all' or 'item_sets'
@@ -9209,9 +9212,27 @@ public function searchAction()
             
             if ($filterCountry) {
                 $propertyFilters[] = [
-                    'property' => 7674, // Country property ID
+                    'property' => 1402, // Country property ID
                     'type' => 'eq',
                     'text' => $filterCountry
+                ];
+            }
+            
+            // Add district filter
+            if ($filterDistrict) {
+                $propertyFilters[] = [
+                    'property' => 1555, // District property ID
+                    'type' => 'eq',
+                    'text' => $filterDistrict
+                ];
+            }
+            
+            // Add parish filter
+            if ($filterParish) {
+                $propertyFilters[] = [
+                    'property' => 1681, // Parish property ID
+                    'type' => 'eq',
+                    'text' => $filterParish
                 ];
             }
             
@@ -9430,7 +9451,9 @@ public function searchAction()
         'parishOptions' => $parishOptions,
         'filterArchaeologist' => $filterArchaeologist,
         'filterOrcid' => $filterOrcid,
-        'filterCountry' => $filterCountry
+        'filterCountry' => $filterCountry,
+        'filterDistrict' => $filterDistrict, // Pass district filter to view
+        'filterParish' => $filterParish // Pass parish filter to view
     ]);
 }
 
@@ -9488,20 +9511,14 @@ private function getArchaeologistOptions()
 private function getCountryOptions()
 {
     $query = "
-    PREFIX excav: <https://purl.org/megalod/ms/excavation/>
-    PREFIX dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>
-    PREFIX dbo: <http://dbpedia.org/ontology/>
-    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-    
-    SELECT DISTINCT ?countryName
-    WHERE {
-        ?excavation a excav:Excavation .
-        ?excavation dul:hasLocation ?location .
-        ?location dbo:country ?country .
-        ?country rdfs:label ?countryName .
-    }
-    ORDER BY ?countryName
-    ";
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX dbo: <http://dbpedia.org/ontology/>
+
+SELECT DISTINCT ?countryName
+WHERE {
+  ?country rdf:type dbo:Country .
+  BIND(REPLACE(STR(?country), 'http://dbpedia.org/resource/', '') AS ?countryName)}";
+    ;
     
     try {
         $results = $this->executeGraphDbQuery($query);
@@ -9536,19 +9553,13 @@ private function getCountryOptions()
 private function getDistrictOptions()
 {
     $query = "
-    PREFIX excav: <https://purl.org/megalod/ms/excavation/>
-    PREFIX dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>
-    PREFIX dbo: <http://dbpedia.org/ontology/>
-    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-    
-    SELECT DISTINCT ?districtName
-    WHERE {
-        ?excavation a excav:Excavation .
-        ?excavation dul:hasLocation ?location .
-        ?location dbo:district ?district .
-        ?district rdfs:label ?districtName .
-    }
-    ORDER BY ?districtName
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX dbo: <http://dbpedia.org/ontology/>
+
+SELECT DISTINCT ?districtName
+WHERE {
+  ?district rdf:type dbo:District .
+  BIND(REPLACE(STR(?district), 'http://dbpedia.org/resource/', '') AS ?districtName)}
     ";
     
     try {
@@ -9579,19 +9590,13 @@ private function getDistrictOptions()
 private function getParishOptions()
 {
     $query = "
-    PREFIX excav: <https://purl.org/megalod/ms/excavation/>
-    PREFIX dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>
-    PREFIX dbo: <http://dbpedia.org/ontology/>
-    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
-    
-    SELECT DISTINCT ?parishName
-    WHERE {
-        ?excavation a excav:Excavation .
-        ?excavation dul:hasLocation ?location .
-        ?location dbo:parish ?parish .
-        ?parish rdfs:label ?parishName .
-    }
-    ORDER BY ?parishName
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX dbo: <http://dbpedia.org/ontology/>
+
+SELECT DISTINCT ?parishName
+WHERE {
+  ?parish rdf:type dbo:Parish .
+  BIND(REPLACE(STR(?parish), 'http://dbpedia.org/resource/', '') AS ?parishName)}
     ";
     
     try {
