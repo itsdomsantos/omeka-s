@@ -114,6 +114,24 @@ return [
                                     ],
                                 ],
                             ],
+                            'purl' => [
+                            'type' => \Laminas\Router\Http\Segment::class,
+                            'options' => [
+                                'route' => '/purl[/:id]',
+                                'defaults' => [
+                                    'action' => 'purl',
+                                ],
+                            ],
+                        ],
+                        'api-purl' => [
+                            'type' => \Laminas\Router\Http\Literal::class,
+                            'options' => [
+                                'route' => '/api-purl',
+                                'defaults' => [
+                                    'action' => 'apiPurl',
+                                ],
+                            ],
+                        ],
                             'about-us' => [
                                 'type' => 'Segment',
                                 'options' => [
