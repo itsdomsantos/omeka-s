@@ -1212,6 +1212,10 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
         $countrySlug = str_replace(' ', '_', $excavationData['country']);
         $countryUri = "http://dbpedia.org/resource/" . $countrySlug;
         $ttl .= "    dbo:Country <$countryUri> ;\n";
+        $entitiesToDeclare['country'] = [
+            'uri' => $countryUri,
+            'label' => $excavationData['country']
+        ];
     }
     
     // FIXED: Reference to separate GPS coordinates object
@@ -1240,6 +1244,10 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
         
         if (isset($entitiesToDeclare['parish'])) {
             $ttl .= "<{$entitiesToDeclare['parish']['uri']}> a dbo:Parish .\n";
+        }
+        // ADD THIS: Generate Country type declaration
+        if (isset($entitiesToDeclare['country'])) {
+            $ttl .= "<{$entitiesToDeclare['country']['uri']}> a dbo:Country .\n";
         }
         
         $ttl .= "\n";
@@ -7702,8 +7710,8 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                 
                 // FIXED: Process location properties with CORRECT lowercase URIs
                 $locationProperties = [
-                    'http://dbpedia.org/ontology/District' => ['district', 1555],  // lowercase 'district'
-                    'http://dbpedia.org/ontology/Parish' => ['parish', 1681],      // lowercase 'parish'
+                    'http://dbpedia.org/ontology/district' => ['district', 1555],  // lowercase 'district'
+                    'http://dbpedia.org/ontology/parish' => ['parish', 1681],      // lowercase 'parish'
                     'http://dbpedia.org/ontology/Country' => ['Country', 1402]     // uppercase 'Country'
                 ];
                 
