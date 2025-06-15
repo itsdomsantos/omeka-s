@@ -71,11 +71,11 @@
                 </xsl:if>
                 
                 <xsl:if test="location/district">
-                    <dbo:District rdf:resource="{concat('http://dbpedia.org/resource/', translate(location/district, ' ', '_'))}"/>
+                    <dbo:district rdf:resource="{concat('http://dbpedia.org/resource/', translate(location/district, ' ', '_'))}"/>
                 </xsl:if>
                 
                 <xsl:if test="location/parish">
-                    <dbo:Parish rdf:resource="{concat('http://dbpedia.org/resource/', translate(location/parish, ' ', '_'))}"/>
+                    <dbo:parish rdf:resource="{concat('http://dbpedia.org/resource/', translate(location/parish, ' ', '_'))}"/>
                 </xsl:if>
                 
                 <xsl:if test="location/country">

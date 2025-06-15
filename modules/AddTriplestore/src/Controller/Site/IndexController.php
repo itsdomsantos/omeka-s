@@ -1190,7 +1190,7 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
     if (!empty($excavationData['district'])) {
         $districtSlug = $this->createUrlSlug($excavationData['district']);
         $districtUri = "http://dbpedia.org/resource/$districtSlug";
-        $ttl .= "    dbo:District <$districtUri> ;\n";
+        $ttl .= "    dbo:district <$districtUri> ;\n";
         $entitiesToDeclare['district'] = [
             'uri' => $districtUri,
             'label' => $excavationData['district']
@@ -1200,7 +1200,7 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
     if (!empty($excavationData['parish'])) {
         $parishSlug = $this->createUrlSlug($excavationData['parish']);
         $parishUri = "http://dbpedia.org/resource/$parishSlug";
-        $ttl .= "    dbo:Parish <$parishUri> ;\n";
+        $ttl .= "    dbo:parish <$parishUri> ;\n";
         $entitiesToDeclare['parish'] = [
             'uri' => $parishUri,
             'label' => $excavationData['parish']
@@ -2399,10 +2399,10 @@ if ($locationUri) {
         $ttl .= "    dbo:informationName \"" . $locationData['name'] . "\"^^xsd:literal ;\n";
         
         if (!empty($locationData['district'])) {
-            $ttl .= "    dbo:District <" . $locationData['district'] . "> ;\n";
+            $ttl .= "    dbo:district <" . $locationData['district'] . "> ;\n";
         }
         if (!empty($locationData['parish'])) {
-            $ttl .= "    dbo:Parish <" . $locationData['parish'] . "> ;\n";
+            $ttl .= "    dbo:parish <" . $locationData['parish'] . "> ;\n";
         }
         if (!empty($locationData['country'])) {
             $ttl .= "    dbo:Country <" . $locationData['country'] . "> ;\n";
@@ -3382,59 +3382,7 @@ public function xmlParser($file)
     return $rdfXmlConverted;
 }
 
-/**
- * PURL resolver - redirects to item detail page based on URI
- */
-public function purlAction()
-{
-    $uri = $this->params()->fromQuery('uri');
-    $id = $this->params()->fromRoute('id'); // For direct ID access
-    
-    if (!$uri && !$id) {
-        $this->getResponse()->setStatusCode(404);
-        return;
-    }
-    
-    // If direct ID is provided, redirect immediately
-    if ($id) {
-        return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/view-details', [
-            'site-slug' => $this->currentSite()->slug()
-        ], [
-            'query' => [
-                'id' => $id,
-                'type' => 'item'
-            ]
-        ]));
-    }
-    
-    // Parse URI to extract item set ID and item identifier
-    $itemDetails = $this->parseItemUri($uri);
-    
-    if (!$itemDetails) {
-        error_log("Could not parse URI: $uri", 3, OMEKA_PATH . '/logs/purl-debug.log');
-        $this->getResponse()->setStatusCode(404);
-        return;
-    }
-    
-    // Find the Omeka item ID
-    $omekaItemId = $this->findOmekaItemByIdentifier($itemDetails['identifier'], $itemDetails['itemSetId']);
-    
-    if (!$omekaItemId) {
-        error_log("Could not find Omeka item for identifier: {$itemDetails['identifier']}", 3, OMEKA_PATH . '/logs/purl-debug.log');
-        $this->getResponse()->setStatusCode(404);
-        return;
-    }
-    
-    // Redirect to the item detail page
-    return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/view-details', [
-        'site-slug' => $this->currentSite()->slug()
-    ], [
-        'query' => [
-            'id' => $omekaItemId,
-            'type' => 'item'
-        ]
-    ]));
-}
+
 
 /**
  * Parse item URI to extract components
@@ -3512,86 +3460,7 @@ private function findOmekaItemByIdentifier($identifier, $itemSetId)
     return null;
 }
 
-/**
- * Generate PURL for an item
- */
-public function generateItemPurl($itemId, $includeHost = true)
-{
-    try {
-        $item = $this->api()->read('items', $itemId)->getContent();
-        $identifier = $this->extractIdentifierFromResource($item);
-        
-        if (!$identifier) {
-            return null;
-        }
-        
-        $baseUrl = $includeHost ? 
-            $this->url()->fromRoute('site/add-triplestore/purl', [
-                'site-slug' => $this->currentSite()->slug()
-            ], ['force_canonical' => true]) :
-            $this->url()->fromRoute('site/add-triplestore/purl', [
-                'site-slug' => $this->currentSite()->slug()
-            ]);
-            
-        return $baseUrl . '/' . $itemId;
-        
-    } catch (\Exception $e) {
-        error_log('Error generating PURL: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/purl-debug.log');
-        return null;
-    }
-}
 
-/**
- * API endpoint to generate PURL for an item
- */
-public function apiPurlAction()
-{
-    $this->getResponse()->getHeaders()->addHeaderLine('Content-Type', 'application/json');
-    
-    $itemId = $this->params()->fromQuery('item_id');
-    $uri = $this->params()->fromQuery('uri');
-    
-    if ($itemId) {
-        $purl = $this->generateItemPurl($itemId, true);
-        if ($purl) {
-            return $this->getResponse()->setContent(json_encode([
-                'success' => true,
-                'purl' => $purl,
-                'item_id' => $itemId
-            ]));
-        }
-    } elseif ($uri) {
-        $purl = $this->generatePurlFromUri($uri, true);
-        if ($purl) {
-            return $this->getResponse()->setContent(json_encode([
-                'success' => true,
-                'purl' => $purl,
-                'uri' => $uri
-            ]));
-        }
-    }
-    
-    return $this->getResponse()->setContent(json_encode([
-        'success' => false,
-        'error' => 'Could not generate PURL'
-    ]));
-}
-
-/**
- * Generate PURL from URI
- */
-public function generatePurlFromUri($uri, $includeHost = true)
-{
-    $baseUrl = $includeHost ? 
-        $this->url()->fromRoute('site/add-triplestore/purl', [
-            'site-slug' => $this->currentSite()->slug()
-        ], ['force_canonical' => true]) :
-        $this->url()->fromRoute('site/add-triplestore/purl', [
-            'site-slug' => $this->currentSite()->slug()
-        ]);
-        
-    return $baseUrl . '?' . http_build_query(['uri' => $uri]);
-}
 
 private function applyExcavationPatterns($ttlData)
 {
@@ -3622,8 +3491,8 @@ private function applyExcavationPatterns($ttlData)
         
         // UPDATED: Location properties
         '/<http:\/\/dbpedia\.org\/ontology\/informationName>/' => 'dbo:informationName',
-        '/<http:\/\/dbpedia\.org\/ontology\/District>/' => 'dbo:District',
-        '/<http:\/\/dbpedia\.org\/ontology\/Parish>/' => 'dbo:Parish',
+        '/<http:\/\/dbpedia\.org\/ontology\/District>/' => 'dbo:district',
+        '/<http:\/\/dbpedia\.org\/ontology\/Parish>/' => 'dbo:parish',
         '/<http:\/\/dbpedia\.org\/ontology\/Country>/' => 'dbo:Country',
         
         // UPDATED: Time properties
@@ -4491,8 +4360,8 @@ private function getLocationDataFromExcavation($itemSetId) {
                         dul:hasLocation ?locationUri .
             
             OPTIONAL { ?locationUri dbo:informationName ?locationName }
-            OPTIONAL { ?locationUri dbo:District ?district }
-            OPTIONAL { ?locationUri dbo:Parish ?parish }
+            OPTIONAL { ?locationUri dbo:district ?district }
+            OPTIONAL { ?locationUri dbo:parish ?parish }
             OPTIONAL { ?locationUri dbo:Country ?country }
             OPTIONAL { ?locationUri geo:lat ?lat }
             OPTIONAL { ?locationUri geo:long ?long }
@@ -7693,8 +7562,8 @@ private function transformCollectingFormToExcavationData($formData)
     $fieldMappings = [
         'prompt_32' => 'excavation_id',        // Acronym (excavation identifier)
         'prompt_35' => 'site_name',            // Name of the Location 
-        'prompt_34' => 'parish',               // Parish of Excavation
-        'prompt_97' => 'district',             // District of Excavation
+        'prompt_34' => 'parish',               // parish of Excavation
+        'prompt_97' => 'district',             // district of Excavation
         'prompt_51' => 'country',              // Country of Excavation
         'prompt_39' => 'latitude',             // GPS Latitude
         'prompt_40' => 'longitude',            // GPS Longitude
@@ -9250,7 +9119,7 @@ private function attachMediaToItem($itemId) {
     }
 }
 
-// Update the searchAction method to handle all filters
+
 public function searchAction()
 {
     $request = $this->getRequest();
@@ -9259,7 +9128,12 @@ public function searchAction()
     $page = $request->getQuery('page', 1);
     $perPage = 20;
     
-    // Basic filters
+    // Excavation-specific filters
+    $filterArchaeologist = $request->getQuery('archaeologist', '');
+    $filterOrcid = $request->getQuery('orcid', '');
+    $filterCountry = $request->getQuery('country', '');
+    
+    // Basic arrowhead filters
     $filterShape = $request->getQuery('shape', '');
     $filterVariant = $request->getQuery('variant', '');
     $filterMaterial = $request->getQuery('material', '');
@@ -9291,11 +9165,18 @@ public function searchAction()
     $totalItems = 0;
     $totalItemSets = 0;
     
+    // Get filter options from GraphDB
+    $archaeologistOptions = $this->getArchaeologistOptions();
+    $countryOptions = $this->getCountryOptions();
+    $districtOptions = $this->getDistrictOptions();
+    $parishOptions = $this->getParishOptions();
+    
     $hasFilters = $filterShape || $filterVariant || $filterMaterial || $filterElongation || 
                   $filterThickness || $filterBase || $filterCondition || $filterChippingMode || 
                   $filterChippingDirection || $filterChippingDelineation || $filterChippingShape || 
                   $filterChippingAmplitude || $minHeight || $maxHeight || $minWidth || $maxWidth || 
-                  $minThickness || $maxThickness || $minWeight || $maxWeight;
+                  $minThickness || $maxThickness || $minWeight || $maxWeight ||
+                  $filterArchaeologist || $filterOrcid || $filterCountry;
     
     if ($searchQuery || $hasFilters) {
         // Search for item sets if search type is 'all' or 'item_sets'
@@ -9305,6 +9186,38 @@ public function searchAction()
             // Basic search query
             if ($searchQuery) {
                 $itemSetQuery['fulltext_search'] = $searchQuery;
+            }
+            
+            // Apply excavation filters if selected
+            $propertyFilters = [];
+            
+            if ($filterArchaeologist) {
+                $propertyFilters[] = [
+                    'property' => 7665, // Person in Charge property ID
+                    'type' => 'eq',
+                    'text' => $filterArchaeologist
+                ];
+            }
+            
+            if ($filterOrcid) {
+                $propertyFilters[] = [
+                    'property' => 7675, // ORCID property ID
+                    'type' => 'eq',
+                    'text' => $filterOrcid
+                ];
+            }
+            
+            if ($filterCountry) {
+                $propertyFilters[] = [
+                    'property' => 7674, // Country property ID
+                    'type' => 'eq',
+                    'text' => $filterCountry
+                ];
+            }
+            
+            // Add property filters if any
+            if (!empty($propertyFilters)) {
+                $itemSetQuery['property'] = $propertyFilters;
             }
             
             // Execute the item sets search
@@ -9322,7 +9235,7 @@ public function searchAction()
                 $itemQuery['fulltext_search'] = $searchQuery;
             }
             
-            // Apply property filters for arrowheads
+            // Apply arrowhead property filters
             $propertyFilters = [];
             
             // Basic filters
@@ -9510,9 +9423,236 @@ public function searchAction()
         'results' => $results,
         'totalResults' => $totalResults,
         'totalItems' => $totalItems,
-        'totalItemSets' => $totalItemSets
+        'totalItemSets' => $totalItemSets,
+        'archaeologistOptions' => $archaeologistOptions,
+        'countryOptions' => $countryOptions,
+        'districtOptions' => $districtOptions,
+        'parishOptions' => $parishOptions,
+        'filterArchaeologist' => $filterArchaeologist,
+        'filterOrcid' => $filterOrcid,
+        'filterCountry' => $filterCountry
     ]);
 }
+
+
+
+/**
+ * Get archaeologist options from GraphDB for filtering excavations
+ */
+private function getArchaeologistOptions()
+{
+    $query = "
+    PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+    PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+    
+    SELECT DISTINCT ?name ?orcid
+    WHERE {
+        ?excavation a excav:Excavation .
+        ?excavation excav:hasPersonInCharge ?archaeologist .
+        ?archaeologist foaf:name ?name .
+        OPTIONAL { 
+            ?archaeologist foaf:account ?orcidUri .
+            FILTER(CONTAINS(STR(?orcidUri), 'orcid.org'))
+            BIND(REPLACE(STR(?orcidUri), '.*/([0-9X-]+)$', '$1') AS ?orcid)
+        }
+    }
+    ORDER BY ?name
+    ";
+    
+    try {
+        $results = $this->executeGraphDbQuery($query);
+        
+        $archaeologists = [];
+        if (!empty($results) && isset($results['results']['bindings'])) {
+            foreach ($results['results']['bindings'] as $result) {
+                $archaeologists[] = [
+                    'name' => $result['name']['value'] ?? '',
+                    'orcid' => isset($result['orcid']) ? $result['orcid']['value'] : null
+                ];
+            }
+        }
+        
+        // Debug log
+        error_log('Found ' . count($archaeologists) . ' archaeologists from GraphDB', 3, OMEKA_PATH . '/logs/filter-options.log');
+        
+        return $archaeologists;
+    } catch (\Exception $e) {
+        error_log('Error querying archaeologists: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/filter-options.log');
+        return [];
+    }
+}
+
+/**
+ * Get country options from GraphDB for filtering excavations
+ */
+private function getCountryOptions()
+{
+    $query = "
+    PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+    PREFIX dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>
+    PREFIX dbo: <http://dbpedia.org/ontology/>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    
+    SELECT DISTINCT ?countryName
+    WHERE {
+        ?excavation a excav:Excavation .
+        ?excavation dul:hasLocation ?location .
+        ?location dbo:country ?country .
+        ?country rdfs:label ?countryName .
+    }
+    ORDER BY ?countryName
+    ";
+    
+    try {
+        $results = $this->executeGraphDbQuery($query);
+        
+        $countries = [];
+        if (!empty($results) && isset($results['results']['bindings'])) {
+            foreach ($results['results']['bindings'] as $result) {
+                if (isset($result['countryName'])) {
+                    $countries[] = $result['countryName']['value'];
+                }
+            }
+        }
+        
+        // If no countries found, provide some defaults
+        if (empty($countries)) {
+            $countries = [];
+        }
+        
+        // Debug log
+        error_log('Found ' . count($countries) . ' countries from GraphDB', 3, OMEKA_PATH . '/logs/filter-options.log');
+        
+        return $countries;
+    } catch (\Exception $e) {
+        error_log('Error querying countries: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/filter-options.log');
+        return ['Portugal', 'Spain', 'France', 'Italy'];
+    }
+}
+
+/**
+ * Get district options from GraphDB for filtering excavations
+ */
+private function getDistrictOptions()
+{
+    $query = "
+    PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+    PREFIX dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>
+    PREFIX dbo: <http://dbpedia.org/ontology/>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    
+    SELECT DISTINCT ?districtName
+    WHERE {
+        ?excavation a excav:Excavation .
+        ?excavation dul:hasLocation ?location .
+        ?location dbo:district ?district .
+        ?district rdfs:label ?districtName .
+    }
+    ORDER BY ?districtName
+    ";
+    
+    try {
+        $results = $this->executeGraphDbQuery($query);
+        
+        $districts = [];
+        if (!empty($results) && isset($results['results']['bindings'])) {
+            foreach ($results['results']['bindings'] as $result) {
+                if (isset($result['districtName'])) {
+                    $districts[] = $result['districtName']['value'];
+                }
+            }
+        }
+        
+        // Debug log
+        error_log('Found ' . count($districts) . ' districts from GraphDB', 3, OMEKA_PATH . '/logs/filter-options.log');
+        
+        return $districts;
+    } catch (\Exception $e) {
+        error_log('Error querying districts: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/filter-options.log');
+        return [];
+    }
+}
+
+/**
+ * Get parish options from GraphDB for filtering excavations
+ */
+private function getParishOptions()
+{
+    $query = "
+    PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+    PREFIX dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>
+    PREFIX dbo: <http://dbpedia.org/ontology/>
+    PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+    
+    SELECT DISTINCT ?parishName
+    WHERE {
+        ?excavation a excav:Excavation .
+        ?excavation dul:hasLocation ?location .
+        ?location dbo:parish ?parish .
+        ?parish rdfs:label ?parishName .
+    }
+    ORDER BY ?parishName
+    ";
+    
+    try {
+        $results = $this->executeGraphDbQuery($query);
+        
+        $parishes = [];
+        if (!empty($results) && isset($results['results']['bindings'])) {
+            foreach ($results['results']['bindings'] as $result) {
+                if (isset($result['parishName'])) {
+                    $parishes[] = $result['parishName']['value'];
+                }
+            }
+        }
+        
+        // Debug log
+        error_log('Found ' . count($parishes) . ' parishes from GraphDB', 3, OMEKA_PATH . '/logs/filter-options.log');
+        
+        return $parishes;
+    } catch (\Exception $e) {
+        error_log('Error querying parishes: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/filter-options.log');
+        return [];
+    }
+}
+
+/**
+ * Execute a SPARQL query against the GraphDB endpoint
+ */
+private function executeGraphDbQuery($queryString)
+{
+    try {
+        $client = new \Laminas\Http\Client();
+        $client->setUri($this->graphdbQueryEndpoint);
+        $client->setMethod('POST');
+        
+        $credentials = $this->getGraphDBCredentials();
+        
+        $client->setHeaders([
+            'Content-Type' => 'application/sparql-query',
+            'Accept' => 'application/sparql-results+json',
+            'Authorization' => 'Basic ' . base64_encode($credentials['username'] . ':' . $credentials['password'])
+        ]);
+        
+        $client->setRawBody($queryString);
+        
+        $response = $client->send();
+        
+        if ($response->isSuccess()) {
+            $results = json_decode($response->getBody(), true);
+            return $results;
+        } else {
+            error_log('GraphDB query failed: ' . $response->getStatusCode() . ' - ' . $response->getBody(), 3, OMEKA_PATH . '/logs/graphdb-errors.log');
+            return null;
+        }
+    } catch (\Exception $e) {
+        error_log('Error executing GraphDB query: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/graphdb-errors.log');
+        return null;
+    }
+}
+
+
+
     
 
 public function viewDetailsAction()
@@ -9948,7 +10088,7 @@ private function organizeAndFormatTtl($rawTtlData, $itemSetId)
         ],
         'external' => [
             'title' => 'REFERENCE DECLARATIONS',
-            'pattern' => '/(dbo:District|dbo:Parish|dbo:Country)/'
+            'pattern' => '/(dbo:district|dbo:parish|dbo:Country)/'
         ]
     ];
     
@@ -10257,7 +10397,7 @@ private function organizeAndFormatItemTtl($rawTtlData, $identifier, $itemSetId)
         ],
         'external' => [
             'title' => 'EXTERNAL REFERENCE DECLARATIONS',
-            'pattern' => '/(dbo:District|dbo:Parish|dbo:Country)/'
+            'pattern' => '/(dbo:district|dbo:parish|dbo:Country)/'
         ]
     ];
     
@@ -10367,14 +10507,14 @@ private function generateReferenceDeclarations($resource)
                 // Query GraphDB for more complete location data
                 $locationData = $this->queryCompleteLocationData($locationUri);
                 if ($locationData) {
-                    // Add District if available
+                    // Add district if available
                     if (!empty($locationData['district'])) {
-                        $ttl .= "    dbo:District <{$locationData['district']['uri']}> ;\n";
+                        $ttl .= "    dbo:district <{$locationData['district']['uri']}> ;\n";
                     }
                     
-                    // Add Parish if available
+                    // Add parish if available
                     if (!empty($locationData['parish'])) {
-                        $ttl .= "    dbo:Parish <{$locationData['parish']['uri']}> ;\n";
+                        $ttl .= "    dbo:parish <{$locationData['parish']['uri']}> ;\n";
                     }
                     
                     // Add Country if available
@@ -10526,16 +10666,16 @@ private function generateReferenceDeclarations($resource)
     $countries = [];
     
     // Try to find district, parish and country in the location data
-    if (isset($values['District'])) {
-        foreach ($values['District']['values'] as $value) {
+    if (isset($values['district'])) {
+        foreach ($values['district']['values'] as $value) {
             $districtName = $value->value();
             $districtSlug = str_replace(' ', '_', $districtName);
             $districts["http://dbpedia.org/resource/$districtSlug"] = $districtName;
         }
     }
     
-    if (isset($values['Parish'])) {
-        foreach ($values['Parish']['values'] as $value) {
+    if (isset($values['parish'])) {
+        foreach ($values['parish']['values'] as $value) {
             $parishName = $value->value();
             $parishSlug = str_replace(' ', '_', $parishName);
             $parishes["http://dbpedia.org/resource/$parishSlug"] = $parishName;
@@ -10581,12 +10721,12 @@ private function queryCompleteLocationData($locationUri) {
                ?lat ?long ?gpsUri
         WHERE {
             OPTIONAL {
-                <$locationUri> dbo:District ?districtUri .
+                <$locationUri> dbo:district ?districtUri .
                 OPTIONAL { ?districtUri rdfs:label ?districtName }
             }
             
             OPTIONAL {
-                <$locationUri> dbo:Parish ?parishUri .
+                <$locationUri> dbo:parish ?parishUri .
                 OPTIONAL { ?parishUri rdfs:label ?parishName }
             }
             
@@ -11119,12 +11259,12 @@ private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowh
     }
 
     // Process district, parish and country references
-    if (isset($values['District'])) {
-        foreach ($values['District']['values'] as $value) {
+    if (isset($values['district'])) {
+        foreach ($values['district']['values'] as $value) {
             $districtName = $value->value();
             $districtSlug = str_replace(' ', '_', $districtName);
             $districtUri = "http://dbpedia.org/resource/$districtSlug";
-            $ttl .= "    dbo:District <$districtUri> ;\n";
+            $ttl .= "    dbo:district <$districtUri> ;\n";
             $entitiesToDeclare['district'] = [
                 'uri' => $districtUri,
                 'name' => $districtName
@@ -11132,12 +11272,12 @@ private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowh
         }
     }
     
-    if (isset($values['Parish'])) {
-        foreach ($values['Parish']['values'] as $value) {
+    if (isset($values['parish'])) {
+        foreach ($values['parish']['values'] as $value) {
             $parishName = $value->value();
             $parishSlug = str_replace(' ', '_', $parishName);
             $parishUri = "http://dbpedia.org/resource/$parishSlug";
-            $ttl .= "    dbo:Parish <$parishUri> ;\n";
+            $ttl .= "    dbo:parish <$parishUri> ;\n";
             $entitiesToDeclare['parish'] = [
                 'uri' => $parishUri,
                 'name' => $parishName
@@ -11846,16 +11986,16 @@ private function generateLocationTtlFromItem($location, $baseUri, $excavationIde
     }
     
     // Extract district, parish, country
-    if (isset($values['District'])) {
-        $district = $values['District']['values'][0]->value();
+    if (isset($values['district'])) {
+        $district = $values['district']['values'][0]->value();
         $districtUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $district);
-        $ttl .= "    dbo:District <$districtUri> ;\n";
+        $ttl .= "    dbo:district <$districtUri> ;\n";
     }
     
-    if (isset($values['Parish'])) {
-        $parish = $values['Parish']['values'][0]->value();
+    if (isset($values['parish'])) {
+        $parish = $values['parish']['values'][0]->value();
         $parishUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $parish);
-        $ttl .= "    dbo:Parish <$parishUri> ;\n";
+        $ttl .= "    dbo:parish <$parishUri> ;\n";
     }
     
     if (isset($values['Country'])) {
@@ -11872,17 +12012,17 @@ private function generateLocationTtlFromItem($location, $baseUri, $excavationIde
     $ttl = rtrim($ttl, " ;\n") . " .\n\n";
     
     // Add entity declarations
-    if (isset($values['District']) || isset($values['Parish']) || isset($values['Country'])) {
+    if (isset($values['district']) || isset($values['parish']) || isset($values['Country'])) {
         $ttl .= "# Type declarations for referenced resources\n";
         
-        if (isset($values['District'])) {
-            $district = $values['District']['values'][0]->value();
+        if (isset($values['district'])) {
+            $district = $values['district']['values'][0]->value();
             $districtUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $district);
             $ttl .= "<$districtUri> a dbo:District .\n";
         }
         
-        if (isset($values['Parish'])) {
-            $parish = $values['Parish']['values'][0]->value();
+        if (isset($values['parish'])) {
+            $parish = $values['parish']['values'][0]->value();
             $parishUri = "http://dbpedia.org/resource/" . str_replace(' ', '_', $parish);
             $ttl .= "<$parishUri> a dbo:Parish .\n";
         }
