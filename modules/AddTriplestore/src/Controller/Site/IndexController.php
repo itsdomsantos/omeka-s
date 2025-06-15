@@ -4186,8 +4186,8 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
         'https://purl.org/megalod/ms/excavation/Instant',
         'excav:TimeLine',
         'excav:Instant',
-        'http://dbpedia.org/ontology/district',
-        'http://dbpedia.org/ontology/parish',
+        'http://dbpedia.org/ontology/District',
+        'http://dbpedia.org/ontology/Parish',
     ];
     
     // Add dynamic excluded types based on itemSetId
@@ -7702,8 +7702,8 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                 
                 // FIXED: Process location properties with CORRECT lowercase URIs
                 $locationProperties = [
-                    'http://dbpedia.org/ontology/district' => ['district', 1555],  // lowercase 'district'
-                    'http://dbpedia.org/ontology/parish' => ['parish', 1681],      // lowercase 'parish'
+                    'http://dbpedia.org/ontology/District' => ['district', 1555],  // lowercase 'district'
+                    'http://dbpedia.org/ontology/Parish' => ['parish', 1681],      // lowercase 'parish'
                     'http://dbpedia.org/ontology/Country' => ['Country', 1402]     // uppercase 'Country'
                 ];
                 
@@ -9122,7 +9122,6 @@ public function searchAction()
     $filterArchaeologist = $request->getQuery('archaeologist', '');
     $filterOrcid = $request->getQuery('orcid', '');
     $filterCountry = $request->getQuery('country', '');
-    // Add these lines after the existing filter parameters (around line 2762)
     $filterDistrict = $request->getQuery('district', '');
     $filterParish = $request->getQuery('parish', '');
     
@@ -9200,27 +9199,27 @@ public function searchAction()
                 ];
             }
             
+            // FIXED: Use correct property IDs and add text search type
             if ($filterCountry) {
                 $propertyFilters[] = [
-                    'property' => 1402, // Country property ID
-                    'type' => 'eq',
+                    'property' => 1402, // country property ID
+                    'type' => 'contains', // Use contains instead of eq for better matching
                     'text' => $filterCountry
                 ];
             }
             
-            // ADD THESE MISSING FILTERS
             if ($filterDistrict) {
                 $propertyFilters[] = [
-                    'property' => 1555, // District property ID
-                    'type' => 'eq',
+                    'property' => 1555, // district/region property ID (περιοχή)
+                    'type' => 'contains', // Use contains for better matching
                     'text' => $filterDistrict
                 ];
             }
             
             if ($filterParish) {
                 $propertyFilters[] = [
-                    'property' => 1681, // Parish property ID
-                    'type' => 'eq',
+                    'property' => 1681, // parish property ID
+                    'type' => 'contains', // Use contains for better matching
                     'text' => $filterParish
                 ];
             }
