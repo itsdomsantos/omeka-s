@@ -9194,7 +9194,7 @@ public function searchAction()
             if ($filterArchaeologist) {
                 $propertyFilters[] = [
                     'property' => 7665, // Person in Charge property ID
-                    'type' => 'eq',
+                    'type' => 'in', // Changed from 'eq' to 'eq' for more flexible matching
                     'text' => $filterArchaeologist
                 ];
             }
@@ -9202,32 +9202,77 @@ public function searchAction()
             if ($filterOrcid) {
                 $propertyFilters[] = [
                     'property' => 176, // ORCID property ID
-                    'type' => 'eq',
+                    'type' => 'eq', // Changed from 'eq' to 'eq'
                     'text' => $filterOrcid
                 ];
             }
             
-            // FIXED: Use correct property IDs and add text search type
+            // FIXED: Use correct property IDs and search types for better matching
             if ($filterCountry) {
+                // Check if we're looking for country eq multiple properties
                 $propertyFilters[] = [
-                    'property' => 1402, // country property ID
-                    'type' => 'contains', // Use contains instead of eq for better matching
+                    'joiner' => 'or',
+                    'property' => 1402, // Country property ID
+                    'type' => 'eq', // Changed from 'contains' to 'eq' for better matching
+                    'text' => $filterCountry
+                ];
+                // Also check eq title and description
+                $propertyFilters[] = [
+                    'joiner' => 'or',
+                    'property' => 1, // Title property ID
+                    'type' => 'eq',
+                    'text' => $filterCountry
+                ];
+                $propertyFilters[] = [
+                    'joiner' => 'or',
+                    'property' => 4, // Description property ID
+                    'type' => 'eq',
                     'text' => $filterCountry
                 ];
             }
             
             if ($filterDistrict) {
+                // Check if we're looking for district eq multiple properties
                 $propertyFilters[] = [
+                    'joiner' => 'or',
                     'property' => 1555, // district/region property ID (περιοχή)
-                    'type' => 'contains', // Use contains for better matching
+                    'type' => 'eq', // Changed from 'contains' to 'eq'
+                    'text' => $filterDistrict
+                ];
+                // Also check eq title and description
+                $propertyFilters[] = [
+                    'joiner' => 'or',
+                    'property' => 1, // Title property ID
+                    'type' => 'eq',
+                    'text' => $filterDistrict
+                ];
+                $propertyFilters[] = [
+                    'joiner' => 'or',
+                    'property' => 4, // Description property ID
+                    'type' => 'eq',
                     'text' => $filterDistrict
                 ];
             }
             
             if ($filterParish) {
+                // Check if we're looking for parish eq multiple properties
                 $propertyFilters[] = [
+                    'joiner' => 'or',
                     'property' => 1681, // parish property ID
-                    'type' => 'contains', // Use contains for better matching
+                    'type' => 'eq', // Changed from 'contains' to 'eq'
+                    'text' => $filterParish
+                ];
+                // Also check eq title and description
+                $propertyFilters[] = [
+                    'joiner' => 'or',
+                    'property' => 1, // Title property ID
+                    'type' => 'eq',
+                    'text' => $filterParish
+                ];
+                $propertyFilters[] = [
+                    'joiner' => 'or',
+                    'property' => 4, // Description property ID
+                    'type' => 'eq',
                     'text' => $filterParish
                 ];
             }
@@ -9237,7 +9282,9 @@ public function searchAction()
                 $itemSetQuery['property'] = $propertyFilters;
                 
                 // Debug the final query
-                error_log("Final itemSetQuery: " . print_r($itemSetQuery, true), 3, OMEKA_PATH . '/logs/search-debug.log');
+                error_log("Final itemSetQuery with filters: " . print_r($itemSetQuery, true), 3, OMEKA_PATH . '/logs/search-debug.log');
+            } else {
+                error_log("No filters were applied to the query", 3, OMEKA_PATH . '/logs/search-debug.log');
             }
             
             // Execute the item sets search
