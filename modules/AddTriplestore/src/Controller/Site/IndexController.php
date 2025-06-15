@@ -9132,8 +9132,6 @@ public function searchAction()
     $filterArchaeologist = $request->getQuery('archaeologist', '');
     $filterOrcid = $request->getQuery('orcid', '');
     $filterCountry = $request->getQuery('country', '');
-    $filterDistrict = $request->getQuery('district', ''); // Added district filter
-    $filterParish = $request->getQuery('parish', ''); // Added parish filter
     
     // Basic arrowhead filters
     $filterShape = $request->getQuery('shape', '');
@@ -9178,21 +9176,17 @@ public function searchAction()
                   $filterChippingDirection || $filterChippingDelineation || $filterChippingShape || 
                   $filterChippingAmplitude || $minHeight || $maxHeight || $minWidth || $maxWidth || 
                   $minThickness || $maxThickness || $minWeight || $maxWeight ||
-                  $filterArchaeologist || $filterOrcid || $filterCountry ||
-                  $filterDistrict || $filterParish; // Added district and parish to hasFilters check
+                  $filterArchaeologist || $filterOrcid || $filterCountry;
     
     if ($searchQuery || $hasFilters) {
         // Search for item sets if search type is 'all' or 'item_sets'
         if ($searchType === 'all' || $searchType === 'item_sets') {
             $itemSetQuery = [];
-
-            error_log('Starting item set search with query: ' . print_r($searchQuery, true), 3, OMEKA_PATH . '/logs/querysearch-debug.log');
             
             // Basic search query
             if ($searchQuery) {
                 $itemSetQuery['fulltext_search'] = $searchQuery;
             }
-            error_log('Item set search query after fulltext_search: ' . print_r($itemSetQuery, true), 3, OMEKA_PATH . '/logs/querysearch-debug.log');
             
             // Apply excavation filters if selected
             $propertyFilters = [];
@@ -9207,7 +9201,7 @@ public function searchAction()
             
             if ($filterOrcid) {
                 $propertyFilters[] = [
-                    'property' => 7675, // ORCID property ID
+                    'property' => 176, // ORCID property ID
                     'type' => 'eq',
                     'text' => $filterOrcid
                 ];
@@ -9221,24 +9215,6 @@ public function searchAction()
                 ];
             }
             
-            // Add district filter
-            if ($filterDistrict) {
-                $propertyFilters[] = [
-                    'property' => 1555, // District property ID
-                    'type' => 'eq',
-                    'text' => $filterDistrict
-                ];
-            }
-            
-            // Add parish filter
-            if ($filterParish) {
-                $propertyFilters[] = [
-                    'property' => 1681, // Parish property ID
-                    'type' => 'eq',
-                    'text' => $filterParish
-                ];
-            }
-            
             // Add property filters if any
             if (!empty($propertyFilters)) {
                 $itemSetQuery['property'] = $propertyFilters;
@@ -9246,11 +9222,8 @@ public function searchAction()
             
             // Execute the item sets search
             $itemSetsResponse = $this->api()->search('item_sets', $itemSetQuery);
-            error_log('Item sets search response: ' . print_r($itemSetsResponse->getContent(), true), 3, OMEKA_PATH . '/logs/querysearch-debug.log');
             $results['item_sets'] = $itemSetsResponse->getContent();
-            error_log('Found ' . count($results['item_sets']) . ' item sets', 3, OMEKA_PATH . '/logs/querysearch-debug.log');
             $totalItemSets = $itemSetsResponse->getTotalResults();
-            error_log('Total item sets found: ' . $totalItemSets, 3, OMEKA_PATH . '/logs/querysearch-debug.log');
         }
         
         // Search for items if search type is 'all' or 'items'
@@ -9457,9 +9430,7 @@ public function searchAction()
         'parishOptions' => $parishOptions,
         'filterArchaeologist' => $filterArchaeologist,
         'filterOrcid' => $filterOrcid,
-        'filterCountry' => $filterCountry,
-        'filterDistrict' => $filterDistrict, // Pass district filter to view
-        'filterParish' => $filterParish // Pass parish filter to view
+        'filterCountry' => $filterCountry
     ]);
 }
 

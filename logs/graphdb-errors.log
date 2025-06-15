@@ -49759,4 +49759,151 @@ Failed to upload data: Response Status: 500 | Response Body: Error validating SH
     ] .
 2025-06-15T14:45:41+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-06-15T14:46:19+00:00 INFO (6): Response Status: 204 | Response Body:
-GraphDB query failed: 500 - Query evaluation error: com.ontotext.trree.util.NotEnoughMemoryForDistinctGroupBy: Insufficient free Heap Memory 209Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: com.ontotext.trree.util.NotEnoughMemoryForDistinctGroupBy: Insufficient free Heap Memory 209Mb for group by and distinct, threshold:250Mb, reached 0MbGraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 243Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 225Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 209Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 193Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 175Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 159Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 143Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 125Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 109Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 93Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 75Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 59Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 43Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 27Mb for group by and distinct, threshold:250Mb, reached 0Mb
+2025-06-15T16:31:59+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-15T16:32:04+00:00 INFO (6): Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1203331 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203331 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1203331 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203331 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1203332 .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-22/location/luxor> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/district> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#sourceShape> _:2903ac27-9faf-41f1-89aa-9727ed724586-6 .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/district> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+
+Failed to upload data: Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1203331 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203331 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1203331 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203331 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1203332 .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-22/location/luxor> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/district> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#sourceShape> _:2903ac27-9faf-41f1-89aa-9727ed724586-6 .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/district> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+2025-06-15T16:32:04+00:00 ERR (3): Failed to upload data: Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1203331 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203331 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1203331 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203331 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1203332 .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-22/location/luxor> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/district> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1203332 <http://www.w3.org/ns/shacl#sourceShape> _:2903ac27-9faf-41f1-89aa-9727ed724586-6 .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/district> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+
+2025-06-15T16:32:10+00:00 INFO (6): Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1203333 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203333 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1203333 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203333 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1203334 .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-22/location/luxor> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/district> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#sourceShape> _:2903ac27-9faf-41f1-89aa-9727ed724586-6 .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/district> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+
+Failed to upload data: Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1203333 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203333 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1203333 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203333 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1203334 .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-22/location/luxor> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/district> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#sourceShape> _:2903ac27-9faf-41f1-89aa-9727ed724586-6 .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/district> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+2025-06-15T16:32:10+00:00 ERR (3): Failed to upload data: Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1203333 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203333 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1203333 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203333 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1203334 .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-22/location/luxor> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/district> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1203334 <http://www.w3.org/ns/shacl#sourceShape> _:2903ac27-9faf-41f1-89aa-9727ed724586-6 .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/district> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+
+2025-06-15T16:32:19+00:00 INFO (6): Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1203335 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203335 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1203335 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203335 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1203336 .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-22/location/luxor> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/district> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#sourceShape> _:2903ac27-9faf-41f1-89aa-9727ed724586-6 .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/district> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+
+Failed to upload data: Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1203335 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203335 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1203335 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203335 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1203336 .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-22/location/luxor> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/district> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#sourceShape> _:2903ac27-9faf-41f1-89aa-9727ed724586-6 .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/district> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+2025-06-15T16:32:19+00:00 ERR (3): Failed to upload data: Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1203335 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203335 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1203335 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1203335 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1203336 .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-22/location/luxor> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#resultPath> <http://dbpedia.org/ontology/district> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1203336 <http://www.w3.org/ns/shacl#sourceShape> _:2903ac27-9faf-41f1-89aa-9727ed724586-6 .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#path> <http://dbpedia.org/ontology/district> .
+_:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+
+2025-06-15T16:32:43+00:00 INFO (6): Response Status: 204 | Response Body:
