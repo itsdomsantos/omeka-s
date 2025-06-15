@@ -2322,9 +2322,14 @@ foreach ($linkedResources as $property => $resourceUri) {
         $ttl .= "    ah:hasChipping <$chippingUri>;\n";
     }
     
-    // Add morphology reference
-    $ttl .= "    ah:hasMorphology <$morphologyUri>;\n";
-
+    $hasMorphologyData = !empty($formData['point_definition']) || 
+                         !empty($formData['body_symmetry']) || 
+                         !empty($formData['arrowhead_base']);
+    
+    if ($hasMorphologyData) {
+        $ttl .= "    ah:hasMorphology <$morphologyUri>;\n";
+    }
+    
     // Process coordinates
     $coordinatesData = null;
     if (!empty($formData['x_coordinate']) && !empty($formData['y_coordinate'])) {
@@ -2419,6 +2424,7 @@ if ($locationUri) {
         $ttl .= "    dbo:informationName \"Archaeological Site Location\"^^xsd:literal ;\n";
     }
     
+    // REMOVED: Don't add dct:identifier for locations
     $ttl = rtrim($ttl, " ;\n") . " .\n\n";
 }
     
@@ -2478,25 +2484,26 @@ if ($locationUri) {
     }
 
     // Add morphology
-    $ttl .= "<$morphologyUri> a ah:Morphology;\n";
-    
-    if (!empty($formData['point_definition'])) {
-        $value = (stripos($formData['point_definition'], 'true') !== false) ? "true" : "false";
-        $ttl .= "    ah:point \"$value\"^^xsd:boolean;\n";
+    if ($hasMorphologyData) {
+        $ttl .= "<$morphologyUri> a ah:Morphology;\n";
+        
+        if (!empty($formData['point_definition'])) {
+            $value = (stripos($formData['point_definition'], 'true') !== false) ? "true" : "false";
+            $ttl .= "    ah:point \"$value\"^^xsd:boolean;\n";
+        }
+        
+        if (!empty($formData['body_symmetry'])) {
+            $value = (stripos($formData['body_symmetry'], 'true') !== false) ? "true" : "false";
+            $ttl .= "    ah:body \"$value\"^^xsd:boolean;\n";
+        }
+        
+        if (!empty($formData['arrowhead_base'])) {
+            $baseSafe = strtolower($formData['arrowhead_base']);
+            $ttl .= "    ah:base <https://purl.org/megalod/kos/ah-base/$baseSafe>;\n";
+        }
+        
+        $ttl .= "    .\n\n";
     }
-    
-    if (!empty($formData['body_symmetry'])) {
-        $value = (stripos($formData['body_symmetry'], 'true') !== false) ? "true" : "false";
-        $ttl .= "    ah:body \"$value\"^^xsd:boolean;\n";
-    }
-    
-    // FIXED: Base with correct KOS namespace
-    if (!empty($formData['arrowhead_base'])) {
-        $baseSafe = strtolower($formData['arrowhead_base']);
-        $ttl .= "    ah:base <https://purl.org/megalod/kos/ah-base/$baseSafe>;\n";
-    }
-    
-    $ttl .= "    .\n\n";
     
     // Add chipping details if necessary
     if ($hasChippingData) {
@@ -6526,6 +6533,8 @@ private function createNewEncounterEvent($context, $itemSetId, $signature) {
 
 
 
+
+
 private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
     error_log("Using excavation identifier: $excavationIdentifier", 3, OMEKA_PATH . '/logs/encounter-validationnnnnnn.log');
@@ -6539,18 +6548,37 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     // 1. Add encounter reference to the arrowhead item
     $encounterTriple = "    crmsci:O19i_was_object_encountered_through <$encounterUri> ;\n";
     
-    // FIXED: Insert after the dct:identifier line, not at the end
+    // IMPROVED: Insert after the dct:identifier line, and handle existing excavation references
     $pattern = '/(dct:identifier\s+"[^"]+"\^\^xsd:literal\s*;)(\s*)/';
     $replacement = "$1\n$encounterTriple$2";
     
     $enhancedTtl = preg_replace($pattern, $replacement, $ttlData, 1);
+    
+    // CRITICAL FIX: Remove any reference where arrowhead references itself as an excavation
+    $excavationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier";
+    $selfRefPattern = '/excav:foundInExcavation\s+<http:\/\/localhost\/megalod\/' . $itemSetId . '\/item\/' . $itemIdentifier . '>\s*;\s*\n/';
+    $enhancedTtl = preg_replace($selfRefPattern, '', $enhancedTtl);
+    
+    // Ensure we have only one correct excavation reference
+    $excavationRefPattern = '/excav:foundInExcavation\s+<http:\/\/localhost\/megalod\/' . $itemSetId . '\/excavation\/[^>]+>\s*;\s*\n/';
+    if (!preg_match($excavationRefPattern, $enhancedTtl)) {
+        // Add the correct excavation reference if it's not already there
+        $excavationReference = "    excav:foundInExcavation <$excavationUri>;\n";
+        $enhancedTtl = preg_replace('/(crmsci:O19i_was_object_encountered_through\s+<[^>]+>\s*;)(\s*)/i', 
+                                  "$1\n$excavationReference$2", $enhancedTtl, 1);
+    }
     
     // 2. Add complete encounter event definition
     $encounterDefinition = "\n\n# =========== ENCOUNTER EVENT ===========\n\n";
     $encounterDefinition .= "<$encounterUri> a excav:EncounterEvent ;\n";
     
     // Add date
-    $encounterDefinition .= "    dct:date \"" . $arrowheadContext['date'] . "\"^^xsd:literal ;\n";
+    if (!empty($arrowheadContext['date'])) {
+        $encounterDefinition .= "    dct:date \"" . $arrowheadContext['date'] . "\"^^xsd:literal ;\n";
+    } else {
+        // Add current date if no date provided
+        $encounterDefinition .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal ;\n";
+    }
     
     // FIXED: Use correct arrowhead URI format (not /item/ path)       
     $encounterDefinition .= "    crmsci:O19_encountered_object <http://localhost/megalod/$itemSetId/item/$itemIdentifier> ;\n";
@@ -6580,7 +6608,7 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     // Check if declarations already exist before adding them
     $existingDeclarations = $this->checkExistingDeclarations($enhancedTtl, $itemSetId, $excavationIdentifier);
     
-    // REQUIRED: Add explicit excavation declaration with type
+    // FIXED: Only add excavation declaration if it doesn't already exist
     if (!$existingDeclarations['excavation']) {
         $encounterDefinition .= "<$excavationUri> a excav:Excavation ;\n";
         $encounterDefinition .= "    dct:identifier \"$excavationIdentifier\"^^xsd:literal .\n\n";
@@ -6600,11 +6628,33 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
         $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['svu']}\"^^xsd:literal .\n\n";
     }
     
-    // REQUIRED: Add location declaration if referenced and doesn't already exist
-    if ($arrowheadContext['location'] && !$existingDeclarations['location']) {
-        $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
+    // REQUIRED: Add location declaration with data from the excavation item set
+
+// REQUIRED: Add location declaration with data from the excavation item set
+if ($arrowheadContext['location'] && !$existingDeclarations['location']) {
+    $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
+    
+    // Query the graph for the actual information name
+    $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
+    $locationQuery = "
+        PREFIX dbo: <http://dbpedia.org/ontology/>
+        SELECT ?informationName
+        WHERE {
+            GRAPH <$graphUri> {
+                <$locationUri> dbo:informationName ?informationName .
+            }
+        }
+        LIMIT 1
+    ";
+    
+    $locationResults = $this->querySparql($locationQuery);
+
+    if (!empty($locationResults) && isset($locationResults[0]['informationName'])) {
+        $locationName = $locationResults[0]['informationName']['value'];
+        error_log("Found location information name from graph: $locationName", 3, OMEKA_PATH . '/logs/encounter-creation.log');
+    
         $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
-        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['location']}\"^^xsd:literal .\n\n";
+        $encounterDefinition .= "    dbo:informationName \"$locationName\"^^xsd:literal .\n\n";
     }
     
     // Add square declaration if present and doesn't already exist
@@ -6613,11 +6663,10 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
         $encounterDefinition .= "<$squareUri> a excav:Square ;\n";
         $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['square']}\"^^xsd:literal .\n\n";
     }
-    
-    error_log("Generated encounter event TTL:\n$encounterDefinition", 3, OMEKA_PATH . '/logs/encounter-ttl.log');
-    error_log("Enhanced TTL with encounter event reference: " . $enhancedTtl . $encounterDefinition . "\n", 3, OMEKA_PATH . '/logs/encounter-tttt.log');
+}
     return $enhancedTtl . $encounterDefinition;
 }
+
 
 
 private function checkExistingDeclarations($ttlData, $itemSetId, $excavationIdentifier) {
@@ -6629,28 +6678,33 @@ private function checkExistingDeclarations($ttlData, $itemSetId, $excavationIden
         'excavation' => false
     ];
     
-    // Check for existing excavation declaration
-    if (preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier>\s+a\s+excav:Excavation/", $ttlData)) {
+    // Check for existing excavation declaration - handle both URI formats
+    if (preg_match("/<http:\/\/localhost\/megalod\/$itemSetId\/excavation\/$excavationIdentifier>\s+a\s+excav:Excavation/", $ttlData) ||
+        preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier>\s+a\s+excav:Excavation/", $ttlData)) {
         $existing['excavation'] = true;
     }
     
-    // Check for existing context declarations
-    if (preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/context\/[^>]+>\s+a\s+excav:Context/", $ttlData)) {
+    // Check for existing context declarations - handle multiple URI formats
+    if (preg_match("/<http:\/\/localhost\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/context\/[^>]+>\s+a\s+excav:Context/", $ttlData) ||
+        preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/context\/[^>]+>\s+a\s+excav:Context/", $ttlData)) {
         $existing['context'] = true;
     }
     
-    // Check for existing SVU declarations
-    if (preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/svu\/[^>]+>\s+a\s+excav:StratigraphicVolumeUnit/", $ttlData)) {
+    // Check for existing SVU declarations - handle multiple URI formats
+    if (preg_match("/<http:\/\/localhost\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/svu\/[^>]+>\s+a\s+excav:StratigraphicVolumeUnit/", $ttlData) ||
+        preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/svu\/[^>]+>\s+a\s+excav:StratigraphicVolumeUnit/", $ttlData)) {
         $existing['svu'] = true;
     }
     
-    // Check for existing square declarations
-    if (preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/square\/[^>]+>\s+a\s+excav:Square/", $ttlData)) {
+    // Check for existing square declarations - handle multiple URI formats
+    if (preg_match("/<http:\/\/localhost\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/square\/[^>]+>\s+a\s+excav:Square/", $ttlData) ||
+        preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/square\/[^>]+>\s+a\s+excav:Square/", $ttlData)) {
         $existing['square'] = true;
     }
     
-    // Check for existing location declarations
-    if (preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/location\/[^>]+>\s+a\s+excav:Location/", $ttlData)) {
+    // Check for existing location declarations - handle multiple URI formats
+    if (preg_match("/<http:\/\/localhost\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/location\/[^>]+>\s+a\s+excav:Location/", $ttlData) ||
+        preg_match("/<https:\/\/purl\.org\/megalod\/$itemSetId\/excavation\/$excavationIdentifier\/location\/[^>]+>\s+a\s+excav:Location/", $ttlData)) {
         $existing['location'] = true;
     }
     
@@ -7180,52 +7234,38 @@ private function getRealLocationUriFromExcavation($itemSetId) {
         return null;
     }
     
-    error_log("✓ Using excavation identifier: $excavationIdentifier", 3, OMEKA_PATH . '/logs/location-discovery.log');
-    
-    // CRITICAL FIX: Consistent URI pattern matching the declared resources
-    $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/excavation-location";
-    error_log("✓ Created location URI with consistent pattern: $locationUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
-    
-    // Verify that this location actually exists in GraphDB
     try {
-        $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
-        $query = "
-PREFIX excav: <https://purl.org/megalod/ms/excavation/>
-PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-
-ASK {
-  GRAPH <$graphUri> {
-    <$locationUri> rdf:type excav:Location .
-  }
-}";
-
-        $client = new \Laminas\Http\Client();
-        $client->setUri($this->graphdbQueryEndpoint);
-        $client->setMethod('POST');
-        $credentials = $this->getGraphDBCredentials();
-        $client->setHeaders([
-                'Content-Type' => 'application/sparql-query',
-                'Accept' => 'application/sparql-results+json', // Crucial: Request JSON results
-                'Authorization' => 'Basic ' . base64_encode($credentials['username'] . ':' . $credentials['password'])
-            ]);
-        $client->setRawBody($query);
+        $excavationItems = $this->api()->search('items', [
+            'item_set_id' => $itemSetId,
+            'property' => [
+                [
+                    'property' => 1, // dcterms:title
+                    'type' => 'in',
+                    'text' => 'Excavation'
+                ]
+            ]
+        ])->getContent();
         
-        $response = $client->send();
-        
-        if ($response->isSuccess()) {
-            $results = json_decode($response->getBody(), true);
-            if (isset($results['boolean']) && $results['boolean'] === true) {
-                error_log("✓ Verified location URI exists in GraphDB: $locationUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
+        if (!empty($excavationItems)) {
+            $excavationItem = $excavationItems[0];
+            $values = $excavationItem->values();
+            
+            // Get location name from excavation item
+            if (isset($values['Location Name'])) {
+                $locationName = $values['Location Name']['values'][0]->value();
+                $locationSlug = $this->createUrlSlug($locationName);
+                $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/$locationSlug";
+                error_log("✓ Found location from excavation item: $locationUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
                 return $locationUri;
             }
-            error_log("⚠ Location URI does not exist in GraphDB, but returning anyway: $locationUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
-            // Return it anyway - it will be declared when we upload
         }
     } catch (\Exception $e) {
-        error_log("❌ Error querying GraphDB for location: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/location-discovery.log');
+        error_log("Error searching for excavation items: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/location-discovery.log');
     }
     
-    // If we can't verify it exists, still return the consistent URI
+    // Fallback to default location URI
+    $locationUri = null;
+    error_log("✓ Using fallback location URI: $locationUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
     return $locationUri;
 }
 
@@ -8995,14 +9035,6 @@ private function itemExistsWithIdentifier($identifier, $itemSetId) {
     try {
         error_log("Checking for existing item with identifier '$identifier' in item set #$itemSetId", 3, OMEKA_PATH . '/logs/duplicate-identifiers.log');
         
-        // ALWAYS ALLOW SQUARES, CONTEXTS, LOCATIONS TO BE DUPLICATED
-        // These are referenced resources that should be allowed to exist multiple times
-        if (in_array($identifier, ['A1', 'A2', 'A3', 'A4', 'B1', 'B2', 'B3', 'B4', 'C1', 'C2', 'C3', 'C4', 'D1', 'D2', 'D3', 'D4']) ||
-            strpos($identifier, 'excavation-location') !== false ||
-            strpos($identifier, 'CV-') === 0) {
-            error_log("Allowing resource with common identifier: '$identifier'", 3, OMEKA_PATH . '/logs/duplicate-identifiers.log');
-            return false;
-        }
         
         // Search for items with the given identifier in the specified item set
         $searchParams = [
