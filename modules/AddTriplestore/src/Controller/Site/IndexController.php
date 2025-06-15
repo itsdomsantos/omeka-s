@@ -2420,8 +2420,6 @@ if ($locationUri) {
         if (!empty($locationData['country'])) {
             $ttl .= "    dbo:Country <" . $locationData['country'] . "> ;\n";
         }
-    } else {
-        $ttl .= "    dbo:informationName \"Archaeological Site Location\"^^xsd:literal ;\n";
     }
     
     // REMOVED: Don't add dct:identifier for locations
@@ -3423,57 +3421,7 @@ private function parseItemUri($uri)
     return null;
 }
 
-/**
- * Find Omeka item ID by identifier and item set
- */
-private function findOmekaItemByIdentifier($identifier, $itemSetId)
-{
-    try {
-        // Search for items with the given identifier in the specified item set
-        $searchParams = [
-            'property' => [
-                [
-                    'property' => 10, // dcterms:identifier property ID
-                    'type' => 'eq',
-                    'text' => $identifier
-                ]
-            ],
-            'item_set_id' => $itemSetId,
-            'limit' => 1
-        ];
-        
-        $response = $this->api()->search('items', $searchParams);
-        $items = $response->getContent();
-        
-        if (!empty($items)) {
-            return $items[0]->id();
-        }
-        
-        // Fallback: try without item set constraint
-        $searchParams = [
-            'property' => [
-                [
-                    'property' => 10,
-                    'type' => 'eq', 
-                    'text' => $identifier
-                ]
-            ],
-            'limit' => 1
-        ];
-        
-        $response = $this->api()->search('items', $searchParams);
-        $items = $response->getContent();
-        
-        if (!empty($items)) {
-            return $items[0]->id();
-        }
-        
-    } catch (\Exception $e) {
-        error_log('Error finding item by identifier: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/purl-debug.log');
-    }
-    
-    return null;
-}
+
 
 
 
@@ -7311,10 +7259,11 @@ private function extractIdentifierFromUriStructure($resourceUri) {
             case 'svu':
                 return "Layer-" . str_pad($itemId % 100, 2, '0', STR_PAD_LEFT); // Layer-01, Layer-02, etc.
             case 'square':
-                $letters = ['A', 'B', 'C', 'D'];
-                $letter = $letters[($itemId - 1) % 4];
-                $number = (($itemId - 1) % 4) + 1;
-                return $letter . $number; // A1, A2, B1, B2, etc.
+                // Generate square identifier with sequential lettering (A1, B1, C1, etc.)
+                $letterIndex = ($itemId - 1) % 26;
+                $letter = chr(65 + $letterIndex); // 65 is ASCII for 'A'
+                $number = floor(($itemId - 1) / 26) + 1;
+                return $letter . $number; // A1, B1, C1... Z1, A2, B2, etc.
             default:
                 return strtoupper($resourceType) . "-" . ($itemId % 1000);
         }
@@ -11095,6 +11044,10 @@ private function generateArrowheadTtlWithOriginalUris($resource)
     
     // Extract the original normalized URI from the context references
     $originalBaseUri = $this->extractOriginalBaseUri($values, $resource);
+    if ($originalBaseUri == null) {
+        error_log("No valid excavation context found for resource: " . $resource->id(), 3, OMEKA_PATH . '/logs/ttl-download.log');
+        return "# No valid excavation context found for resource: " . $resource->id() . "\n";
+    }
     $identifier = $this->extractIdentifierFromResource($resource);
     
     // Use the original normalized URI structure
@@ -11239,7 +11192,7 @@ private function extractOriginalBaseUri($values, $resource)
     }
     
     // Last resort fallback
-    return "https://purl.org/megalod/unknown";
+    return null;
 }
 
 private function extractIdentifierFromResource($resource)
@@ -12058,11 +12011,6 @@ private function generateLocationTtlFromItem($location, $baseUri, $excavationIde
     } elseif (isset($values['dbo:informationName']) && !$informationNameAdded) {
         $locationName = $values['dbo:informationName']['values'][0]->value();
         $ttl .= "    dbo:informationName \"$locationName\"^^xsd:literal ;\n";
-        $informationNameAdded = true;
-    } elseif (!$informationNameAdded) {
-        // Fallback: use the location title or a default name
-        $fallbackName = $location->displayTitle() ?: "Archaeological Site Location";
-        $ttl .= "    dbo:informationName \"$fallbackName\"^^xsd:literal ;\n";
         $informationNameAdded = true;
     }
     
