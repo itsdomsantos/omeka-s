@@ -9180,120 +9180,117 @@ public function searchAction()
 
     if ($searchQuery || $hasFilters) {
         if ($searchType === 'all' || $searchType === 'item_sets') {
-            $itemSetQuery = [];
+    $itemSetQuery = [];
+    
+    // Basic search query
+    if ($searchQuery) {
+        $itemSetQuery['fulltext_search'] = $searchQuery;
+    }
+    
+    // If we have excavation filters, we need to search excavation items first
+    if ($filterArchaeologist || $filterOrcid || $filterCountry || $filterDistrict || $filterParish) {
+        // Search for excavation items with these properties
+        $excavationItemQuery = [];
+        $propertyFilters = [];
+        
+        if ($filterArchaeologist) {
+            $propertyFilters[] = [
+                'property' => 7665, // Person in Charge property ID
+                'type' => 'in',
+                'text' => $filterArchaeologist
+            ];
+        }
+        
+        if ($filterOrcid) {
+            $propertyFilters[] = [
+                'property' => 176, // ORCID property ID
+                'type' => 'eq',
+                'text' => $filterOrcid
+            ];
+        }
+        
+        if ($filterCountry) {
+            $propertyFilters[] = [
+                'property' => 1402, // Country property ID
+                'type' => 'eq',
+                'text' => $filterCountry
+            ];
+        }
+        
+        if ($filterDistrict) {
+            $propertyFilters[] = [
+                'property' => 1555, // district property ID
+                'type' => 'eq',
+                'text' => $filterDistrict
+            ];
+        }
+        
+        if ($filterParish) {
+            $propertyFilters[] = [
+                'property' => 1681, // parish property ID
+                'type' => 'eq',
+                'text' => $filterParish
+            ];
+        }
+        
+        if (!empty($propertyFilters)) {
+            $excavationItemQuery['property'] = $propertyFilters;
+        }
+        
+        // Also filter by title pattern to only get excavation items
+        $excavationItemQuery['fulltext_search'] = 'Excavation';
+        
+        error_log("Searching excavation items with query: " . print_r($excavationItemQuery, true), 3, OMEKA_PATH . '/logs/search-debug.log');
+        
+        // Search for excavation items
+        $excavationItemsResponse = $this->api()->search('items', $excavationItemQuery);
+        $excavationItems = $excavationItemsResponse->getContent();
+        
+        error_log("Found " . count($excavationItems) . " excavation items", 3, OMEKA_PATH . '/logs/search-debug.log');
+        
+        // Extract item set IDs from the matching excavation items
+        $itemSetIds = [];
+        foreach ($excavationItems as $item) {
+            $itemSets = $item->itemSets();
+            foreach ($itemSets as $itemSet) {
+                $itemSetIds[] = $itemSet->id();
+                error_log("Found item set ID: " . $itemSet->id() . " from excavation item: " . $item->displayTitle(), 3, OMEKA_PATH . '/logs/search-debug.log');
+            }
+        }
+        
+        // Remove duplicates
+        $itemSetIds = array_unique($itemSetIds);
+        
+        if (!empty($itemSetIds)) {
+            // Search item sets by their IDs
+            $itemSetQuery['id'] = $itemSetIds;
             
-            // Basic search query
+            // Also add the basic search query if provided
             if ($searchQuery) {
-                $itemSetQuery['fulltext_search'] = $searchQuery;
+                // We need to combine the ID filter with the fulltext search
+                // This might require a more complex approach
+                unset($itemSetQuery['fulltext_search']); // Remove fulltext for now when filtering
             }
             
-            // CRITICAL: Initialize property filters array
-            $propertyFilters = [];
+            error_log("Final item set query: " . print_r($itemSetQuery, true), 3, OMEKA_PATH . '/logs/search-debug.log');
             
-            // Apply excavation filters
-            if ($filterArchaeologist) {
-                $propertyFilters[] = [
-                    'property' => 7665, // Person in Charge property ID
-                    'type' => 'in', // Changed from 'eq' to 'eq' for more flexible matching
-                    'text' => $filterArchaeologist
-                ];
-            }
-            
-            if ($filterOrcid) {
-                $propertyFilters[] = [
-                    'property' => 176, // ORCID property ID
-                    'type' => 'eq', // Changed from 'eq' to 'eq'
-                    'text' => $filterOrcid
-                ];
-            }
-            
-            // FIXED: Use correct property IDs and search types for better matching
-            if ($filterCountry) {
-                // Check if we're looking for country eq multiple properties
-                $propertyFilters[] = [
-                    'joiner' => 'or',
-                    'property' => 1402, // Country property ID
-                    'type' => 'eq', // Changed from 'contains' to 'eq' for better matching
-                    'text' => $filterCountry
-                ];
-                // Also check eq title and description
-                $propertyFilters[] = [
-                    'joiner' => 'or',
-                    'property' => 1, // Title property ID
-                    'type' => 'eq',
-                    'text' => $filterCountry
-                ];
-                $propertyFilters[] = [
-                    'joiner' => 'or',
-                    'property' => 4, // Description property ID
-                    'type' => 'eq',
-                    'text' => $filterCountry
-                ];
-            }
-            
-            if ($filterDistrict) {
-                // Check if we're looking for district eq multiple properties
-                $propertyFilters[] = [
-                    'joiner' => 'or',
-                    'property' => 1555, // district/region property ID (περιοχή)
-                    'type' => 'eq', // Changed from 'contains' to 'eq'
-                    'text' => $filterDistrict
-                ];
-                // Also check eq title and description
-                $propertyFilters[] = [
-                    'joiner' => 'or',
-                    'property' => 1, // Title property ID
-                    'type' => 'eq',
-                    'text' => $filterDistrict
-                ];
-                $propertyFilters[] = [
-                    'joiner' => 'or',
-                    'property' => 4, // Description property ID
-                    'type' => 'eq',
-                    'text' => $filterDistrict
-                ];
-            }
-            
-            if ($filterParish) {
-                // Check if we're looking for parish eq multiple properties
-                $propertyFilters[] = [
-                    'joiner' => 'or',
-                    'property' => 1681, // parish property ID
-                    'type' => 'eq', // Changed from 'contains' to 'eq'
-                    'text' => $filterParish
-                ];
-                // Also check eq title and description
-                $propertyFilters[] = [
-                    'joiner' => 'or',
-                    'property' => 1, // Title property ID
-                    'type' => 'eq',
-                    'text' => $filterParish
-                ];
-                $propertyFilters[] = [
-                    'joiner' => 'or',
-                    'property' => 4, // Description property ID
-                    'type' => 'eq',
-                    'text' => $filterParish
-                ];
-            }
-            
-            // CRITICAL: Add property filters to query if any exist
-            if (!empty($propertyFilters)) {
-                $itemSetQuery['property'] = $propertyFilters;
-                
-                // Debug the final query
-                error_log("Final itemSetQuery with filters: " . print_r($itemSetQuery, true), 3, OMEKA_PATH . '/logs/search-debug.log');
-            } else {
-                error_log("No filters were applied to the query", 3, OMEKA_PATH . '/logs/search-debug.log');
-            }
-            
-            // Execute the item sets search
             $itemSetsResponse = $this->api()->search('item_sets', $itemSetQuery);
             $results['item_sets'] = $itemSetsResponse->getContent();
             $totalItemSets = $itemSetsResponse->getTotalResults();
-            
-            error_log("Applied filters, search returned: " . $totalItemSets . " results", 3, OMEKA_PATH . '/logs/search-debug.log');
+        } else {
+            // No matching excavation items found
+            $results['item_sets'] = [];
+            $totalItemSets = 0;
         }
+        
+        error_log("Final result: Found $totalItemSets item sets", 3, OMEKA_PATH . '/logs/search-debug.log');
+    } else {
+        // No excavation filters, search item sets normally
+        $itemSetsResponse = $this->api()->search('item_sets', $itemSetQuery);
+        $results['item_sets'] = $itemSetsResponse->getContent();
+        $totalItemSets = $itemSetsResponse->getTotalResults();
+    }
+}
         
         // Search for items if search type is 'all' or 'items'
         if ($searchType === 'all' || $searchType === 'items') {

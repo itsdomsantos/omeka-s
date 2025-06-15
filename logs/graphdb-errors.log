@@ -49914,3 +49914,16 @@ _:2903ac27-9faf-41f1-89aa-9727ed724586-6 <http://www.w3.org/ns/shacl#maxCount> "
 2025-06-15T17:14:47+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-06-15T17:15:41+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-06-15T17:19:19+00:00 INFO (6): Response Status: 204 | Response Body:
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 247Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 231Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 215Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 199Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 183Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 167Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 149Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 133Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 117Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 99Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 83Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 65Mb for group by and distinct, threshold:250Mb, reached 0Mb
+GraphDB query failed: 500 - Query evaluation error: Insufficient free Heap Memory 49Mb for group by and distinct, threshold:250Mb, reached 0Mb
