@@ -1217,22 +1217,19 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
             'label' => $excavationData['country']
         ];
     }
+
+    $ttl .= ".\n";
     
-    // FIXED: Reference to separate GPS coordinates object
-    $ttl .= "    excav:hasGPSCoordinates <$gpsUri> .\n\n";
-    
-    // SEPARATE GPS COORDINATES OBJECT - clean structure
-    $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
-    
-    if (!empty($excavationData['latitude'])) {
+    // Only add GPS references if both latitude and longitude are provided
+    if (!empty($excavationData['latitude']) && !empty($excavationData['longitude'])) {
+        $ttl .= "    excav:hasGPSCoordinates <$gpsUri> ;\n";
+    }
+    if (!empty($excavationData['latitude']) && !empty($excavationData['longitude'])) {
+        $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
         $ttl .= "    geo:lat \"" . $excavationData['latitude'] . "\"^^xsd:decimal ;\n";
-    }
-    
-    if (!empty($excavationData['longitude'])) {
         $ttl .= "    geo:long \"" . $excavationData['longitude'] . "\"^^xsd:decimal .\n\n";
-    } else {
-        $ttl .= "    .\n\n";
     }
+
     
     // Add type declarations for referenced entities
     if (!empty($entitiesToDeclare)) {
@@ -2402,9 +2399,11 @@ foreach ($linkedResources as $property => $resourceUri) {
 
 // Location declaration (CRITICAL FIX for SHACL validation)
 $locationUri = $this->getRealLocationUriFromExcavation($itemSetId);
+error_log("Location URI from excavation: $locationUri", 3, OMEKA_PATH . '/logs/ttl-fixes.log');
 if ($locationUri) {
     // Try to get real location data from excavation
     $locationData = $this->getLocationDataFromExcavation($itemSetId);
+    error_log("Location data: " . print_r($locationData, true), 3, OMEKA_PATH . '/logs/ttl-fixes.log');
     
     $ttl .= "<$locationUri> a excav:Location ;\n";
     
@@ -2421,7 +2420,7 @@ if ($locationUri) {
             $ttl .= "    dbo:Country <" . $locationData['country'] . "> ;\n";
         }
     }
-    
+    error_log("Added location declaration: $locationUri", 3, OMEKA_PATH . '/logs/ttl-fixes.log');
     // REMOVED: Don't add dct:identifier for locations
     $ttl = rtrim($ttl, " ;\n") . " .\n\n";
 }
