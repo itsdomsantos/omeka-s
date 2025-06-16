@@ -2221,14 +2221,21 @@ if ($locationUri) {
         error_log("Added consistent location URI: $locationUri", 3, OMEKA_PATH . '/logs/form-debug.log');
     
     // CRITICAL FIX: Add ALL context references to the arrowhead item
-    $addedReferences = [];
-foreach ($linkedResources as $property => $resourceUri) {
-    $referenceKey = "$property:$resourceUri";
-    if (!isset($addedReferences[$referenceKey])) {
-        $ttl .= "    $property <$resourceUri>;\n";
-        $addedReferences[$referenceKey] = true;
-        error_log("Added reference: $property -> $resourceUri", 3, OMEKA_PATH . '/logs/form-debug.log');
-    }
+
+    $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
+if ($excavationIdentifier) {
+    $excavationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier";
+    $ttl .= "    excav:foundInExcavation <$excavationUri>;\n";
+    error_log("Added excavation reference: $excavationUri", 3, OMEKA_PATH . '/logs/form-debug.log');
+}
+
+// Also update the location reference section to ONLY add location if no context selections exist:
+$locationUri = $this->getRealLocationUriFromExcavation($itemSetId);
+if ($locationUri && empty($formData['selected_square']) && empty($formData['selected_context']) && empty($formData['selected_svu'])) {
+    $ttl .= "    excav:foundInLocation <$locationUri>;\n";
+    error_log("✓ Added basic location URI (no specific context): $locationUri", 3, OMEKA_PATH . '/logs/form-debug.log');
+} else {
+    error_log("⚠ Skipping location reference - context selections exist or no location found", 3, OMEKA_PATH . '/logs/form-debug.log');
 }
 
     
