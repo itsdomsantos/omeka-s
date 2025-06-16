@@ -6590,37 +6590,41 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     
     // 2. Add complete encounter event definition
     $encounterDefinition = "\n\n# =========== ENCOUNTER EVENT ===========\n\n";
-    $encounterDefinition .= "<$encounterUri> a excav:EncounterEvent ;\n";
-    
-    // Add date
-    if (!empty($arrowheadContext['date'])) {
-        $encounterDefinition .= "    dct:date \"" . $arrowheadContext['date'] . "\"^^xsd:literal ;\n";
-    } else {
-        // Add current date if no date provided
-        $encounterDefinition .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal ;\n";
-    }
-    
-    // FIXED: Use correct arrowhead URI format
-    $itemUri = "http://localhost/megalod/$itemSetId/item/$itemIdentifier";
-    $encounterDefinition .= "    crmsci:O19_encountered_object <$itemUri> ;\n";
-    
-    // Add excavation reference
-    $encounterDefinition .= "    excav:foundInExcavation <$excavationUri>";
-    
-    // Add context reference if available
-    if ($arrowheadContext['context']) {
-        $contextUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}";
-        $encounterDefinition .= " ;\n    excav:foundInContext <$contextUri>";
-    }
-    
-    // Add SVU reference if available
-    if ($arrowheadContext['svu']) {
-        $svuUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/svu/{$arrowheadContext['svu']}";
-        $encounterDefinition .= " ;\n    excav:foundInSVU <$svuUri>";
-    }
-    
-    // CRITICAL FIX: Ensure each statement ends properly
-    $encounterDefinition .= " .\n";
+$encounterDefinition .= "<$encounterUri> a excav:EncounterEvent ;\n";
+
+// Add date
+if (!empty($arrowheadContext['date'])) {
+    $encounterDefinition .= "    dct:date \"" . $arrowheadContext['date'] . "\"^^xsd:literal ;\n";
+} else {
+    // Add current date if no date provided
+    $encounterDefinition .= "    dct:date \"" . date('Y-m-d') . "\"^^xsd:literal ;\n";
+}
+
+// FIXED: Use correct arrowhead URI format
+$itemUri = "http://localhost/megalod/$itemSetId/item/$itemIdentifier";
+$encounterDefinition .= "    crmsci:O19_encountered_object <$itemUri> ;\n";
+
+// Add excavation reference
+$encounterDefinition .= "    excav:foundInExcavation <$excavationUri> ;\n";
+
+
+if ($arrowheadContext['context']) {
+    $contextUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/context/{$arrowheadContext['context']}";
+    $encounterDefinition .= "    excav:foundInContext <$contextUri> ;\n";
+}
+
+if ($arrowheadContext['svu']) {
+    $svuUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/svu/{$arrowheadContext['svu']}";
+    $encounterDefinition .= "    excav:foundInSVU <$svuUri> ;\n";
+}
+
+if ($arrowheadContext['location']) {
+    $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
+    $encounterDefinition .= "    excav:foundInLocation <$locationUri> ;\n";
+}
+
+// CRITICAL FIX: Ensure each statement ends properly
+$encounterDefinition = rtrim($encounterDefinition, " ;\n") . " .\n";
     
     // 3. Add declarations for referenced resources ONLY if they don't already exist
     $encounterDefinition .= "\n# =========== CONTEXT ENTITY DECLARATIONS ===========\n\n";
