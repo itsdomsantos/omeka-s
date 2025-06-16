@@ -1296,17 +1296,17 @@ private function normalizeUris($ttlData, $itemSetId) {
     
     // 3. Location URI pattern
     $modifiedTtl = preg_replace_callback(
-        '/<https:\/\/purl\.org\/megalod\/location\/([^>]+)>/',
-        function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
-            if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
-            $locationId = $matches[1];
-            $replacements++;
-            error_log("ientifier found: $excavationIdentifier", 3, OMEKA_PATH . '/logs/uri-normalize-fixeddddddd.log');
-            error_log("Replacing location URI: {$matches[0]} → <http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/$locationId>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
-            return "<http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/$locationId>";
-        },
-        $modifiedTtl
-    );
+    '/<https:\/\/purl\.org\/megalod\/([^\/]+\/)?location\/([^>]+)>/',
+    function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
+        if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
+        $locationId = $matches[2]; // Get the location identifier
+        $replacements++;
+        $newUri = "<http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/$locationId>";
+        error_log("Replacing location URI: {$matches[0]} → $newUri", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
+        return $newUri;
+    },
+    $modifiedTtl
+);
     
     // 4. GPS URI pattern
     $modifiedTtl = preg_replace_callback(
@@ -1990,6 +1990,79 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
     
     // UPDATED: Use a consistent base URI pattern for all references
     $excavationBaseUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier";
+
+    $realLocationUri = $this->getRealLocationUriFromExcavation($itemSetId);
+    if ($realLocationUri && !$existingDeclarations['location']) {
+    // Query the graph for the actual location data
+    $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
+    $locationQuery = "
+        PREFIX dbo: <http://dbpedia.org/ontology/>
+        PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+        
+        SELECT ?informationName ?district ?parish ?country
+        WHERE {
+            GRAPH <$graphUri> {
+                <$realLocationUri> a excav:Location .
+                OPTIONAL { <$realLocationUri> dbo:informationName ?informationName }
+                OPTIONAL { <$realLocationUri> dbo:district ?district }
+                OPTIONAL { <$realLocationUri> dbo:parish ?parish }
+                OPTIONAL { <$realLocationUri> dbo:Country ?country }
+            }
+        }
+        LIMIT 1
+    ";
+    
+    $locationResults = $this->querySparql($locationQuery);
+    
+    if (!empty($locationResults)) {
+        $result = $locationResults[0];
+        
+        $encounterDefinition .= "<$realLocationUri> a excav:Location ;\n";
+        
+        if (isset($result['informationName'])) {
+            $encounterDefinition .= "    dbo:informationName \"" . $result['informationName']['value'] . "\"^^xsd:literal ;\n";
+        }
+        
+        if (isset($result['district'])) {
+            $encounterDefinition .= "    dbo:district <" . $result['district']['value'] . "> ;\n";
+        }
+        
+        if (isset($result['parish'])) {
+            $encounterDefinition .= "    dbo:parish <" . $result['parish']['value'] . "> ;\n";
+        }
+        
+        if (isset($result['country'])) {
+            $encounterDefinition .= "    dbo:Country <" . $result['country']['value'] . "> ;\n";
+        }
+        
+        $encounterDefinition = rtrim($encounterDefinition, " ;\n") . " .\n\n";
+        
+        // Also add type declarations for referenced entities
+        if (isset($result['district'])) {
+            $encounterDefinition .= "<" . $result['district']['value'] . "> a dbo:District .\n";
+        }
+        if (isset($result['parish'])) {
+            $encounterDefinition .= "<" . $result['parish']['value'] . "> a dbo:Parish .\n";
+        }
+        if (isset($result['country'])) {
+            $encounterDefinition .= "<" . $result['country']['value'] . "> a dbo:Country .\n";
+        }
+        
+        $encounterDefinition .= "\n";
+    }
+}
+    if ($realLocationUri) {
+        $linkedResources['excav:foundInLocation'] = $realLocationUri;
+        
+        // Extract location ID from URI for declaration
+        if (preg_match('/\/location\/([^\/]+)$/', $realLocationUri, $matches)) {
+            $locationId = $matches[1];
+            $declarations['location'] = [
+                'uri' => $realLocationUri,
+                'id' => $locationId
+            ];
+        }
+    }
     error_log("Using base URI for references: $excavationBaseUri", 3, OMEKA_PATH . '/logs/context-debug.log');
     
     // Process selected square
@@ -4301,21 +4374,17 @@ private function identifyMainSubjects($rdfData, $itemSetId = null) {
 }
 
 
-/**
- * Get complete location data from the excavation item set
- */
 private function getLocationDataFromExcavation($itemSetId) {
     try {
-        // Query GraphDB for the location data in this excavation
         $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
         
         $query = "
         PREFIX excav: <https://purl.org/megalod/ms/excavation/>
         PREFIX dbo: <http://dbpedia.org/ontology/>
         PREFIX geo: <http://www.w3.org/2003/01/geo/wgs84_pos#>
-        PREFIX dct: <http://purl.org/dc/terms/>
+        PREFIX dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>
         
-        SELECT ?locationUri ?locationName ?district ?parish ?country ?lat ?long ?gpsUri
+        SELECT ?locationUri ?locationName ?district ?parish ?country ?lat ?long
         WHERE {
           GRAPH <$graphUri> {
             ?excavation a excav:Excavation ;
@@ -4327,7 +4396,6 @@ private function getLocationDataFromExcavation($itemSetId) {
             OPTIONAL { ?locationUri dbo:Country ?country }
             OPTIONAL { ?locationUri geo:lat ?lat }
             OPTIONAL { ?locationUri geo:long ?long }
-            OPTIONAL { ?locationUri excav:hasGPSCoordinates ?gpsUri }
           }
         }
         LIMIT 1";
@@ -4343,8 +4411,7 @@ private function getLocationDataFromExcavation($itemSetId) {
                 'parish' => isset($result['parish']) ? $result['parish']['value'] : null,
                 'country' => isset($result['country']) ? $result['country']['value'] : null,
                 'lat' => isset($result['lat']) ? $result['lat']['value'] : null,
-                'long' => isset($result['long']) ? $result['long']['value'] : null,
-                'gps_uri' => isset($result['gpsUri']) ? $result['gpsUri']['value'] : null
+                'long' => isset($result['long']) ? $result['long']['value'] : null
             ];
         }
     } catch (\Exception $e) {
@@ -4353,7 +4420,6 @@ private function getLocationDataFromExcavation($itemSetId) {
     
     return null;
 }
-
 
 /**
  * Extract the identifier from a subject
@@ -6576,32 +6642,48 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     }
     
     // Add location declaration if needed
-    if ($arrowheadContext['location'] && !$existingDeclarations['location']) {
-        $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
-        
-        // Query the graph for the actual information name
-        $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
-        $locationQuery = "
-            PREFIX dbo: <http://dbpedia.org/ontology/>
-            SELECT ?informationName
-            WHERE {
-                GRAPH <$graphUri> {
-                    <$locationUri> dbo:informationName ?informationName .
-                }
+// Add location declaration if needed
+if ($arrowheadContext['location'] && !$existingDeclarations['location']) {
+    $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
+    
+    // Query the graph for the actual information name
+    $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
+    $locationQuery = "
+        PREFIX dbo: <http://dbpedia.org/ontology/>
+        SELECT ?informationName ?district ?parish ?country
+        WHERE {
+            GRAPH <$graphUri> {
+                <$locationUri> dbo:informationName ?informationName .
+                OPTIONAL { <$locationUri> dbo:district ?district }
+                OPTIONAL { <$locationUri> dbo:parish ?parish }
+                OPTIONAL { <$locationUri> dbo:Country ?country }
             }
-            LIMIT 1
-        ";
-        
-        $locationResults = $this->querySparql($locationQuery);
-
-        if (!empty($locationResults) && isset($locationResults[0]['informationName'])) {
-            $locationName = $locationResults[0]['informationName']['value'];
-            error_log("Found location information name from graph: $locationName", 3, OMEKA_PATH . '/logs/encounter-creation.log');
-        
-            $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
-            $encounterDefinition .= "    dbo:informationName \"$locationName\"^^xsd:literal .\n\n";
         }
+        LIMIT 1
+    ";
+    
+    $locationResults = $this->querySparql($locationQuery);
+
+    if (!empty($locationResults) && isset($locationResults[0]['informationName'])) {
+        $locationName = $locationResults[0]['informationName']['value'];
+        
+        $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
+        $encounterDefinition .= "    dbo:informationName \"$locationName\"^^xsd:literal";
+        
+        // Add other location properties if available
+        if (isset($locationResults[0]['district'])) {
+            $encounterDefinition .= " ;\n    dbo:district <{$locationResults[0]['district']['value']}>";
+        }
+        if (isset($locationResults[0]['parish'])) {
+            $encounterDefinition .= " ;\n    dbo:parish <{$locationResults[0]['parish']['value']}>";
+        }
+        if (isset($locationResults[0]['country'])) {
+            $encounterDefinition .= " ;\n    dbo:Country <{$locationResults[0]['country']['value']}>";
+        }
+        
+        $encounterDefinition .= " .\n\n";
     }
+}
     
     // Add square declaration if present and doesn't already exist
     if ($arrowheadContext['square'] && !$existingDeclarations['square']) {
@@ -7169,48 +7251,45 @@ private function getRealLocationUriFromExcavation($itemSetId) {
     error_log("=== GETTING REAL LOCATION URI FOR ITEM SET $itemSetId ===", 3, OMEKA_PATH . '/logs/location-discovery.log');
     
     if (!$itemSetId) {
-        error_log("❌ No item set ID provided", 3, OMEKA_PATH . '/logs/location-discovery.log');
         return null;
     }
     
-    // Get excavation identifier for consistent URI patterns
+    // Get excavation identifier
     $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
     if (!$excavationIdentifier) {
-        error_log("❌ Could not determine excavation identifier for item set $itemSetId", 3, OMEKA_PATH . '/logs/location-discovery.log');
         return null;
     }
     
-    try {
-        $excavationItems = $this->api()->search('items', [
-            'item_set_id' => $itemSetId,
-            'property' => [
-                [
-                    'property' => 1, // dcterms:title
-                    'type' => 'in',
-                    'text' => 'Excavation'
-                ]
-            ]
-        ])->getContent();
+    // Query GraphDB for existing location
+    $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
+    $locationQuery = "
+        PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+        PREFIX dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#>
         
-        if (!empty($excavationItems)) {
-            $excavationItem = $excavationItems[0];
-            $values = $excavationItem->values();
-            
-            // Get location name from excavation item
-            if (isset($values['Location Name'])) {
-                $locationName = $values['Location Name']['values'][0]->value();
-                $locationSlug = $this->createUrlSlug($locationName);
-                $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/$locationSlug";
-                error_log("✓ Found location from excavation item: $locationUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
-                return $locationUri;
+        SELECT ?locationUri
+        WHERE {
+            GRAPH <$graphUri> {
+                ?excavation a excav:Excavation ;
+                           dul:hasLocation ?locationUri .
             }
         }
+        LIMIT 1
+    ";
+    
+    try {
+        $results = $this->querySparql($locationQuery);
+        
+        if (!empty($results) && isset($results[0]['locationUri'])) {
+            $locationUri = $results[0]['locationUri']['value'];
+            error_log("✓ Found real location URI from GraphDB: $locationUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
+            return $locationUri;
+        }
     } catch (\Exception $e) {
-        error_log("Error searching for excavation items: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/location-discovery.log');
+        error_log("Error querying GraphDB for location: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/location-discovery.log');
     }
     
-    // Fallback to default location URI
-    $locationUri = null;
+    // Fallback to constructed URI
+    $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/excavation-location";
     error_log("✓ Using fallback location URI: $locationUri", 3, OMEKA_PATH . '/logs/location-discovery.log');
     return $locationUri;
 }
