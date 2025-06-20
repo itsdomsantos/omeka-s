@@ -1174,11 +1174,23 @@ private function generateContextTtl($contextUri, $context, $allEntities, $baseUr
 private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationData)
 {
     $ttl = "";
+
+    // check if there is location data
+
+    $hasLocationData = !empty($excavationData['site_name']) ||
+                      !empty($excavationData['district']) ||
+                      !empty($excavationData['parish']) ||
+                      !empty($excavationData['country']) ||
+                      (!empty($excavationData['latitude']) && !empty($excavationData['longitude']));
+    
+    if (!$hasLocationData) {
+        error_log("No location data available - skipping location TTL generation", 3, OMEKA_PATH . '/logs/location-debug.log');
+        return null;
+    }       
     
     // MAIN LOCATION ENTITY - clean single type
     $ttl .= "<$locationUri> a excav:Location ;\n";
     
-    // FIXED: Use site_name as the informationName ONLY if we don't already have one
     if (!empty($excavationData['site_name'])) {
         $ttl .= "    dbo:informationName \"" . $excavationData['site_name'] . "\"^^xsd:literal ;\n";
     }
@@ -1615,12 +1627,21 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
     // USE THE EXCAVATION IDENTIFIER INSTEAD OF RANDOM HASH
     $baseUri = "https://purl.org/megalod/" . $excavationIdentifier;
     $excavationUri = "$baseUri/excavation/$excavationIdentifier";
-    
-    // Create consistent, readable URIs
-    $siteName = $excavationData['site_name'] ?? 'unknown';
-    $siteSlug = $this->createUrlSlug($siteName);
-    $locationUri = "$baseUri/location/$siteSlug";
-    $gpsUri = "$baseUri/gps/$siteSlug"; // SEPARATE GPS URI
+
+    $hasLocationData = !empty($excavationData['site_name']) ||
+                      !empty($excavationData['district']) ||
+                      !empty($excavationData['parish']) ||
+                      !empty($excavationData['country']) ||
+                      (!empty($excavationData['latitude']) && !empty($excavationData['longitude']));
+    $locationUri = null;
+    $gpsUri = null;
+
+    if ($hasLocationData) {
+        $siteName = $excavationData['site_name'] ?? 'unknown';
+        $siteSlug = $this->createUrlSlug($siteName);
+        $locationUri = "$baseUri/location/$siteSlug";
+        $gpsUri = "$baseUri/gps/$siteSlug";
+    }
     
     // Build TTL data
     $ttl = $this->getTtlPrefixes();
@@ -1635,7 +1656,9 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
     // Add excavation
     $ttl .= "<$excavationUri> a excav:Excavation ;\n";
     $ttl .= "    dct:identifier \"$excavationIdentifier\"^^xsd:literal ;\n";
-    $ttl .= "    dul:hasLocation <$locationUri> ;\n";
+    if ($locationUri) {
+        $ttl .= "    dul:hasLocation <$locationUri> ;\n";
+    }
     
     // Add archaeologist reference
     if (!empty($excavationData['archaeologist']['name'])) {
@@ -1670,11 +1693,13 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
     }
     
     // LOCATION SECTION
-    $ttl .= "# =========== LOCATION ===========\n\n";
-    $ttl .= $this->generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationData);
-    
-    // Continue with other sections...
-    // (ARCHAEOLOGIST, SQUARES, CONTEXTS, SVUS, TIMELINES sections remain the same)
+    if ($locationUri) {
+        $ttl .= "# =========== LOCATION ===========\n\n";
+        $locationTtl = $this->generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationData);
+        if ($locationTtl) {
+            $ttl .= $locationTtl;
+        }
+    }
     
     // ARCHAEOLOGIST SECTION
     if (!empty($excavationData['archaeologist']['name']) && !$excavationData['archaeologist']['existing']) {
@@ -3170,7 +3195,8 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             error_log('Extracted context: ' . print_r($arrowheadContext, true), 3, OMEKA_PATH . '/logs/encounter-validation.log');
             
             // 2. Validate context relationships exist in item set
-            $validationResult = $this->validateContextRelationships($arrowheadContext, $itemSetId);
+            $validationResult = $this->validateContextRelationships($arrowheadContext, $itemSetId);            // log the validation result
+            error_log('Validation result: ' . print_r($validationResult, true), 3, OMEKA_PATH . '/logs/encounter-validation.log');
             
             if (!$validationResult['valid']) {
                 // Return validation error immediately
@@ -6202,32 +6228,56 @@ private function getExcavationRelationshipsFromGraphDB($itemSetId) {
     $graphUri = $this->baseDataGraphUri . $itemSetId . "/";
     error_log("Querying excavation relationships from GraphDB: $graphUri", 3, OMEKA_PATH . '/logs/encounter-validation.log');
     $query = "
-PREFIX excav: <https://purl.org/megalod/ms/excavation/>
-PREFIX dct: <http://purl.org/dc/terms/>
+    PREFIX excav: <https://purl.org/megalod/ms/excavation/>
+    PREFIX dct: <http://purl.org/dc/terms/>
+    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 
-SELECT ?contextId ?svuId ?squareId ?hasRelationship
-WHERE {
-  GRAPH <$graphUri> {
-    # Get all contexts
-    ?context a excav:Context ;
-             dct:identifier ?contextId .
-    
-    # Get all SVUs
-    ?svu a excav:StratigraphicVolumeUnit ;
-         dct:identifier ?svuId .
-    
-    # Get all squares
-    ?square a excav:Square ;
-            dct:identifier ?squareId .
-    
-    # Check for context-SVU relationships
-    OPTIONAL {
-      ?context excav:hasSVU ?svu .
-      BIND(true AS ?hasRelationship)
-    }
-  }
-}
-";
+    SELECT DISTINCT ?contextId ?svuId ?squareId ?hasRelationship
+    WHERE {
+        GRAPH <$graphUri> {
+            {
+                # Get contexts via type declaration
+                ?context a excav:Context ;
+                        dct:identifier ?contextId .
+            } UNION {
+                # Also try with normalized URI pattern
+                ?context a <http://localhost/megalod/$itemSetId/excavation/Context> ;
+                        dct:identifier ?contextId .
+            }
+            
+            OPTIONAL {
+                {
+                    # Get SVUs via type declaration
+                    ?svu a excav:StratigraphicVolumeUnit ;
+                         dct:identifier ?svuId .
+                } UNION {
+                    # Also try with normalized URI pattern
+                    ?svu a <http://localhost/megalod/$itemSetId/excavation/StratigraphicVolumeUnit> ;
+                         dct:identifier ?svuId .
+                }
+            }
+            
+            OPTIONAL {
+                {
+                    # Get squares via type declaration
+                    ?square a excav:Square ;
+                            dct:identifier ?squareId .
+                } UNION {
+                    # Also try with normalized URI pattern
+                    ?square a <http://localhost/megalod/$itemSetId/excavation/Square> ;
+                            dct:identifier ?squareId .
+                }
+            }
+            
+            # Check for context-SVU relationships with both URI patterns
+            OPTIONAL {
+                { ?context excav:hasSVU ?svu }
+                UNION
+                { ?context <http://localhost/megalod/$itemSetId/excavation/hasSVU> ?svu }
+                BIND(true AS ?hasRelationship)
+            }
+        }
+    }";
     
     try {
         $client = new \Laminas\Http\Client();
@@ -6665,8 +6715,8 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     $encounterDefinition .= "    excav:foundInExcavation <$excavationUri> ;\n";
 
     // Add location reference
-    if ($arrowheadContext['location']) {
-        $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
+    $locationUri = $this->getRealLocationUriFromExcavation($itemSetId);
+    if ($locationUri && $this->locationHasData($itemSetId)) {
         $encounterDefinition .= "    excav:foundInLocation <$locationUri> ;\n";
     }
 
@@ -6727,7 +6777,17 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     return $enhancedTtl . $encounterDefinition;
 }
 
-
+private function locationHasData($itemSetId) {
+    $locationData = $this->getLocationDataFromExcavation($itemSetId);
+    return !empty($locationData) && (
+        !empty($locationData['name']) ||
+        !empty($locationData['district']) ||
+        !empty($locationData['parish']) ||
+        !empty($locationData['country']) ||
+        !empty($locationData['lat']) ||
+        !empty($locationData['long'])
+    );
+}
 
 private function checkExistingDeclarations($ttlData, $itemSetId, $excavationIdentifier) {
     $existing = [
@@ -7289,6 +7349,20 @@ private function getRealLocationUriFromExcavation($itemSetId) {
     // Get excavation identifier
     $excavationIdentifier = $this->getExcavationIdentifierFromItemSet($itemSetId);
     if (!$excavationIdentifier) {
+        return null;
+    }
+
+    // Check if there's actual location data
+    $locationData = $this->getLocationDataFromExcavation($itemSetId);
+    if (empty($locationData) || (
+        empty($locationData['name']) &&
+        empty($locationData['district']) &&
+        empty($locationData['parish']) &&
+        empty($locationData['country']) &&
+        empty($locationData['lat']) &&
+        empty($locationData['long'])
+    )) {
+        error_log("No location data found for item set $itemSetId", 3, OMEKA_PATH . '/logs/location-discovery.log');
         return null;
     }
     
