@@ -25,15 +25,15 @@
 # =========== ITEMS ===========
 
 <https://purl.org/megalod/item/arrowhead-003> a excav:Item, ah:Arrowhead ;
-    dct:identifier "ah-057"^^xsd:literal;
-    edm:Webresource <https://example.com/images/arrowhead-003.jpg> ;
+    dct:identifier "ah-001"^^xsd:literal;
+    edm:Webresource <https://example.com/images/arrowhead-002.jpg> ;
     dbo:Annotation "Large, stemmed arrowhead with bifacial retouch"^^xsd:literal;
     crm:E3_Condition_State true ;
     
     crm:E57_Material <http://vocab.getty.edu/page/aat/300057143> ;
     excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/ah-057-coordinates> ;
     excav:foundInContext <https://purl.org/megalod/context/CTX-001> ;
-    excav:foundInSVU <https://purl.org/megalod/svu/Layer-02> ;
+    excav:foundInSVU <https://purl.org/megalod/svu/Layer-03> ;
     schema:height <https://purl.org/megalod/typometry/ah-057-height> ;
     schema:width <https://purl.org/megalod/typometry/ah-057-width> ;
     schema:depth <https://purl.org/megalod/typometry/ah-057-depth> ;
@@ -47,11 +47,11 @@
     ah:hasMorphology <https://purl.org/megalod/Morphology/ah-057-morphology> ;
     ah:hasBodyLength <https://purl.org/megalod/BodyLength/ah-057-bodylength> ;
     ah:hasBaseLength <https://purl.org/megalod/BaseLength/ah-057-baselength> ;
-    ah:hasChipping <https://purl.org/megalod/Chipping/ah-057-chipping> .
+    ah:hasChipping <https://purl.org/megalod/Chipping/ah-057-chipping> ;
 
 
     # ENCOUNTER DATE NON MANDATORY - If this information exists, an encounter event is automatically created
-    dct:date "09-14-2013"^^xsd:literal ;
+    dct:date "09-14-2013"^^xsd:literal .
 
 
 

@@ -50379,3 +50379,12 @@ _:fbc6ce1e-25a3-4261-b6f1-2e01cb1b1e2e-57 <http://www.w3.org/ns/shacl#class> <ht
 2025-06-20T19:09:54+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-06-20T19:10:05+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-06-20T19:10:29+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-20T19:24:42+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-21T14:21:30+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-21T14:23:20+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Illegal predicate value: "09-14-2013"^^<http://www.w3.org/2001/XMLSchema#literal> [line 56]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Illegal predicate value: "09-14-2013"^^<http://www.w3.org/2001/XMLSchema#literal> [line 56]2025-06-21T14:23:20+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Illegal predicate value: "09-14-2013"^^<http://www.w3.org/2001/XMLSchema#literal> [line 56]
+2025-06-21T14:24:54+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found 'd' [line 56]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found 'd' [line 56]2025-06-21T14:24:54+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected '.', found 'd' [line 56]
+2025-06-21T14:25:43+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-21T14:26:27+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-21T14:30:17+00:00 INFO (6): Response Status: 204 | Response Body:

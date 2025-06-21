@@ -209,52 +209,6 @@ public function uploadExcavationFormAction()
 
 
 
-
-private function getFormData(CollectingFormRepresentation $cForm): array
-{
-    $formData = [];
-    $rawPost = $this->params()->fromPost();
-    
-    error_log('=== ENHANCED getFormData DEBUG ===', 3, OMEKA_PATH . '/logs/form-data-debug.log');
-    
-    foreach ($cForm->prompts() as $prompt) {
-        $fieldName = 'prompt_' . $prompt->id();
-        $promptText = $prompt->text();
-        
-        error_log("Processing prompt {$prompt->id()}: $promptText", 3, OMEKA_PATH . '/logs/form-data-debug.log');
-        
-        if (isset($rawPost[$fieldName])) {
-            $value = $rawPost[$fieldName];
-            error_log("  Found value: $value", 3, OMEKA_PATH . '/logs/form-data-debug.log');
-            
-            // Map based on prompt text (more reliable than type)
-            if (stripos($promptText, 'site') !== false || stripos($promptText, 'name') !== false) {
-                $formData['location'] = $value;
-            } elseif (stripos($promptText, 'latitude') !== false) {
-                $formData['latitude'] = $value;
-            } elseif (stripos($promptText, 'longitude') !== false) {
-                $formData['longitude'] = $value;
-            } elseif (stripos($promptText, 'country') !== false) {
-                $formData['country'] = $value;
-            } elseif (stripos($promptText, 'parish') !== false) {
-                $formData['parish'] = $value;
-            } elseif (stripos($promptText, 'city') !== false) {
-                $formData['city'] = $value;
-            } elseif (stripos($promptText, 'acronym') !== false) {
-                $formData['acronym'] = $value;
-            }
-            
-            // Store all values for debugging
-            $formData[$fieldName] = $value;
-        } else {
-            error_log("  No value found for $fieldName", 3, OMEKA_PATH . '/logs/form-data-debug.log');
-        }
-    }
-    
-    error_log('Final form data: ' . print_r($formData, true), 3, OMEKA_PATH . '/logs/form-data-debug.log');
-    return $formData;
-}
-
     public function submitAction()
 {
     if (!$this->getRequest()->isPost()) {
