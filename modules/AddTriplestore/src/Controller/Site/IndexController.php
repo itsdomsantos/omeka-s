@@ -912,9 +912,8 @@ private function sanitizeForUri($value) {
     if (preg_match('/^([^(]+)/', $value, $matches)) {
         $value = trim($matches[1]);
     }
-    
+     
     // Convert to lowercase and remove spaces and special characters
-    $value = strtolower($value);
     $value = preg_replace('/[\s()]+/', '', $value);
     
     return $value;
@@ -1488,13 +1487,13 @@ private function generateEnhancedLocationTtl($locationUri, $gpsUri, $excavationD
             'label' => $excavationData['country']
         ];
     }
-
-    $ttl .= ".\n";
     
     // Only add GPS references if both latitude and longitude are provided
     if (!empty($excavationData['latitude']) && !empty($excavationData['longitude'])) {
         $ttl .= "    excav:hasGPSCoordinates <$gpsUri> ;\n";
     }
+
+    $ttl .= ".\n";
     if (!empty($excavationData['latitude']) && !empty($excavationData['longitude'])) {
         $ttl .= "<$gpsUri> a excav:GPSCoordinates ;\n";
         $ttl .= "    geo:lat \"" . $excavationData['latitude'] . "\"^^xsd:decimal ;\n";
@@ -2145,10 +2144,7 @@ private function generateTimelineAndInstantSections(&$ttl, $excavationData, $bas
                 $yearValue = abs((int)$year);
                 $yearFormatted = str_pad($yearValue, 4, '0', STR_PAD_LEFT);
                 
-                // Add negative sign for BC years in xsd:gYear format
-                if ($isBC) {
-                    $yearFormatted = "-" . $yearFormatted;
-                }
+      
                 
                 $ttl .= "    time:inXSDgYear \"$yearFormatted\"^^xsd:gYear .\n\n";
             }
@@ -2268,20 +2264,9 @@ private function getSvuIdentifierFromOmekaItem($itemId) {
         
         $item = $this->api()->read('items', $itemId)->getContent();
         
-        // Strategy 1: Try to get the SVU ID property specifically
+        // Strategy 1: Try to get the dcterms:identifier value specifically
         $values = $item->values();
         
-        if (isset($values['SVU ID'])) {
-            foreach ($values['SVU ID'] as $value) {
-                if ($value instanceof \Omeka\Api\Representation\ValueRepresentation) {
-                    $identifier = $value->value();
-                    error_log("Found SVU ID property for item $itemId: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
-                    return $identifier;
-                }
-            }
-        }
-        
-        // Strategy 2: Try dcterms:identifier
         if (isset($values['dcterms:identifier'])) {
             foreach ($values['dcterms:identifier'] as $value) {
                 if ($value instanceof \Omeka\Api\Representation\ValueRepresentation) {
@@ -2292,26 +2277,53 @@ private function getSvuIdentifierFromOmekaItem($itemId) {
             }
         }
         
-        // Strategy 3: Extract from title looking for Layer patterns
+        // Strategy 2: Extract from title looking for SVU-specific patterns ONLY
         $title = $item->displayTitle();
         error_log("SVU item $itemId title: $title", 3, OMEKA_PATH . '/logs/identifier-debug.log');
         
-        // Look for Layer-XX pattern in title
-        if (preg_match('/Layer-(\d+)/', $title, $matches)) {
+        // Look for SVU-specific patterns only
+        $svuPatterns = [
+            '/\b(Layer-\d+)\b/',          // Layer-XX pattern
+            '/\b(CV-\d+-\d+)\b/',         // CV-XXX-X pattern  
+            '/\b(SVU-\d+)\b/',            // SVU-XX pattern
+            '/\b(svu-\d+)\b/',            // svu-XX pattern
+            '/\b(SU-\d+)\b/',             // SU-XX pattern
+        ];
+        
+        foreach ($svuPatterns as $pattern) {
+            if (preg_match($pattern, $title, $matches)) {
+                error_log("Extracted SVU identifier from title: {$matches[1]}", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+                return $matches[1];
+            }
+        }
+        
+        // Strategy 3: Check resource class to confirm this is an SVU, then generate appropriate ID
+        $resourceClass = $item->resourceClass();
+        if ($resourceClass) {
+            $className = strtolower($resourceClass->label());
+            error_log("Resource class for item $itemId: $className", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+            
+            if (strpos($className, 'stratigraphic') !== false || 
+                strpos($className, 'svu') !== false || 
+                strpos($className, 'unit') !== false) {
+                
+                // Generate SVU-appropriate identifier
+                $identifier = "Layer-" . str_pad($itemId % 100, 2, '0', STR_PAD_LEFT);
+                error_log("Generated SVU identifier based on class: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+                return $identifier;
+            }
+        }
+        
+        // Strategy 4: Look for any numeric pattern and assume it's a layer
+        if (preg_match('/\b(\d+)\b/', $title, $matches)) {
             $identifier = "Layer-" . str_pad($matches[1], 2, '0', STR_PAD_LEFT);
-            error_log("Extracted Layer identifier from title: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+            error_log("Generated Layer identifier from numeric pattern: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
             return $identifier;
         }
         
-        // Look for other SVU patterns
-        if (preg_match('/\b(Layer-\d+|\w+-\d+|SVU-\d+)\b/', $title, $matches)) {
-            error_log("Extracted SVU identifier from title: {$matches[1]}", 3, OMEKA_PATH . '/logs/identifier-debug.log');
-            return $matches[1];
-        }
-        
-        // Strategy 4: Generate based on item ID as last resort
+        // Final fallback for SVU
         $fallbackIdentifier = "Layer-" . str_pad($itemId % 100, 2, '0', STR_PAD_LEFT);
-        error_log("Using fallback SVU identifier: $fallbackIdentifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        error_log("Using SVU fallback identifier: $fallbackIdentifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
         return $fallbackIdentifier;
         
     } catch (\Exception $e) {
@@ -5083,10 +5095,10 @@ private function extractPropertyValue($valueObj, $type = 'auto') {
                 $clean = $lastPart;
             }
             
-            return ucfirst(str_replace('-', ' ', $clean));
+            return str_replace('-', ' ', $clean);
         } else {
             $parts = explode('/', $valueObj['value']);
-            return ucfirst(end($parts));
+            return end($parts);
         }
     }
     
@@ -7163,7 +7175,7 @@ private function extractIdentifierFromUriStructure($resourceUri) {
                 $number = floor(($itemId - 1) / 26) + 1;
                 return $letter . $number; // A1, B1, C1... Z1, A2, B2, etc.
             default:
-                return strtoupper($resourceType) . "-" . ($itemId % 1000);
+                return $resourceType . "-" . ($itemId % 1000);
         }
     }
     
@@ -7201,13 +7213,12 @@ private function getRealIdentifierFromOmekaItem($itemId) {
         
         $item = $this->api()->read('items', $itemId)->getContent();
         
-        // Strategy 1: Try to get the dcterms:identifier value
+        // Strategy 1: Try to get the dcterms:identifier value ONLY
         $values = $item->values();
 
         if (isset($values['dcterms:identifier'])) {
             error_log("Found dcterms:identifier for item $itemId", 3, OMEKA_PATH . '/logs/identifier-debug.log');
             foreach ($values['dcterms:identifier'] as $value) {
-                //log value type
                 if ($value instanceof \Omeka\Api\Representation\ValueRepresentation) {
                     $identifier = $value->value();
                     error_log("Found real identifier for item $itemId: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
@@ -7216,39 +7227,31 @@ private function getRealIdentifierFromOmekaItem($itemId) {
             }
         }
         
-        // Strategy 2: Check other common identifier properties
-        $identifierProperties = [
-            'dcterms:title',
-            'bibo:identifier', 
-            'schema:identifier'
-        ];
-        
-        foreach ($identifierProperties as $prop) {
-            if (isset($values[$prop])) {
-                foreach ($values[$prop] as $value) {
-                    if ($value instanceof \Omeka\Api\Representation\ValueRepresentation) {
-                        $val = $value->value();
-                        // Look for identifier patterns in the value
-                        if (preg_match('/\b([A-Z]{1,4}-\d+(?:-\d+)?)\b/', $val, $matches)) {
-                            error_log("Found identifier pattern in $prop for item $itemId: {$matches[1]}", 3, OMEKA_PATH . '/logs/identifier-debug.log');
-                            return $matches[1];
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Strategy 3: Extract identifier patterns from title
+        // Strategy 2: Only if dcterms:identifier is not found, extract from title
         $title = $item->displayTitle();
         error_log("Item $itemId title: $title", 3, OMEKA_PATH . '/logs/identifier-debug.log');
         
-        // Look for various identifier patterns
+        // Look for various identifier patterns in title
         $patterns = [
-            '/\b(CV-\d+-\d+)\b/',     // SVU pattern: CV-001-1
-            '/\b(CV-\d+)\b/',         // Context pattern: CV-001
-            '/\b([A-Z]\d+)\b/',       // Square pattern: A1, B2
-            '/\b(AH-[A-Z0-9]+)\b/',   // Arrowhead pattern: AH-001
-            '/\b([A-Z]{2,4}-\d+)\b/', // General pattern: EXC-001
+            // SVU pattern: "Stratigraphic Unit SVUIDENTIFIER"
+            '/Stratigraphic Unit\s+([A-Za-z0-9\-_]+)/',
+            
+            // Context pattern: "Context CONTEXTIDENTIFIER"  
+            '/Context\s+([A-Za-z0-9\-_]+)/',
+            
+            // Square pattern: "Square SQUAREIDENTIFIER"
+            '/Square\s+([A-Za-z0-9\-_]+)/',
+            
+            // Archaeological Item pattern: "Archaeological Item AHIDENTIFIER"
+            '/Archaeological Item\s+([A-Za-z0-9\-_]+)/',
+            
+            // Fallback patterns for original formats
+            '/\b(Layer-\d+)\b/',          // SVU legacy pattern
+            '/\b(CTX-\d+)\b/',            // Context legacy pattern
+            '/\b(CV-\d+-\d+)\b/',         // SVU alternate pattern
+            '/\b(CV-\d+)\b/',             // Context alternate pattern
+            '/\b([A-Z]\d+)\b/',           // Square legacy pattern
+            '/\b(AH-[A-Z0-9]+)\b/',       // Arrowhead legacy pattern
         ];
         
         foreach ($patterns as $pattern) {
@@ -7258,20 +7261,21 @@ private function getRealIdentifierFromOmekaItem($itemId) {
             }
         }
         
-        // Strategy 4: Generate reasonable identifier based on item type and ID
-        $resourceClasses = $item->resourceClass();
-        if ($resourceClasses) {
-            $className = $resourceClasses->label();
+        // Strategy 3: Last resort - use item ID with a prefix based on resource class
+        $resourceClass = $item->resourceClass();
+        if ($resourceClass) {
+            $className = $resourceClass->label();
             error_log("Item $itemId resource class: $className", 3, OMEKA_PATH . '/logs/identifier-debug.log');
             
             // Generate identifier based on class type
             switch (strtolower($className)) {
                 case 'context':
-                    $identifier = "CV-" . str_pad($itemId % 1000, 3, '0', STR_PAD_LEFT);
+                    $identifier = "CTX-" . str_pad($itemId % 1000, 3, '0', STR_PAD_LEFT);
                     break;
                 case 'stratigraphic unit':
                 case 'svu':
-                    $identifier = "CV-001-" . ($itemId % 10);
+                case 'stratigraphic volume unit':
+                    $identifier = "Layer-" . str_pad($itemId % 100, 2, '0', STR_PAD_LEFT);
                     break;
                 case 'square':
                     $letters = ['A', 'B', 'C', 'D'];
@@ -7291,9 +7295,9 @@ private function getRealIdentifierFromOmekaItem($itemId) {
             return $identifier;
         }
         
-        // Strategy 5: Last resort - use item ID with a prefix
+        // Final fallback
         $fallbackIdentifier = "ITEM-$itemId";
-        error_log("Using fallback identifier: $fallbackIdentifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
+        error_log("Using final fallback identifier: $fallbackIdentifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
         return $fallbackIdentifier;
         
     } catch (\Exception $e) {
@@ -8665,7 +8669,7 @@ private function extractCommonProperties($rdfData, $subject, &$itemData) {
                     // Extract meaningful part from URI
                     if (strpos($object['value'], '/kos/') !== false) {
                         $parts = explode('/', $object['value']);
-                        $value = ucfirst(end($parts));
+                        $value = end($parts);
                         
                         $itemData[$term][] = [
                             'type' => 'literal',

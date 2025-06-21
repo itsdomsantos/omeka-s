@@ -50388,3 +50388,121 @@ Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Exp
 2025-06-21T14:25:43+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-06-21T14:26:27+00:00 INFO (6): Response Status: 204 | Response Body:
 2025-06-21T14:30:17+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-21T15:38:40+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-21T15:42:06+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Expected an RDF value here, found ';' [line 41]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected an RDF value here, found ';' [line 41]2025-06-21T15:42:06+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Expected an RDF value here, found ';' [line 41]
+2025-06-21T15:46:25+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-21T15:58:41+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-21T16:06:10+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-21T16:29:36+00:00 INFO (6): Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1329907 .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-Spain/square/a1> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#resultPath> <http://www.w3.org/2003/01/geo/wgs84_pos#long> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#sourceShape> _:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 .
+_:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 <http://www.w3.org/ns/shacl#path> <http://www.w3.org/2003/01/geo/wgs84_pos#long> .
+_:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1329908 .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-Spain/square/a1> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#resultPath> <http://www.w3.org/2003/01/geo/wgs84_pos#lat> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:b9eb0ef3-792f-473e-850c-71125f33a537-29 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#sourceShape> _:b9eb0ef3-792f-473e-850c-71125f33a537-29 .
+_:b9eb0ef3-792f-473e-850c-71125f33a537-29 <http://www.w3.org/ns/shacl#path> <http://www.w3.org/2003/01/geo/wgs84_pos#lat> .
+_:b9eb0ef3-792f-473e-850c-71125f33a537-29 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1329909 .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-Spain/excavation/Excav-Spain> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#resultPath> <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:298bf2bc-0c2b-48da-a487-492abbfe9701-2 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#sourceShape> _:298bf2bc-0c2b-48da-a487-492abbfe9701-2 .
+_:298bf2bc-0c2b-48da-a487-492abbfe9701-2 <http://www.w3.org/ns/shacl#path> <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation> .
+_:298bf2bc-0c2b-48da-a487-492abbfe9701-2 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+
+Failed to upload data: Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1329907 .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-Spain/square/a1> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#resultPath> <http://www.w3.org/2003/01/geo/wgs84_pos#long> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#sourceShape> _:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 .
+_:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 <http://www.w3.org/ns/shacl#path> <http://www.w3.org/2003/01/geo/wgs84_pos#long> .
+_:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1329908 .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-Spain/square/a1> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#resultPath> <http://www.w3.org/2003/01/geo/wgs84_pos#lat> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:b9eb0ef3-792f-473e-850c-71125f33a537-29 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#sourceShape> _:b9eb0ef3-792f-473e-850c-71125f33a537-29 .
+_:b9eb0ef3-792f-473e-850c-71125f33a537-29 <http://www.w3.org/ns/shacl#path> <http://www.w3.org/2003/01/geo/wgs84_pos#lat> .
+_:b9eb0ef3-792f-473e-850c-71125f33a537-29 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1329909 .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-Spain/excavation/Excav-Spain> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#resultPath> <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:298bf2bc-0c2b-48da-a487-492abbfe9701-2 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#sourceShape> _:298bf2bc-0c2b-48da-a487-492abbfe9701-2 .
+_:298bf2bc-0c2b-48da-a487-492abbfe9701-2 <http://www.w3.org/ns/shacl#path> <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation> .
+_:298bf2bc-0c2b-48da-a487-492abbfe9701-2 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+2025-06-21T16:29:36+00:00 ERR (3): Failed to upload data: Response Status: 500 | Response Body: _:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#conforms> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationReport> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://rdf4j.org/schema/rdf4j#truncated> "false"^^<http://www.w3.org/2001/XMLSchema#boolean> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1329907 .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-Spain/square/a1> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#resultPath> <http://www.w3.org/2003/01/geo/wgs84_pos#long> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1329907 <http://www.w3.org/ns/shacl#sourceShape> _:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 .
+_:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 <http://www.w3.org/ns/shacl#path> <http://www.w3.org/2003/01/geo/wgs84_pos#long> .
+_:53a7cc7b-3e8f-4018-a64d-38e8810c6a21-28 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1329908 .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-Spain/square/a1> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#resultPath> <http://www.w3.org/2003/01/geo/wgs84_pos#lat> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:b9eb0ef3-792f-473e-850c-71125f33a537-29 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1329908 <http://www.w3.org/ns/shacl#sourceShape> _:b9eb0ef3-792f-473e-850c-71125f33a537-29 .
+_:b9eb0ef3-792f-473e-850c-71125f33a537-29 <http://www.w3.org/ns/shacl#path> <http://www.w3.org/2003/01/geo/wgs84_pos#lat> .
+_:b9eb0ef3-792f-473e-850c-71125f33a537-29 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+_:7975660053a04e57a418b233e75681ac1329906 <http://www.w3.org/ns/shacl#result> _:7975660053a04e57a418b233e75681ac1329909 .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#ValidationResult> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#focusNode> <https://purl.org/megalod/Excav-Spain/excavation/Excav-Spain> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://rdf4j.org/shacl-extensions#shapesGraph> <http://rdf4j.org/schema/rdf4j#SHACLShapeGraph> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#resultPath> <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#sourceConstraintComponent> <http://www.w3.org/ns/shacl#MaxCountConstraintComponent> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#resultSeverity> <http://www.w3.org/ns/shacl#Violation> .
+_:298bf2bc-0c2b-48da-a487-492abbfe9701-2 <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> <http://www.w3.org/ns/shacl#PropertyShape> .
+_:7975660053a04e57a418b233e75681ac1329909 <http://www.w3.org/ns/shacl#sourceShape> _:298bf2bc-0c2b-48da-a487-492abbfe9701-2 .
+_:298bf2bc-0c2b-48da-a487-492abbfe9701-2 <http://www.w3.org/ns/shacl#path> <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation> .
+_:298bf2bc-0c2b-48da-a487-492abbfe9701-2 <http://www.w3.org/ns/shacl#maxCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
+
+2025-06-21T16:30:38+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-21T16:35:58+00:00 INFO (6): Response Status: 204 | Response Body:
