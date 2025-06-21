@@ -9811,88 +9811,214 @@ private function queryCompleteExcavationFromGraphDB($itemSetId, $resource)
 
 
 
+
+private function parseTtlIntoSubjects($ttlData)
+{
+    $subjects = [];
+    
+    // First, clean and normalize the TTL data
+    $cleanTtl = $this->cleanExistingPrefixes($ttlData);
+    
+    // Use a more robust parsing approach
+    $lines = explode("\n", $cleanTtl);
+    $currentSubject = null;
+    $currentStatements = [];
+    $inMultiLineStatement = false;
+    
+    foreach ($lines as $lineNum => $line) {
+        $trimmedLine = trim($line);
+        
+        // Skip empty lines and comments
+        if (empty($trimmedLine) || strpos($trimmedLine, '#') === 0) {
+            continue;
+        }
+        
+        // Check if this line starts a new subject
+        if (preg_match('/^(<[^>]+>)\s+(.+)$/', $trimmedLine, $matches)) {
+            // Save previous subject if exists
+            if ($currentSubject && !empty($currentStatements)) {
+                $subjects[$currentSubject] = $this->cleanStatements($currentStatements);
+            }
+            
+            // Start new subject
+            $currentSubject = $matches[1];
+            $remainder = trim($matches[2]);
+            
+            // Check if this line ends the statement
+            if (substr($remainder, -1) === '.') {
+                // Complete statement on one line
+                $subjects[$currentSubject] = [$remainder];
+                $currentSubject = null;
+                $currentStatements = [];
+            } else {
+                // Multi-line statement
+                $currentStatements = [$remainder];
+                $inMultiLineStatement = true;
+            }
+        } else if ($currentSubject && !empty($trimmedLine)) {
+            // Continue current subject
+            $currentStatements[] = $trimmedLine;
+            
+            // Check if this line ends the statement
+            if (substr($trimmedLine, -1) === '.') {
+                $subjects[$currentSubject] = $this->cleanStatements($currentStatements);
+                $currentSubject = null;
+                $currentStatements = [];
+                $inMultiLineStatement = false;
+            }
+        }
+    }
+    
+    // Don't forget the last subject
+    if ($currentSubject && !empty($currentStatements)) {
+        $subjects[$currentSubject] = $this->cleanStatements($currentStatements);
+    }
+    
+    return $subjects;
+}
+
+private function cleanStatements($statements)
+{
+    $cleaned = [];
+    
+    foreach ($statements as $statement) {
+        $statement = trim($statement);
+        
+        // Remove trailing punctuation for consistent formatting
+        $statement = rtrim($statement, ';.');
+        
+        // Ensure proper spacing around predicates and objects
+        $statement = preg_replace('/\s+/', ' ', $statement);
+        
+        if (!empty($statement)) {
+            $cleaned[] = $statement;
+        }
+    }
+    
+    return $cleaned;
+}
+
+private function formatSubjectStatements($subject, $statements)
+{
+    if (empty($statements)) {
+        return $subject . " .\n";
+    }
+    
+    $formatted = $subject;
+    
+    // Process statements with proper indentation
+    $processedStatements = [];
+    
+    foreach ($statements as $i => $statement) {
+        $cleanStatement = trim($statement);
+        
+        // Skip empty statements
+        if (empty($cleanStatement)) {
+            continue;
+        }
+
+        // Skip dct:date statements for download
+        if (strpos($cleanStatement, 'dct:date') === 0) {
+            continue;
+        }
+        
+        // Add proper indentation
+        if ($i === 0) {
+            // First statement goes right after the subject
+            $processedStatements[] = " " . $cleanStatement;
+        } else {
+            // Subsequent statements are indented
+            $processedStatements[] = "    " . $cleanStatement;
+        }
+    }
+    
+    if (!empty($processedStatements)) {
+        $formatted = $subject . implode(" ;\n", $processedStatements) . " .\n";
+    } else {
+        $formatted = $subject . " .\n";
+    }
+    
+    return $formatted;
+}
+
 private function organizeAndFormatTtl($rawTtlData, $itemSetId)
 {
     // Parse the TTL data into subject-grouped statements
     $subjects = $this->parseTtlIntoSubjects($rawTtlData);
     
-    // Build organized TTL
+    // Build organized TTL with proper header
     $organizedTtl = $this->getTtlPrefixes();
     $organizedTtl .= "\n# ========================================================================================\n";
-    $organizedTtl .= "# COMPLETE EXCAVATION DATA - ITEM SET $itemSetId\n";
+    $organizedTtl .= "# ARCHAEOLOGICAL ITEM DATA - ITEM SET $itemSetId\n";
     $organizedTtl .= "# Downloaded from GraphDB on " . date('Y-m-d H:i:s') . "\n";
     $organizedTtl .= "# Organized by resource type for better readability\n";
     $organizedTtl .= "# ========================================================================================\n\n";
     
-    // Define the order of sections
+    // Define logical sections in order
     $sections = [
         'excavation' => [
             'title' => 'MAIN EXCAVATION',
-            'pattern' => '/excav:Excavation/'
+            'pattern' => '/a\s+excav:Excavation/'
         ],
         'location' => [
             'title' => 'LOCATION',
-            'pattern' => '/excav:Location/'
+            'pattern' => '/a\s+excav:Location/'
         ],
         'gps' => [
-            'title' => 'GPS COORDINATES',
-            'pattern' => '/excav:GPSCoordinates/'
+            'title' => 'GPS COORDINATES', 
+            'pattern' => '/a\s+excav:GPSCoordinates/'
         ],
         'archaeologist' => [
             'title' => 'ARCHAEOLOGIST',
-            'pattern' => '/excav:Archaeologist/'
+            'pattern' => '/a\s+excav:Archaeologist/'
         ],
         'squares' => [
             'title' => 'EXCAVATION SQUARES',
-            'pattern' => '/excav:Square/'
+            'pattern' => '/a\s+excav:Square/'
         ],
         'contexts' => [
             'title' => 'CONTEXTS',
-            'pattern' => '/excav:Context/'
+            'pattern' => '/a\s+excav:Context/'
         ],
         'svus' => [
             'title' => 'STRATIGRAPHIC VOLUME UNITS',
-            'pattern' => '/excav:StratigraphicVolumeUnit/'
-        ],
-        'timelines' => [
-            'title' => 'TIMELINES',
-            'pattern' => '/excav:TimeLine/'
-        ],
-        'instants' => [
-            'title' => 'TIME INSTANTS',
-            'pattern' => '/excav:Instant/'
-        ],
-        'encounters' => [
-            'title' => 'ENCOUNTER EVENTS',
-            'pattern' => '/excav:EncounterEvent/'
+            'pattern' => '/a\s+excav:StratigraphicVolumeUnit/'
         ],
         'items' => [
             'title' => 'ARCHAEOLOGICAL ITEMS',
-            'pattern' => '/(ah:Arrowhead|excav:Item)/'
+            'pattern' => '/a\s+(ah:Arrowhead|excav:Item)/'
         ],
         'morphology' => [
             'title' => 'MORPHOLOGY',
-            'pattern' => '/ah:Morphology/'
+            'pattern' => '/a\s+ah:Morphology/'
         ],
         'chipping' => [
             'title' => 'CHIPPING',
-            'pattern' => '/ah:Chipping/'
+            'pattern' => '/a\s+ah:Chipping/'
         ],
-        'typometry' => [
-            'title' => 'TYPOMETRY VALUES',
-            'pattern' => '/excav:TypometryValue/'
-        ],
-        'weights' => [
-            'title' => 'WEIGHT VALUES',
-            'pattern' => '/excav:Weight/'
+        'measurements' => [
+            'title' => 'MEASUREMENTS',
+            'pattern' => '/a\s+(excav:TypometryValue|excav:Weight)/'
         ],
         'coordinates' => [
-            'title' => 'COORDINATES IN SQUARE',
-            'pattern' => '/excav:Coordinates/'
+            'title' => 'COORDINATES',
+            'pattern' => '/a\s+excav:Coordinates/'
+        ],
+        'encounters' => [
+            'title' => 'ENCOUNTER EVENTS',
+            'pattern' => '/a\s+excav:EncounterEvent/'
+        ],
+        'timelines' => [
+            'title' => 'TIMELINES',
+            'pattern' => '/a\s+excav:TimeLine/'
+        ],
+        'instants' => [
+            'title' => 'TIME INSTANTS',
+            'pattern' => '/a\s+excav:Instant/'
         ],
         'external' => [
-            'title' => 'REFERENCE DECLARATIONS',
-            'pattern' => '/(dbo:district|dbo:parish|dbo:Country)/'
+            'title' => 'EXTERNAL REFERENCES',
+            'pattern' => '/a\s+(dbo:District|dbo:Parish|dbo:Country)/'
         ]
     ];
     
@@ -9907,56 +10033,10 @@ private function organizeAndFormatTtl($rawTtlData, $itemSetId)
                 $organizedTtl .= $this->formatSubjectStatements($subject, $statements);
                 $organizedTtl .= "\n";
             }
-            
-            $organizedTtl .= "\n";
         }
     }
     
     return $organizedTtl;
-}
-
-private function parseTtlIntoSubjects($ttlData)
-{
-    $subjects = [];
-    
-    // Remove prefixes first
-    $cleanTtl = $this->cleanExistingPrefixes($ttlData);
-    
-    // Split into lines and process
-    $lines = explode("\n", $cleanTtl);
-    $currentSubject = null;
-    $currentStatements = [];
-    
-    foreach ($lines as $line) {
-        $line = trim($line);
-        
-        // Skip empty lines and comments
-        if (empty($line) || strpos($line, '#') === 0) {
-            continue;
-        }
-        
-        // Check if this line starts a new subject (contains '<' at the beginning)
-        if (preg_match('/^<([^>]+)>\s+(.+)$/', $line, $matches)) {
-            // Save previous subject if exists
-            if ($currentSubject && !empty($currentStatements)) {
-                $subjects[$currentSubject] = $currentStatements;
-            }
-            
-            // Start new subject
-            $currentSubject = '<' . $matches[1] . '>';
-            $currentStatements = [$matches[2]];
-        } else if ($currentSubject && !empty($line)) {
-            // Continue current subject
-            $currentStatements[] = $line;
-        }
-    }
-    
-    // Don't forget the last subject
-    if ($currentSubject && !empty($currentStatements)) {
-        $subjects[$currentSubject] = $currentStatements;
-    }
-    
-    return $subjects;
 }
 
 private function findSubjectsByPattern($subjects, $pattern)
@@ -9991,31 +10071,7 @@ private function cleanExistingPrefixes($ttlData)
     return implode("\n", $cleanedLines);
 }
 
-private function formatSubjectStatements($subject, $statements)
-{
-    $formatted = $subject;
-    
-    // Process each statement
-    $processedStatements = [];
-    foreach ($statements as $statement) {
-        // Clean up the statement
-        $statement = trim($statement);
-        
-        // Remove trailing semicolons and periods for consistent formatting
-        $statement = rtrim($statement, ';.');
-        
-        $processedStatements[] = $statement;
-    }
-    
-    if (!empty($processedStatements)) {
-        $formatted .= ' ' . implode(" ;\n    ", $processedStatements);
-        
-        // End with a period
-        $formatted .= " .\n";
-    }
-    
-    return $formatted;
-}
+
 
 private function queryItemFromGraphDB($resource, $itemId)
 {
