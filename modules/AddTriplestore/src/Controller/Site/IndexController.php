@@ -2045,6 +2045,7 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
     if (!empty($excavationData['entities']['svus'])) {
         $ttl .= "# =========== STRATIGRAPHIC VOLUME UNITS ===========\n\n";
         foreach ($excavationData['entities']['svus'] as $svu) {
+            error_log("Processing SVU: " . $svu['svu_id'], 3, OMEKA_PATH . '/logs/excavation-ttl-a.log');
             $svuSlug = $this->createUrlSlug($svu['svu_id']);
             $svuUri = "$baseUri/svu/$svuSlug";
             $ttl .= $this->generateSvuTtl($svuUri, $svu);
@@ -2456,6 +2457,7 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
         
         // Get the SVU identifier specifically - not the excavation identifier
         $realSvuId = $this->getSvuIdentifierFromOmekaItem($svuItemId);
+        error_log("Extracted SVU identifier: $realSvuId", 3, OMEKA_PATH . '/logs/context-debug-l.log');
         if ($realSvuId) {
             $svuUri = "$excavationBaseUri/svu/$realSvuId";
             $linkedResources['excav:foundInSVU'] = $svuUri;
@@ -2884,6 +2886,7 @@ if ($locationUri) {
     if (!empty($formData['selected_svu'])) {
         $svuItemId = $formData['selected_svu'];
         $realSvuId = $this->getRealIdentifierFromOmekaItem($svuItemId);
+        error_log("Processing selected SVU item ID: $svuItemId", 3, OMEKA_PATH . '/logs/ttl-fixesssss.log');
         if ($realSvuId) {
             $svuUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/svu/$realSvuId";
             $ttl .= "<$svuUri> a excav:StratigraphicVolumeUnit ;\n";
@@ -3225,7 +3228,6 @@ foreach ($fieldMappings as $collectingField => $arrowheadField) {
         }
     }
 }
-    // ENHANCED: Process archaeological context selections
     // These come from the form template's archaeological context section
     if (!empty($formData['selected_square'])) {
         $arrowheadData['selected_square'] = $formData['selected_square'];
@@ -3509,6 +3511,9 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             error_log('=== APPLYING ENCOUNTER VALIDATION FOR ARROWHEAD ===', 3, OMEKA_PATH . '/logs/encounter-validation.log');
             error_log('Item Set ID: ' . $itemSetId, 3, OMEKA_PATH . '/logs/encounter-validation.log');
             // 1. Extract arrowhead context references from TTL
+            // log ttl data
+            error_log('Extracting arrowhead context from TTL data', 3, OMEKA_PATH . '/logs/encounter-validation.log');
+            error_log('TTL data: ' . $ttlData, 3, OMEKA_PATH . '/logs/encounter-validation-kkkk.log');
             $arrowheadContext = $this->extractArrowheadContextFromTtl($ttlData);
             error_log('Extracted context: ' . print_r($arrowheadContext, true), 3, OMEKA_PATH . '/logs/encounter-validation.log');
             
@@ -6171,6 +6176,7 @@ private function validateContextRelationships($arrowheadContext, $itemSetId) {
     
     // FIXED: Normalize SVU identifier
     if ($arrowheadContext['svu']) {
+        error_log("Validating SVU: " . $arrowheadContext['svu'], 3, OMEKA_PATH . '/logs/encounter-validation-kkkk.log');
         // Extract just the Layer-XX part from full URI if it's a URI
         if (strpos($arrowheadContext['svu'], '/') !== false) {
             $parts = explode('/', rtrim($arrowheadContext['svu'], '/'));
@@ -7197,9 +7203,11 @@ private function getRealIdentifierFromOmekaItem($itemId) {
         
         // Strategy 1: Try to get the dcterms:identifier value
         $values = $item->values();
-        
+
         if (isset($values['dcterms:identifier'])) {
+            error_log("Found dcterms:identifier for item $itemId", 3, OMEKA_PATH . '/logs/identifier-debug.log');
             foreach ($values['dcterms:identifier'] as $value) {
+                //log value type
                 if ($value instanceof \Omeka\Api\Representation\ValueRepresentation) {
                     $identifier = $value->value();
                     error_log("Found real identifier for item $itemId: $identifier", 3, OMEKA_PATH . '/logs/identifier-debug.log');
