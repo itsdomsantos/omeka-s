@@ -18,7 +18,7 @@ class IndexController extends AbstractActionController
 {
     private $graphdbEndpoint = "http://localhost:7200/repositories/megalod/rdf-graphs/service";
     private $graphdbQueryEndpoint = "http://localhost:7200/repositories/megalod";
-    private $baseDataGraphUri = "https://purl.org/megalod/";
+    private $baseDataGraphUri = "http://localhost.org/megalod/";
     private $router;
     private $httpClient;
 
@@ -1134,6 +1134,7 @@ return $this->redirect()->toRoute('site/add-triplestore/dashboard', [
         
         // If this is an excavation file upload, create an item set if needed and redirect to arrowhead upload
         if ($uploadType == 'excavation') {
+            
             error_log('going for excav uplotad file' . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
 
             error_log('Processing excavation file upload', 3, OMEKA_PATH . '/logs/a.log');
@@ -3357,6 +3358,7 @@ private function processFileUpload($request, ?string $uploadType, ?int $itemSetI
         } else {
             $ttlData = file_get_contents($file['tmp_name']);
         }
+        
 
         error_log('File tmp_name: ' . $file['tmp_name'], 3, OMEKA_PATH . '/logs/file-upload.log');
         error_log('File exists check: ' . (file_exists($file['tmp_name']) ? 'exists' : 'does not exist'), 3, OMEKA_PATH . '/logs/file-upload.log');
@@ -3447,10 +3449,11 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             // SINGLE POINT OF ITEM SET CREATION FOR EXCAVATIONS
             error_log('Normalizing URIs for excavation identifier: ' . $excavationIdentifier . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
             if ($this->excavationIdentifierExists($excavationIdentifier)) {
-                // Optionally handle duplicate excavation identifiers
-                // For now, we'll proceed but log a warning
-                error_log('Warning: Excavation identifier already exists: ' . $excavationIdentifier . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
+                // log
+                error_log('Excavation identifier already exists: ' . $excavationIdentifier . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
+                return 'Error: Excavation identifier already exists - ' . $excavationIdentifier;
             }
+
             
             // Extract excavation metadata
             $excavationMetadata = $this->extractExcavationMetadataFromTtl($ttlData);
@@ -3765,6 +3768,7 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
     
     if ($uploadType === 'excavation' && !$isExcavation) {
         // Check if it's actually an arrowhead being uploaded to an excavation context
+        
         if ($isArrowhead) {
             error_log('Arrowhead data detected when expecting excavation, but this is allowed for item sets', 3, OMEKA_PATH . '/logs/validation.log');
             return; // Allow arrowheads to be added to excavation context

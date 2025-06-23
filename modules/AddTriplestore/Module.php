@@ -21,26 +21,43 @@ class Module extends AbstractModule
         return include __DIR__ . '/config/module.config.php';
     }
 
+/**
+ * Bootstrap method for the AddTriplestore module.
+ *
+ * This method is called during the application bootstrap process.
+ * It performs the following actions:
+ * - Calls the parent onBootstrap method.
+ * - Retrieves the ACL (Access Control List) service.
+ * - Checks if the 'guest' role exists; if not, creates it as a child of 'researcher'
+ *   and assigns it the label 'Site Visitor'.
+ * - Grants all roles access to specific actions in the AddTriplestore site controller.
+ * - Grants the 'guest' role permissions to create, update, delete, and read items,
+ *   item sets, and media entities, as well as their corresponding API adapters.
+ * - Allows the 'guest' role to perform create, update, delete, and read actions
+ *   through the Omeka API controller.
+ *
+ * @param MvcEvent $event The MVC event triggered during bootstrap.
+ */
 public function onBootstrap(MvcEvent $event)
 {
     parent::onBootstrap($event);
     
     $acl = $this->getServiceLocator()->get('Omeka\Acl');
-    
-    // Make sure guest role exists
+
+    // create non administrative role if it does not exist yet
     if (!$acl->hasRole('guest')) {
         $acl->addRole('guest', 'researcher');
         $acl->addRoleLabel('guest', 'Site Visitor');
     }
     
-    // Allow guests to access site actions
+    // Site actions guest can access
     $acl->allow(
         null,
         ['AddTriplestore\Controller\Site\Index'],
         ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout', 'dashboard', 'myData', 'processFileUpload', 'uploadTtlData']
     );
     
-    // CRITICAL: Grant explicit permissions for items and item sets
+    // Grant permissions to create, update, and delete items, item sets, and media
     $acl->allow('guest', [
         'Omeka\Entity\Item',
         'Omeka\Entity\ItemSet', 
@@ -48,19 +65,17 @@ public function onBootstrap(MvcEvent $event)
         'Omeka\Api\Adapter\ItemAdapter',
         'Omeka\Api\Adapter\ItemSetAdapter',
         'Omeka\Api\Adapter\MediaAdapter'
-    ], ['create', 'update', 'delete', 'read']); // ADD 'read' permission
+    ], ['create', 'update', 'delete', 'read']); 
     
-    // Also add ability to read through the API
+    // Allow to read through the API
     $acl->allow('guest', [
         'Omeka\Controller\Api',
-    ], ['create', 'update', 'delete', 'read']); // ADD 'read' permission
+    ], ['create', 'update', 'delete', 'read']); 
 }
 
 
      
-/**
- * Allow guest users to create items through the API
- */
+
 
 public function allowGuestUserCreateItems($event)
 {
@@ -79,9 +94,7 @@ public function allowGuestUserCreateItems($event)
     }
 }
 
-/**
- * Allow guest users to create item sets through the API
- */
+
 public function allowGuestUserCreateItemSets($event)
 {
     $services = $this->getServiceLocator();
@@ -149,7 +162,7 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
 
     public function attachListeners(SharedEventManagerInterface $sharedEventManager)
     {
-        // Existing event listeners
+        // Event listeners for item deletion
         $sharedEventManager->attach(
             'Omeka\Api\Adapter\ItemAdapter',
             'api.delete.pre',
@@ -162,7 +175,6 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
             [$this, 'handleItemDeletion']
         );
         
-        // Add these event listeners to track item-itemset relationships
         $sharedEventManager->attach(
             'Omeka\Api\Adapter\ItemAdapter',
             'api.create.post',
@@ -174,14 +186,13 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
             'api.update.post',
             [$this, 'trackItemItemSetRelationship']
         );
-        // Add this to catch all MVC route events
     $sharedEventManager->attach(
-        'Zend\Mvc\Application',  // For older Omeka-S versions
+        'Zend\Mvc\Application',  
         'route',
         [$this, 'redirectGuestsFromAdmin']
     );
     
-    // For newer Laminas-based Omeka-S versions, also add:
+    // For newer Laminas-based Omeka-S versions, just as a precaution, just in case, use:
     $sharedEventManager->attach(
         'Laminas\Mvc\Application',
         'route',
