@@ -18,7 +18,7 @@ class IndexController extends AbstractActionController
 {
     private $graphdbEndpoint = "http://localhost:7200/repositories/megalod/rdf-graphs/service";
     private $graphdbQueryEndpoint = "http://localhost:7200/repositories/megalod";
-    private $baseDataGraphUri = "http://localhost.org/megalod/";
+    private $baseDataGraphUri = "https://purl.org/megalod/";
     private $router;
     private $httpClient;
 
@@ -1060,17 +1060,6 @@ public function uploadAction()
             // Generate excavation identifier
             $excavationIdentifier = $excavationData['excavation_id'] ?? 'EXC-' . uniqid();
             
-            // if identifier is repeated, return error
-            if ($excavationIdentifier && $this->excavationIdentifierExists($excavationIdentifier)) {
-                error_log('⚠ Excavation identifier already exists: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/upload-debug.log');
-                // redirect to main page with error message
-                $this->messenger()->addError('Excavation identifier already exists. Please use a different identifier.');
-                // redirect to page with main menu search data, add artifacts, add excavation
-                return $this->redirect()->toRoute('site/add-triplestore', [
-                    'site-slug' => $this->currentSite()->slug()
-                ]);
-            }
-
             // Create TTL data from the excavation form
             $ttlData = $this->processExcavationFormData($excavationData, $excavationIdentifier);
             
@@ -1145,7 +1134,6 @@ return $this->redirect()->toRoute('site/add-triplestore/dashboard', [
         
         // If this is an excavation file upload, create an item set if needed and redirect to arrowhead upload
         if ($uploadType == 'excavation') {
-            
             error_log('going for excav uplotad file' . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
 
             error_log('Processing excavation file upload', 3, OMEKA_PATH . '/logs/a.log');
@@ -1570,7 +1558,6 @@ private function normalizeUris($ttlData, $itemSetId) {
         error_log("No item set ID provided, skipping normalization", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
         return $ttlData;
     }
-    error_log("Starting URI normalization for item set ID: $itemSetId", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
     
     // 1. First, extract the main excavation identifier
     $excavationIdentifier = null;
@@ -1593,7 +1580,7 @@ private function normalizeUris($ttlData, $itemSetId) {
     
     // 2. Main excavation URI pattern
     $modifiedTtl = preg_replace_callback(
-        '/<http:\/\/localhost\/megalod\/excavation\/([^>]+)>/',
+        '/<https:\/\/purl\.org\/megalod\/excavation\/([^>]+)>/',
         function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
             if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
             $replacements++;
@@ -1605,7 +1592,7 @@ private function normalizeUris($ttlData, $itemSetId) {
     
     // 3. Location URI pattern
     $modifiedTtl = preg_replace_callback(
-    '/<http:\/\/localhost\/megalod\/([^\/]+\/)?location\/([^>]+)>/',
+    '/<https:\/\/purl\.org\/megalod\/([^\/]+\/)?location\/([^>]+)>/',
     function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
         if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
         $locationId = $matches[2]; // Get the location identifier
@@ -1619,7 +1606,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 4. GPS URI pattern
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/gps\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/gps\/([^>]+)>/',
             function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
                 if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
                 $gpsId = $matches[1];
@@ -1632,7 +1619,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 5. Archaeologist URI pattern
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/archaeologist\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/archaeologist\/([^>]+)>/',
             function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
                 if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
                 $archaeologistId = $matches[1];
@@ -1645,7 +1632,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 6. Square URI pattern
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/square\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/square\/([^>]+)>/',
             function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
                 if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
                 $squareId = $matches[1];
@@ -1658,7 +1645,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 7. Context URI pattern
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/context\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/context\/([^>]+)>/',
             function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
                 if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
                 $contextId = $matches[1];
@@ -1671,7 +1658,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 8. SVU URI pattern
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/svu\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/svu\/([^>]+)>/',
             function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
                 if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
                 $svuId = $matches[1];
@@ -1684,7 +1671,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 9. Timeline URI pattern
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/timeline\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/timeline\/([^>]+)>/',
             function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
                 if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
                 $timelineId = $matches[1];
@@ -1697,7 +1684,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 10. Instant URI pattern
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/instant\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/instant\/([^>]+)>/',
             function($matches) use ($itemSetId, $excavationIdentifier, &$replacements) {
                 if (strpos($matches[0], '/kos/') !== false) return $matches[0]; // Preserve KOS URIs
                 $instantId = $matches[1];
@@ -1710,7 +1697,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 11. Special case for KOS URIs - always preserve the original path
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/[^>]*\/kos\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/[^>]*\/kos\/([^>]+)>/',
             function($matches) {
                 return "<https://purl.org/megalod/kos/{$matches[1]}>";
             },
@@ -1731,7 +1718,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         }
         
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/item\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/item\/([^>]+)>/',
             function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
                 $replacements++;
                 error_log("Replacing item URI: {$matches[0]} → <http://localhost/megalod/$itemSetId/item/$itemIdentifier>", 3, OMEKA_PATH . '/logs/uri-normalize-fixed.log');
@@ -1742,7 +1729,7 @@ private function normalizeUris($ttlData, $itemSetId) {
 
         // 13. Normalize typometry URIs
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/typometry\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/typometry\/([^>]+)>/',
             function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
                 $typometryId = $matches[1];
                 $replacements++;
@@ -1754,7 +1741,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 14. Normalize coordinates URIs
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/coordinates\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/coordinates\/([^>]+)>/',
             function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
                 $coordinatesId = $matches[1];
                 $replacements++;
@@ -1766,7 +1753,7 @@ private function normalizeUris($ttlData, $itemSetId) {
 
         // 15. Normalize weight URIs  
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/weight\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/weight\/([^>]+)>/',
             function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
                 $weightId = $matches[1];
                 $replacements++;
@@ -1778,7 +1765,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 16. Normalize morphology URIs
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/Morphology\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/Morphology\/([^>]+)>/',
             function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
                 $morphologyId = $matches[1];
                 $replacements++;
@@ -1790,7 +1777,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 17. Normalize body length URIs
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/BodyLength\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/BodyLength\/([^>]+)>/',
             function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
                 $bodyLengthId = $matches[1];
                 $replacements++;
@@ -1802,7 +1789,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 18. Normalize base length URIs
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/BaseLength\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/BaseLength\/([^>]+)>/',
             function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
                 $baseLengthId = $matches[1];
                 $replacements++; 
@@ -1814,7 +1801,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 19. Normalize chipping URIs
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/Chipping\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/Chipping\/([^>]+)>/',
             function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
                 $chippingId = $matches[1];
                 $replacements++;
@@ -1826,7 +1813,7 @@ private function normalizeUris($ttlData, $itemSetId) {
 
         // 19.5 normalize gps coordinates URIs
         $modifiedTtl = preg_replace_callback(
-            '/<http:\/\/localhost\/megalod\/gps\/([^>]+)>/',
+            '/<https:\/\/purl\.org\/megalod\/gps\/([^>]+)>/',
             function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
                 $gpsId = $matches[1];
                 $replacements++;
@@ -1838,7 +1825,7 @@ private function normalizeUris($ttlData, $itemSetId) {
         
         // 20. Normalize encounter URIs
         $modifiedTtl = preg_replace_callback(
-        '/<http:\/\/localhost\/megalod\/encounter\/([^>]+)>/',
+        '/<https:\/\/purl\.org\/megalod\/encounter\/([^>]+)>/',
         function($matches) use ($itemSetId, $itemIdentifier, &$replacements) {
             $encounterId = $matches[1];
             $replacements++;
@@ -1856,7 +1843,7 @@ private function normalizeUris($ttlData, $itemSetId) {
     );
 
     $modifiedTtl = preg_replace_callback(
-        '/<http:\/\/localhost\/megalod\/([^\/]+)\/item\/([^\/]+)\/encounter\/([^>]+)>/',
+        '/<https:\/\/purl\.org\/megalod\/([^\/]+)\/item\/([^\/]+)\/encounter\/([^>]+)>/',
         function($matches) use ($itemSetId, &$replacements) {
             $setId = $matches[1];
             $itemId = $matches[2];
@@ -1950,7 +1937,7 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
     error_log('Processing excavation form data for: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-ttl.log');
     
     // USE THE EXCAVATION IDENTIFIER INSTEAD OF RANDOM HASH
-    $baseUri = "http://localhost/megalod/" . $excavationIdentifier;
+    $baseUri = "https://purl.org/megalod/" . $excavationIdentifier;
     $excavationUri = "$baseUri/excavation/$excavationIdentifier";
 
     $hasLocationData = !empty($excavationData['site_name']) ||
@@ -2068,8 +2055,7 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
     $this->generateTimelineAndInstantSections($ttl, $excavationData, $baseUri);
     
     error_log('Generated clean TTL for excavation: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-ttl.log');
-    error_log('final ttl: ' . $ttl, 3, OMEKA_PATH . '/logs/excavation-ttl.log');
-
+    
     return $ttl;
 }
 
@@ -2166,21 +2152,7 @@ private function generateTimelineAndInstantSections(&$ttl, $excavationData, $bas
     }
 }
 
-/**
- * Helper to validate that a value is a valid number (integer or float).
- * Returns the number as string if valid, or null if invalid.
- */
-private function validateNumeric($value) {
-    // Remove whitespace
-    $value = trim($value);
-    // Allow comma or dot as decimal separator
-    $value = str_replace(',', '.', $value);
-    // Only allow numbers (integer or float)
-    if (is_numeric($value)) {
-        return $value;
-    }
-    return null;
-}
+
 
 private function generateArchaeologistTtl($archaeologistUri, $archaeologistData)
 {
@@ -2690,14 +2662,8 @@ if ($locationUri && empty($formData['selected_square']) && empty($formData['sele
 
     // process gps coordinates lat and long
     if (!empty($formData['gps_latitude']) && !empty($formData['gps_longitude'])) {
-        $lat = $this->validateNumeric($formData['gps_latitude']);
-        $long = $this->validateNumeric($formData['gps_longitude']);
-        if ($lat === null || $long === null) {
-            $this->messenger()->addError('invalid unit');
-            return $this->redirect()->toRoute('site/add-triplestore', [
-                'site-slug' => $this->currentSite()->slug()
-            ]);
-        }
+        $gpsUri = "$baseUri/gps/$arrowheadId";
+        $ttl .= "    excav:hasGPSCoordinates <$gpsUri>;\n";
     }
 
     // add encounter_date
@@ -2811,29 +2777,18 @@ if ($locationUri && empty($formData['selected_square']) && empty($formData['sele
     // Process coordinates
     $coordinatesData = null;
     if (!empty($formData['x_coordinate']) && !empty($formData['y_coordinate'])) {
-        $x = $this->validateNumeric($formData['x_coordinate']);
-        $y = $this->validateNumeric($formData['y_coordinate']);
-        $z = isset($formData['z_coordinate']) ? $this->validateNumeric($formData['z_coordinate']) : null;
-        if ($x === null || $y === null || (isset($formData['z_coordinate']) && $z === null)) {
-            $this->messenger()->addError('invalid unit');
-            return $this->redirect()->toRoute('site/add-triplestore', [
-                'site-slug' => $this->currentSite()->slug()
-            ]);
-        }
-    }
-
-    $measurementFields = [
-        'height', 'width', 'weight', 'thickness', 'body_length', 'base_length'
-    ];
-    foreach ($measurementFields as $field) {
-        if (!empty($formData[$field])) {
-            if ($this->validateNumeric($formData[$field]) === null) {
-                $this->messenger()->addError('invalid unit');
-                return $this->redirect()->toRoute('site/add-triplestore', [
-                    'site-slug' => $this->currentSite()->slug()
-                ]);
-            }
-        }
+        $coordinatesUri = "$baseUri/coordinatesInSquare/" . substr($arrowheadId, 3);
+        $ttl .= "    excav:hasCoordinatesInSquare <$coordinatesUri>;\n";
+    
+        $coordinatesData = [
+            'uri' => $coordinatesUri,
+            'x' => $formData['x_coordinate'],
+            'x_unit' => !empty($formData['x_coordinate_unit']) ? $formData['x_coordinate_unit'] : 'CMT',
+            'y' => $formData['y_coordinate'],
+            'y_unit' => !empty($formData['y_coordinate_unit']) ? $formData['y_coordinate_unit'] : 'CMT',
+            'z' => !empty($formData['z_coordinate']) ? $formData['z_coordinate'] : null,
+            'z_unit' => !empty($formData['z_coordinate_unit']) ? $formData['z_coordinate_unit'] : 'CMT'
+        ];
     }
     
     // Add images/web resources
@@ -3402,7 +3357,6 @@ private function processFileUpload($request, ?string $uploadType, ?int $itemSetI
         } else {
             $ttlData = file_get_contents($file['tmp_name']);
         }
-        
 
         error_log('File tmp_name: ' . $file['tmp_name'], 3, OMEKA_PATH . '/logs/file-upload.log');
         error_log('File exists check: ' . (file_exists($file['tmp_name']) ? 'exists' : 'does not exist'), 3, OMEKA_PATH . '/logs/file-upload.log');
@@ -3441,8 +3395,6 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
     error_log("itemsetid: " . ($itemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/hkjfhkj-debug.log');
     // Set the current processing context
     $this->currentProcessingItemSetId = $itemSetId;
-
-    
     
     try {
         // Check if this is excavation data
@@ -3480,8 +3432,6 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             }
         }
 
-        
-
         error_log('so far so good', 3, OMEKA_PATH . '/logs/malfunction.log');
 
         error_log('Final determination - isExcavation: ' . ($isExcavation ? 'true' : 'false'), 3, OMEKA_PATH . '/logs/upload-debug.log');
@@ -3497,11 +3447,10 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
             // SINGLE POINT OF ITEM SET CREATION FOR EXCAVATIONS
             error_log('Normalizing URIs for excavation identifier: ' . $excavationIdentifier . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
             if ($this->excavationIdentifierExists($excavationIdentifier)) {
-                // log
-                error_log('Excavation identifier already exists: ' . $excavationIdentifier . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
-                return 'Error: Excavation identifier already exists - ' . $excavationIdentifier;
+                // Optionally handle duplicate excavation identifiers
+                // For now, we'll proceed but log a warning
+                error_log('Warning: Excavation identifier already exists: ' . $excavationIdentifier . "\n", 3, OMEKA_PATH . '/logs/malfunction.log');
             }
-
             
             // Extract excavation metadata
             $excavationMetadata = $this->extractExcavationMetadataFromTtl($ttlData);
@@ -3611,7 +3560,6 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
         
         if (strpos($graphDbResult, 'successfully') !== false) {
             // If GraphDB upload is successful, then process in Omeka S
-            error_log('ttlData b: ' . $ttlData, 3, OMEKA_PATH . '/logs/attl-debug.log');
             $omekaData = $this->transformTtlToOmekaSData($ttlData, $itemSetId);
 
             $omekaResponse = $this->sendToOmekaS($omekaData, $itemSetId);
@@ -3701,29 +3649,28 @@ private function extractExcavationMetadataFromTtl($ttlData) {
 
 
 private function excavationIdentifierExists($excavationIdentifier) {
-    error_log('Checking if excavation identifier exists: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-validation.log');
     if (empty($excavationIdentifier)) {
         return false;
     }
     
     try {
-        // Query all graphs for the excavation identifier
-        $sparql = "
-            PREFIX dct: <http://purl.org/dc/terms/>
-            SELECT ?s WHERE {
-            GRAPH ?g {
-                ?s dct:identifier \"$excavationIdentifier\"^^<http://www.w3.org/2001/XMLSchema#literal> .
-            }
-            } LIMIT 1
-        ";
-        $results = $this->querySparql($sparql);
-        if (!empty($results)) {
-            error_log("Found existing excavation identifier in GraphDB: $excavationIdentifier", 3, OMEKA_PATH . '/logs/excavation-validation.log');
-            return true;
-        }
+        // Search for items with the given excavation identifier
+        $response = $this->api()->search('items', [
+            'property' => [
+                [
+                    'property' => 10, // Assuming 10 is the property ID for dcterms:identifier
+                    'type' => 'eq',
+                    'text' => $excavationIdentifier
+                ]
+            ]
+        ]);
+        
+        // If we found any items, the identifier exists
+        return $response->getTotalResults() > 0;
+        
     } catch (\Exception $e) {
-        error_log('Error checking GraphDB for excavation identifier: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-validation.log');
-        return false; // Assume it doesn't exist if we can't query
+        error_log('Error checking if excavation identifier exists: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-validation.log');
+        return false; // Assume it doesn't exist in case of error
     }
 }
 
@@ -3818,7 +3765,6 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
     
     if ($uploadType === 'excavation' && !$isExcavation) {
         // Check if it's actually an arrowhead being uploaded to an excavation context
-        
         if ($isArrowhead) {
             error_log('Arrowhead data detected when expecting excavation, but this is allowed for item sets', 3, OMEKA_PATH . '/logs/validation.log');
             return; // Allow arrowheads to be added to excavation context
@@ -4350,14 +4296,11 @@ private function transformTtlToOmekaSData($ttlData, $itemSetId = null): array {
     $omekaData = [];
     $rdfData = $graph->toRdfPhp();
 
-    error_log(' ttl data: '. $ttlData, 3, OMEKA_PATH . '/logs/jjj.log');
-
     error_log('RDF Data subjects found: ' . count($rdfData), 3, OMEKA_PATH . '/logs/transform.log');
     
     // Find main subjects (items that should become Omeka items)
     $mainSubjects = $this->identifyMainSubjects($rdfData, $itemSetId);
-    // log all main subjects found
-    error_log('Main subjects identified: ' . implode(', ', array_keys($mainSubjects)), 3, OMEKA_PATH . '/logs/jjj.log');
+    
     // Get excavation identifier for context
     $excavationId = "0"; // Default
     if ($itemSetId) {
@@ -7538,21 +7481,21 @@ private function transformCollectingFormToExcavationData($formData)
 
 
 private function processExcavationData($rdfData, $subject, &$itemData) {
-    error_log('=== PROCESSING EXCAVATION DATA ===', 3, OMEKA_PATH . '/logs/excavation-processingK.log');
-    error_log('Processing excavation data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+    error_log('=== PROCESSING EXCAVATION DATA ===', 3, OMEKA_PATH . '/logs/excavation-processing.log');
+    error_log('Processing excavation data for subject: ' . $subject, 3, OMEKA_PATH . '/logs/excavation-processing.log');
     
     // Get the current item set context to build correct URIs
     $currentItemSetId = $this->getCurrentItemSetContext();
 
 
-    error_log('Current item set ID: ' . $currentItemSetId, 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+    
     
     // Extract location information
     if (isset($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'])) {
         foreach ($rdfData[$subject]['http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#hasLocation'] as $locObj) {
             if ($locObj['type'] === 'uri' && isset($rdfData[$locObj['value']])) {
                 $locationUri = $locObj['value'];
-                error_log('Processing location URI: ' . $locationUri, 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                error_log('Processing location URI: ' . $locationUri, 3, OMEKA_PATH . '/logs/excavation-processing.log');
                 
                 // Extract location name (dbo:informationName)
                 if (isset($rdfData[$locationUri]['http://dbpedia.org/ontology/informationName'])) {
@@ -7570,7 +7513,7 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                                 '@value' => $locationName
                             ];
                             
-                            error_log("Added location name: $locationName", 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                            error_log("Added location name: $locationName", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         }
                     }
                 }
@@ -7584,7 +7527,7 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                     foreach ($rdfData[$locationUri]['http://www.w3.org/2003/01/geo/wgs84_pos#lat'] as $latObj) {
                         if ($latObj['type'] === 'literal') {
                             $lat = $latObj['value'];
-                            error_log("Found latitude directly on location: $lat", 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                            error_log("Found latitude directly on location: $lat", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         }
                     }
                 }
@@ -7593,21 +7536,9 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                     foreach ($rdfData[$locationUri]['http://www.w3.org/2003/01/geo/wgs84_pos#long'] as $longObj) {
                         if ($longObj['type'] === 'literal') {
                             $long = $longObj['value'];
-                            error_log("Found longitude directly on location: $long", 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                            error_log("Found longitude directly on location: $long", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         }
                     }
-                }
-                
-                $long = $this->validateNumeric($long);
-                $lat = $this->validateNumeric($lat);
-
-                error_log("Validated GPS coordinates: Lat=$lat, Long=$long", 3, OMEKA_PATH . '/logs/excavation-gps.log');
-
-                if($lat === null || $long === null) {
-                    $this->messenger()->addError('invalid gps coordinates');
-                    return $this->redirect()->toRoute('site/add-triplestore', [
-                        'site-slug' => $this->currentSite()->slug()
-                    ]);
                 }
                 
                 // Add individual GPS coordinates
@@ -7644,7 +7575,7 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                         '@value' => "Latitude: $lat, Longitude: $long"
                     ];
                     
-                    error_log("Added GPS coordinates: Lat=$lat, Long=$long", 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                    error_log("Added GPS coordinates: Lat=$lat, Long=$long", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                 }
                 
                 // FIXED: Process location properties with CORRECT lowercase URIs
@@ -7659,7 +7590,7 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                         $propertyLabel = $propertyInfo[0];
                         $propertyId = $propertyInfo[1];
                         
-                        error_log("Processing location property: $propertyUri", 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                        error_log("Processing location property: $propertyUri", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         
                         foreach ($rdfData[$locationUri][$propertyUri] as $propObj) {
                             if ($propObj['type'] === 'uri') {
@@ -7700,11 +7631,11 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
                                     '@value' => $value
                                 ];
                                 
-                                error_log("Added $propertyLabel: $value", 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                                error_log("Added $propertyLabel: $value", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                             }
                         }
                     } else {
-                        error_log("Property $propertyUri not found in location $locationUri", 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                        error_log("Property $propertyUri not found in location $locationUri", 3, OMEKA_PATH . '/logs/excavation-processing.log');
                     }
                 }
             }
@@ -7720,17 +7651,18 @@ private function processExcavationData($rdfData, $subject, &$itemData) {
 
 
 // In the processExcavationData method, modify the code that checks for GPS coordinates via hasGPSCoordinates:
+
 // Check for GPS coordinates via hasGPSCoordinates reference
 if (isset($rdfData[$locationUri]['https://purl.org/megalod/ms/excavation/hasGPSCoordinates']) ||
     isset($rdfData[$locationUri]["http://localhost/megalod/$currentItemSetId/excavation/hasGPSCoordinates"])) {
-
+    
 // Add this variation to the $gpsPropertyUris array
 $gpsPropertyUris = [
     'https://purl.org/megalod/ms/excavation/hasGPSCoordinates',
     "http://localhost/megalod/$currentItemSetId/excavation/hasGPSCoordinates",
     'excav:hasGPSCoordinates'  // Add this line to check for compact URI format
 ];
-    error_log("Checking for GPS coordinates via hasGPSCoordinates reference", 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+    
     foreach ($gpsPropertyUris as $gpsPropertyUri) {
         if (isset($rdfData[$locationUri][$gpsPropertyUri])) {
             foreach ($rdfData[$locationUri][$gpsPropertyUri] as $gpsObj) {
@@ -7775,15 +7707,6 @@ $gpsPropertyUris = [
                             }
                         }
                     }
-
-                    
-                    error_log("Validated GPS coordinates from reference: Lat=$lat, Long=$long", 3, OMEKA_PATH . '/logs/gps-debug.log');
-                    if ($lat === null || $long === null) {
-                        $this->messenger()->addError('invalid gps coordinates');
-                        return $this->redirect()->toRoute('site/add-triplestore', [
-                            'site-slug' => $this->currentSite()->slug()
-                        ]);
-                    }
                     
                     // If we have both lat and long, add the combined coordinates
                     if (isset($lat) && isset($long)) {
@@ -7812,12 +7735,12 @@ $gpsPropertyUris = [
     
     foreach ($archaeologistPropertyUris as $archaeologistPropertyUri) {
         if (isset($rdfData[$subject][$archaeologistPropertyUri])) {
-            error_log("Found archaeologist property: $archaeologistPropertyUri", 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+            error_log("Found archaeologist property: $archaeologistPropertyUri", 3, OMEKA_PATH . '/logs/excavation-processing.log');
             
             foreach ($rdfData[$subject][$archaeologistPropertyUri] as $archaeologistObj) {
                 if ($archaeologistObj['type'] === 'uri' && isset($rdfData[$archaeologistObj['value']])) {
                     $archaeologistUri = $archaeologistObj['value'];
-                    error_log('Processing archaeologist URI: ' . $archaeologistUri, 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                    error_log('Processing archaeologist URI: ' . $archaeologistUri, 3, OMEKA_PATH . '/logs/excavation-processing.log');
                     
                     // Extract archaeologist data
                     $archaeologistData = $this->extractArchaeologistData($rdfData, $archaeologistUri);
@@ -7835,7 +7758,7 @@ $gpsPropertyUris = [
                                 '@value' => $archaeologistData['name']
                             ];
                             
-                            error_log("Added archaeologist name: " . $archaeologistData['name'], 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                            error_log("Added archaeologist name: " . $archaeologistData['name'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         }
                         
                         // Add ORCID if available
@@ -7850,7 +7773,7 @@ $gpsPropertyUris = [
                                 '@value' => $archaeologistData['orcid']
                             ];
                             
-                            error_log("Added archaeologist ORCID: " . $archaeologistData['orcid'], 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                            error_log("Added archaeologist ORCID: " . $archaeologistData['orcid'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         }
                         
                         // Add email if available
@@ -7865,7 +7788,7 @@ $gpsPropertyUris = [
                                 '@value' => $archaeologistData['email']
                             ];
                             
-                            error_log("Added archaeologist email: " . $archaeologistData['email'], 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                            error_log("Added archaeologist email: " . $archaeologistData['email'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
                         }
                         
                         // Keep the original combined field for backward compatibility
@@ -7902,7 +7825,7 @@ $gpsPropertyUris = [
     
     foreach ($contextPropertyUris as $contextPropertyUri) {
         if (isset($rdfData[$subject][$contextPropertyUri])) {
-            error_log("Found context property: $contextPropertyUri", 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+            error_log("Found context property: $contextPropertyUri", 3, OMEKA_PATH . '/logs/excavation-processing.log');
             
             foreach ($rdfData[$subject][$contextPropertyUri] as $contextObj) {
                 if ($contextObj['type'] === 'uri') {
@@ -7935,7 +7858,7 @@ $gpsPropertyUris = [
             '@value' => implode(' | ', $contextList)
         ];
         
-        error_log("Added contexts: " . implode(', ', $contextList), 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+        error_log("Added contexts: " . implode(', ', $contextList), 3, OMEKA_PATH . '/logs/excavation-processing.log');
     }
 
     // process svu data
@@ -7943,7 +7866,7 @@ $gpsPropertyUris = [
         foreach ($rdfData[$subject]['https://purl.org/megalod/ms/excavation/hasSVU'] as $svuObj) {
             if ($svuObj['type'] === 'uri' && isset($rdfData[$svuObj['value']])) {
                 $svuUri = $svuObj['value'];
-                error_log('Processing SVU URI: ' . $svuUri, 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                error_log('Processing SVU URI: ' . $svuUri, 3, OMEKA_PATH . '/logs/excavation-processing.log');
                 
                 // Extract SVU data
                 $svuData = $this->extractSvuData($rdfData, $svuUri);
@@ -7961,7 +7884,7 @@ $gpsPropertyUris = [
                             '@value' => $svuData['name']
                         ];
                         
-                        error_log("Added SVU name: " . $svuData['name'], 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                        error_log("Added SVU name: " . $svuData['name'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
                     }
                     
                     // Add SVU description
@@ -7976,7 +7899,7 @@ $gpsPropertyUris = [
                             '@value' => $svuData['description']
                         ];
                         
-                        error_log("Added SVU description: " . $svuData['description'], 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+                        error_log("Added SVU description: " . $svuData['description'], 3, OMEKA_PATH . '/logs/excavation-processing.log');
                     }
                 }
             }
@@ -7995,7 +7918,7 @@ $gpsPropertyUris = [
     
     foreach ($squarePropertyUris as $squarePropertyUri) {
         if (isset($rdfData[$subject][$squarePropertyUri])) {
-            error_log("Found square property: $squarePropertyUri", 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+            error_log("Found square property: $squarePropertyUri", 3, OMEKA_PATH . '/logs/excavation-processing.log');
             
             foreach ($rdfData[$subject][$squarePropertyUri] as $squareObj) {
                 if ($squareObj['type'] === 'uri') {
@@ -8028,10 +7951,10 @@ $gpsPropertyUris = [
             '@value' => implode(' | ', $squareList)
         ];
         
-        error_log("Added squares: " . implode(', ', $squareList), 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+        error_log("Added squares: " . implode(', ', $squareList), 3, OMEKA_PATH . '/logs/excavation-processing.log');
     }
     
-    error_log('Finished processing excavation data', 3, OMEKA_PATH . '/logs/excavation-processingK.log');
+    error_log('Finished processing excavation data', 3, OMEKA_PATH . '/logs/excavation-processing.log');
 }
 
 
