@@ -1060,6 +1060,17 @@ public function uploadAction()
             // Generate excavation identifier
             $excavationIdentifier = $excavationData['excavation_id'] ?? 'EXC-' . uniqid();
             
+            // if identifier is repeated, return error
+            if ($excavationIdentifier && $this->excavationIdentifierExists($excavationIdentifier)) {
+                error_log('⚠ Excavation identifier already exists: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/upload-debug.log');
+                // redirect to main page with error message
+                $this->messenger()->addError('Excavation identifier already exists. Please use a different identifier.');
+                // redirect to page with main menu search data, add artifacts, add excavation
+                return $this->redirect()->toRoute('site/add-triplestore', [
+                    'site-slug' => $this->currentSite()->slug()
+                ]);
+            }
+
             // Create TTL data from the excavation form
             $ttlData = $this->processExcavationFormData($excavationData, $excavationIdentifier);
             
@@ -3397,6 +3408,8 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
     error_log("itemsetid: " . ($itemSetId ?: 'none'), 3, OMEKA_PATH . '/logs/hkjfhkj-debug.log');
     // Set the current processing context
     $this->currentProcessingItemSetId = $itemSetId;
+
+    
     
     try {
         // Check if this is excavation data
@@ -3433,6 +3446,8 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
                 }
             }
         }
+
+        
 
         error_log('so far so good', 3, OMEKA_PATH . '/logs/malfunction.log');
 
@@ -3652,28 +3667,29 @@ private function extractExcavationMetadataFromTtl($ttlData) {
 
 
 private function excavationIdentifierExists($excavationIdentifier) {
+    error_log('Checking if excavation identifier exists: ' . $excavationIdentifier, 3, OMEKA_PATH . '/logs/excavation-validation.log');
     if (empty($excavationIdentifier)) {
         return false;
     }
     
     try {
-        // Search for items with the given excavation identifier
-        $response = $this->api()->search('items', [
-            'property' => [
-                [
-                    'property' => 10, // Assuming 10 is the property ID for dcterms:identifier
-                    'type' => 'eq',
-                    'text' => $excavationIdentifier
-                ]
-            ]
-        ]);
-        
-        // If we found any items, the identifier exists
-        return $response->getTotalResults() > 0;
-        
+        // Query all graphs for the excavation identifier
+        $sparql = "
+            PREFIX dct: <http://purl.org/dc/terms/>
+            SELECT ?s WHERE {
+            GRAPH ?g {
+                ?s dct:identifier \"$excavationIdentifier\"^^<http://www.w3.org/2001/XMLSchema#literal> .
+            }
+            } LIMIT 1
+        ";
+        $results = $this->querySparql($sparql);
+        if (!empty($results)) {
+            error_log("Found existing excavation identifier in GraphDB: $excavationIdentifier", 3, OMEKA_PATH . '/logs/excavation-validation.log');
+            return true;
+        }
     } catch (\Exception $e) {
-        error_log('Error checking if excavation identifier exists: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-validation.log');
-        return false; // Assume it doesn't exist in case of error
+        error_log('Error checking GraphDB for excavation identifier: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-validation.log');
+        return false; // Assume it doesn't exist if we can't query
     }
 }
 
