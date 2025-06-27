@@ -3321,6 +3321,25 @@ private function getExcavationLocationUri($excavationId, $itemSetId = null) {
 }
 
 
+public function downloadTemplateAction()
+{
+    $type = $this->params()->fromQuery('type', 'ttl'); // default to ttl
+    $filename = $type === 'xml' ? 'template.xml' : 'template.ttl';
+    $filePath = OMEKA_PATH . '/modules/AddTriplestore/asset/templates/' . $filename;
+
+    if (!file_exists($filePath)) {
+        $this->messenger()->addError('Template file not found.');
+        return $this->redirect()->toRoute('site/add-triplestore/upload', [
+            'site-slug' => $this->currentSite()->slug()
+        ]);
+    }
+
+    $response = $this->getResponse();
+    $response->getHeaders()->addHeaderLine('Content-Type', $type === 'xml' ? 'application/xml' : 'text/turtle');
+    $response->getHeaders()->addHeaderLine('Content-Disposition', 'attachment; filename="' . $filename . '"');
+    $response->setContent(file_get_contents($filePath));
+    return $response;
+}
 private function processFileUpload($request, ?string $uploadType, ?int $itemSetId): string
 {
     $file = $request->getFiles()->file;

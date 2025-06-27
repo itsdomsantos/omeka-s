@@ -142,6 +142,16 @@ return [
                                     ],
                                 ],
                             ],
+                            'download-template' => [
+                                'type' => 'Segment',
+                                'options' => [
+                                    'route' => '/download-template',
+                                    'defaults' => [
+                                        'controller' => 'AddTriplestore\Controller\Site\Index',
+                                        'action' => 'downloadTemplate',
+                                    ],
+                                ],
+                            ],
                         ],
                     ],
                 ],

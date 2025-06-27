@@ -54,7 +54,7 @@ public function onBootstrap(MvcEvent $event)
     $acl->allow(
         null,
         ['AddTriplestore\Controller\Site\Index'],
-        ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout', 'dashboard', 'myData', 'processFileUpload', 'uploadTtlData']
+        ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout', 'dashboard', 'myData', 'processFileUpload', 'uploadTtlData', 'downloadTemplate']
     );
     
     // Grant permissions to create, update, and delete items, item sets, and media

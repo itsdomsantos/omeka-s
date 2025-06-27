@@ -181,6 +181,9 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
                     </div>
                     <div class="form-actions">
                         <input type="submit" value="Upload" name="submit" class="btn-primary">
+                        <!-- Add the download template button here -->
+                        <a href="<?php echo $this->url('site/add-triplestore/download-template', ['site-slug' => $site->slug()], ['query' => ['type' => 'ttl']]); ?>" class="btn-secondary" style="margin-left:10px;">Download TTL Template</a>
+                        <a href="<?php echo $this->url('site/add-triplestore/download-template', ['site-slug' => $site->slug()], ['query' => ['type' => 'xml']]); ?>" class="btn-secondary" style="margin-left:10px;">Download XML Template</a>
                     </div>
                 </form>
             </div>
