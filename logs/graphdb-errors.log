@@ -50734,3 +50734,15 @@ _:fbc6ce1e-25a3-4261-b6f1-2e01cb1b1e2e-57 <http://www.w3.org/ns/shacl#class> <ht
 2025-06-27T19:23:44+00:00 INFO (6): Response Status: 500 | Response Body: Invalid IRI value
 Failed to upload data: Response Status: 500 | Response Body: Invalid IRI value2025-06-27T19:23:44+00:00 ERR (3): Failed to upload data: Response Status: 500 | Response Body: Invalid IRI value
 2025-06-27T19:26:31+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-28T13:59:15+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-28T14:39:05+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-28T14:40:46+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-28T14:42:35+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-28T14:45:50+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Illegal subject value: ""^^<http://www.w3.org/2001/XMLSchema#integer> [line 28]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Illegal subject value: ""^^<http://www.w3.org/2001/XMLSchema#integer> [line 28]2025-06-28T14:45:50+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Illegal subject value: ""^^<http://www.w3.org/2001/XMLSchema#integer> [line 28]
+2025-06-28T14:46:00+00:00 INFO (6): Response Status: 400 | Response Body: MALFORMED DATA: Illegal subject value: ""^^<http://www.w3.org/2001/XMLSchema#integer> [line 28]
+Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Illegal subject value: ""^^<http://www.w3.org/2001/XMLSchema#integer> [line 28]2025-06-28T14:46:00+00:00 ERR (3): Failed to upload data: Response Status: 400 | Response Body: MALFORMED DATA: Illegal subject value: ""^^<http://www.w3.org/2001/XMLSchema#integer> [line 28]
+2025-06-28T14:47:22+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-28T14:51:18+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-28T14:59:54+00:00 INFO (6): Response Status: 204 | Response Body:
+2025-06-28T15:02:12+00:00 INFO (6): Response Status: 204 | Response Body:

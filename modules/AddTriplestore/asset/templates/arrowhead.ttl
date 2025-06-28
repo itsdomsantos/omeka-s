@@ -32,8 +32,8 @@
     
     crm:E57_Material <http://vocab.getty.edu/page/aat/300057143> ;
     excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/ah-057-coordinates> ;
-    excav:foundInContext <https://purl.org/megalod/context/CTX-003> ;
-    excav:foundInSVU <https://purl.org/megalod/svu/Layer-06> ;
+    excav:foundInContext <https://purl.org/megalod/context/CTX-001> ;
+    excav:foundInSVU <https://purl.org/megalod/svu/Layer-02> ;
     schema:height <https://purl.org/megalod/typometry/ah-057-height> ;
     schema:width <https://purl.org/megalod/typometry/ah-057-width> ;
     schema:depth <https://purl.org/megalod/typometry/ah-057-depth> ;

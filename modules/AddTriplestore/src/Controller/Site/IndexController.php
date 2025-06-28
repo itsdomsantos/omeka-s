@@ -3321,7 +3321,6 @@ private function getExcavationLocationUri($excavationId, $itemSetId = null) {
 }
 
 
-
 public function downloadTemplateAction()
 {
     // Get both template type and format from query parameters
@@ -6198,12 +6197,12 @@ private function extractArrowheadContextFromTtl($ttlData) {
     }
 
     if (preg_match('/excav:foundInSquare\s+<([^>]+)>/i', $ttlData, $matches)) {
-    $squareUri = $matches[1];
-    if (preg_match('/\/square\/([^\/\s>]+)/', $squareUri, $squareMatches)) {
-        $context['square'] = $squareMatches[1];
-        error_log("Extracted square ID from URI: {$context['square']}", 3, OMEKA_PATH . '/logs/context-extraction.log');
-    }
-}
+        $squareUri = $matches[1];
+        if (preg_match('/\/square\/([^\/\s>]+)/', $squareUri, $squareMatches)) {
+            $context['square'] = $squareMatches[1];
+            error_log("Extracted square ID from URI: {$context['square']}", 3, OMEKA_PATH . '/logs/context-extraction.log');
+        }
+    } 
     
     // Validation: ensure we have at least some context
     $hasValidContext = $context['excavation'] || $context['location'] || $context['context'] || $context['svu'] || $context['square'];
@@ -9852,65 +9851,44 @@ private function queryCompleteExcavationFromGraphDB($itemSetId, $resource)
 private function parseTtlIntoSubjects($ttlData)
 {
     $subjects = [];
-    
-    // First, clean and normalize the TTL data
-    $cleanTtl = $this->cleanExistingPrefixes($ttlData);
-    
-    // Use a more robust parsing approach
-    $lines = explode("\n", $cleanTtl);
+    $lines = explode("\n", $ttlData);
     $currentSubject = null;
     $currentStatements = [];
-    $inMultiLineStatement = false;
-    
-    foreach ($lines as $lineNum => $line) {
+    $inStatement = false;
+
+    foreach ($lines as $line) {
         $trimmedLine = trim($line);
-        
-        // Skip empty lines and comments
-        if (empty($trimmedLine) || strpos($trimmedLine, '#') === 0) {
-            continue;
-        }
-        
-        // Check if this line starts a new subject
-        if (preg_match('/^(<[^>]+>)\s+(.+)$/', $trimmedLine, $matches)) {
+        if (empty($trimmedLine) || strpos($trimmedLine, '#') === 0) continue;
+
+        // If line starts with a subject and we're not in a statement, start new subject
+        if (preg_match('/^(<[^>]+>)\s+(.+)$/', $trimmedLine, $matches) && !$inStatement) {
             // Save previous subject if exists
             if ($currentSubject && !empty($currentStatements)) {
                 $subjects[$currentSubject] = $this->cleanStatements($currentStatements);
             }
-            
-            // Start new subject
             $currentSubject = $matches[1];
-            $remainder = trim($matches[2]);
-            
-            // Check if this line ends the statement
-            if (substr($remainder, -1) === '.') {
-                // Complete statement on one line
-                $subjects[$currentSubject] = [$remainder];
-                $currentSubject = null;
-                $currentStatements = [];
-            } else {
-                // Multi-line statement
-                $currentStatements = [$remainder];
-                $inMultiLineStatement = true;
-            }
-        } else if ($currentSubject && !empty($trimmedLine)) {
-            // Continue current subject
+            $currentStatements = [trim($matches[2])];
+            // If this line ends with a period, statement is done
+            $inStatement = (substr($trimmedLine, -1) !== '.');
+        } else if ($currentSubject) {
+            // Continue current subject's statements
             $currentStatements[] = $trimmedLine;
-            
-            // Check if this line ends the statement
+            // If this line ends with a period, statement is done
             if (substr($trimmedLine, -1) === '.') {
                 $subjects[$currentSubject] = $this->cleanStatements($currentStatements);
                 $currentSubject = null;
                 $currentStatements = [];
-                $inMultiLineStatement = false;
+                $inStatement = false;
+            } else {
+                $inStatement = true;
             }
         }
     }
-    
     // Don't forget the last subject
     if ($currentSubject && !empty($currentStatements)) {
         $subjects[$currentSubject] = $this->cleanStatements($currentStatements);
     }
-    
+    error_log("all subjects: " . print_r($subjects, true), 3, OMEKA_PATH . '/logs/subjectssss-ttl.log');
     return $subjects;
 }
 
@@ -9940,42 +9918,56 @@ private function formatSubjectStatements($subject, $statements)
     if (empty($statements)) {
         return $subject . " .\n";
     }
-    
-    $formatted = $subject;
-    
-    // Process statements with proper indentation
-    $processedStatements = [];
-    
-    foreach ($statements as $i => $statement) {
-        $cleanStatement = trim($statement);
-        
-        // Skip empty statements
-        if (empty($cleanStatement)) {
-            continue;
-        }
 
-        // Skip dct:date statements for download
-        if (strpos($cleanStatement, 'dct:date') === 0) {
-            continue;
+    $predicateObjects = [];
+    $lastPredicate = null;
+
+    foreach ($statements as $statement) {
+        $cleanStatement = trim($statement);
+        if (empty($cleanStatement)) continue;
+        if (strpos($cleanStatement, 'dct:date') === 0) continue;
+
+        // If line starts with a predicate
+        if (preg_match('/^([^\s]+)\s+(.+)$/', $cleanStatement, $matches)) {
+            $predicate = $matches[1];
+            $object = $matches[2];
+            $predicateObjects[$predicate][] = $object;
+            $lastPredicate = $predicate;
         }
-        
-        // Add proper indentation
-        if ($i === 0) {
-            // First statement goes right after the subject
-            $processedStatements[] = " " . $cleanStatement;
-        } else {
-            // Subsequent statements are indented
-            $processedStatements[] = "    " . $cleanStatement;
+        // If line is just a URI/object, treat as additional object for previous predicate
+        elseif ($lastPredicate && preg_match('/^<[^>]+>$/', $cleanStatement)) {
+            $predicateObjects[$lastPredicate][] = $cleanStatement;
         }
     }
-    
-    if (!empty($processedStatements)) {
-        $formatted = $subject . implode(" ;\n", $processedStatements) . " .\n";
-    } else {
-        $formatted = $subject . " .\n";
+
+    $lines = [];
+    foreach ($predicateObjects as $predicate => $objects) {
+        // Remove empty and duplicate objects, and filter out empty strings
+        $objects = array_filter(array_unique(array_map('trim', $objects)), function($o) {
+            return $o !== '' && $o !== ',';
+        });
+        // Remove any trailing commas from each object
+        $objects = array_map(function($o) {
+            return rtrim($o, ',');
+        }, $objects);
+        // Remove any empty objects again after trimming
+        $objects = array_filter($objects, function($o) {
+            return $o !== '';
+        });
+
+        if (count($objects) > 1) {
+            $lines[] = "    $predicate " . implode(",\n        ", $objects);
+        } elseif (count($objects) === 1) {
+            $lines[] = "    $predicate " . reset($objects);
+        }
     }
-    
-    return $formatted;
+
+    if (empty($lines)) {
+        return $subject . " .\n";
+    }
+
+    $ttl = $subject . "\n" . implode(" ;\n", $lines) . " .\n";
+    return $ttl;
 }
 
 private function organizeAndFormatTtl($rawTtlData, $itemSetId)
