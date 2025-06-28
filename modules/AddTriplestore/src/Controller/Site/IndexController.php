@@ -3321,10 +3321,25 @@ private function getExcavationLocationUri($excavationId, $itemSetId = null) {
 }
 
 
+
 public function downloadTemplateAction()
 {
-    $type = $this->params()->fromQuery('type', 'ttl'); // default to ttl
-    $filename = $type === 'xml' ? 'template.xml' : 'template.ttl';
+    // Get both template type and format from query parameters
+    $templateType = $this->params()->fromQuery('template', 'arrowhead'); // 'arrowhead' or 'excavation'
+    $format = $this->params()->fromQuery('format', 'ttl'); // 'ttl' or 'xml'
+
+    // Validate input
+    $allowedTemplates = ['arrowhead', 'excavation'];
+    $allowedFormats = ['ttl', 'xml'];
+    if (!in_array($templateType, $allowedTemplates) || !in_array($format, $allowedFormats)) {
+        $this->messenger()->addError('Invalid template or format requested.');
+        return $this->redirect()->toRoute('site/add-triplestore/upload', [
+            'site-slug' => $this->currentSite()->slug()
+        ]);
+    }
+
+    // Build filename and path
+    $filename = "{$templateType}.{$format}";
     $filePath = OMEKA_PATH . '/modules/AddTriplestore/asset/templates/' . $filename;
 
     if (!file_exists($filePath)) {
@@ -3334,12 +3349,16 @@ public function downloadTemplateAction()
         ]);
     }
 
+    // Set appropriate content type
+    $contentType = $format === 'xml' ? 'application/xml' : 'text/turtle';
+
     $response = $this->getResponse();
-    $response->getHeaders()->addHeaderLine('Content-Type', $type === 'xml' ? 'application/xml' : 'text/turtle');
+    $response->getHeaders()->addHeaderLine('Content-Type', $contentType);
     $response->getHeaders()->addHeaderLine('Content-Disposition', 'attachment; filename="' . $filename . '"');
     $response->setContent(file_get_contents($filePath));
     return $response;
 }
+
 private function processFileUpload($request, ?string $uploadType, ?int $itemSetId): string
 {
     $file = $request->getFiles()->file;
@@ -6177,6 +6196,14 @@ private function extractArrowheadContextFromTtl($ttlData) {
             }
         }
     }
+
+    if (preg_match('/excav:foundInSquare\s+<([^>]+)>/i', $ttlData, $matches)) {
+    $squareUri = $matches[1];
+    if (preg_match('/\/square\/([^\/\s>]+)/', $squareUri, $squareMatches)) {
+        $context['square'] = $squareMatches[1];
+        error_log("Extracted square ID from URI: {$context['square']}", 3, OMEKA_PATH . '/logs/context-extraction.log');
+    }
+}
     
     // Validation: ensure we have at least some context
     $hasValidContext = $context['excavation'] || $context['location'] || $context['context'] || $context['svu'] || $context['square'];
@@ -6751,7 +6778,9 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     
     // Add location declaration if needed
     if ($arrowheadContext['location'] && !$existingDeclarations['location']) {
-        // Location handling code remains the same...
+        $locationUri = "http://localhost/megalod/$itemSetId/excavation/$excavationIdentifier/location/{$arrowheadContext['location']}";
+        $encounterDefinition .= "<$locationUri> a excav:Location ;\n";
+        $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['location']}\"^^xsd:literal .\n\n";
     }
     
     // Add square declaration if present and doesn't already exist

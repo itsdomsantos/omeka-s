@@ -182,8 +182,10 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
                     <div class="form-actions">
                         <input type="submit" value="Upload" name="submit" class="btn-primary">
                         <!-- Add the download template button here -->
-                        <a href="<?php echo $this->url('site/add-triplestore/download-template', ['site-slug' => $site->slug()], ['query' => ['type' => 'ttl']]); ?>" class="btn-secondary" style="margin-left:10px;">Download TTL Template</a>
-                        <a href="<?php echo $this->url('site/add-triplestore/download-template', ['site-slug' => $site->slug()], ['query' => ['type' => 'xml']]); ?>" class="btn-secondary" style="margin-left:10px;">Download XML Template</a>
+                        <a href="<?php echo $this->url('site/add-triplestore/download-template', ['site-slug' => $site->slug()], ['query' => ['template' => 'arrowhead', 'format' => 'ttl']]); ?>" class="btn-secondary" style="margin-left:10px;">Download Arrowhead TTL</a>
+                        <a href="<?php echo $this->url('site/add-triplestore/download-template', ['site-slug' => $site->slug()], ['query' => ['template' => 'arrowhead', 'format' => 'xml']]); ?>" class="btn-secondary" style="margin-left:10px;">Download Arrowhead XML</a>
+                        <a href="<?php echo $this->url('site/add-triplestore/download-template', ['site-slug' => $site->slug()], ['query' => ['template' => 'excavation', 'format' => 'ttl']]); ?>" class="btn-secondary" style="margin-left:10px;">Download Excavation TTL</a>
+                        <a href="<?php echo $this->url('site/add-triplestore/download-template', ['site-slug' => $site->slug()], ['query' => ['template' => 'excavation', 'format' => 'xml']]); ?>" class="btn-secondary" style="margin-left:10px;">Download Excavation XML</a>
                     </div>
                 </form>
             </div>
