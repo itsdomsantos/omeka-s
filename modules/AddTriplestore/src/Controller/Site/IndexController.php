@@ -488,12 +488,13 @@ class IndexController extends AbstractActionController
         $resource = null;
         $properties = [];
         $relatedItems = []; 
+        $media = [];
         
         try {
             if ($resourceType === 'item_set') {
                 $resource = $this->api()->read('item_sets', $id)->getContent();
                 
-            // get by itemset id
+                // get by itemset id
                 $searchParams1 = [
                     'item_set_id' => $id,
                     'sort_by' => 'created',
@@ -506,7 +507,13 @@ class IndexController extends AbstractActionController
                 $relatedItems = $response1->getContent();
                 $totalResults1 = $response1->getTotalResults();
                 
-                
+                foreach ($relatedItems as $item) {
+                    foreach ($item->media() as $m) {
+                        if (strpos($m->mediaType(), 'image/') === 0) {
+                            $media[] = $m;
+                        }
+                    }
+                }
                 // If no results, search all items and filter
                 if (empty($relatedItems)) {
                     
@@ -525,6 +532,13 @@ class IndexController extends AbstractActionController
                             
             } else {
                 $resource = $this->api()->read('items', $id)->getContent();
+               
+                foreach ($resource->media() as $m) {
+                    error_log('Media found: ' . $m->id() . ' - ' . $m->mediaType(), 3, OMEKA_PATH . '/logs/view-details.log');
+                    if (strpos($m->mediaType(), 'image/') === 0) {
+                        $media[] = $m;
+                    }
+                }
             }
             
             // Get values using omeka S metod
@@ -596,12 +610,19 @@ class IndexController extends AbstractActionController
             $this->messenger()->addError('The requested resource could not be found.');
             return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
         }
-        
+
+        // log the view details action
+        error_log('ViewDetailsAction: resourceType=' . $resourceType . ', resourceId=' . ($resource ? $resource->id() : 'null') . ', propertiesCount=' . count($properties), 3, OMEKA_PATH . '/logs/view-details.log');
+
+        // log details about the media
+        error_log('ViewDetailsAction: mediaCount=' . count($media) . ', relatedItemsCount=' . count($relatedItems), 3, OMEKA_PATH . '/logs/view-details.log');
+
         return new ViewModel([
             'resource' => $resource,
             'resourceType' => $resourceType,
             'properties' => $properties,
             'relatedItems' => $relatedItems,
+            'media' => $media,
             'site' => $this->currentSite()
         ]);
     }

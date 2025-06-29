@@ -91,19 +91,33 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
                 <div class="artifact-details">
                     <div class="artifact-media">
                         <?php if ($resourceType === 'Artifact'): ?>
-                            <?php $mediaList = $resource->media(); ?>
-                            <?php if (count($mediaList) > 0): ?>
-                            <div class="media-gallery">
-                                <?php foreach ($mediaList as $media): ?>
-                                    <div class="media-item">
-                                        <a href="<?php echo $media->originalUrl(); ?>" target="_blank">
-                                            <img src="<?php echo $media->thumbnailUrl('medium'); ?>" alt="<?php echo $this->escapeHtml($media->displayTitle()); ?>">
-                                        </a>
-                                    </div>
-                                <?php endforeach; ?>
-                            </div>
+        <?php $mediaList = $resource->media(); ?>
+        <?php if (count($mediaList) > 0): ?>
+            <div class="media-carousel" id="media-carousel">
+                <?php foreach ($mediaList as $i => $media): ?>
+                    <div class="carousel-slide" style="display:<?php echo $i === 0 ? 'block' : 'none'; ?>">
+                        <a href="<?php echo $media->originalUrl(); ?>" target="_blank">
+                            <img src="<?php echo $media->thumbnailUrl('large'); ?>" alt="<?php echo $this->escapeHtml($media->displayTitle()); ?>">
+                        </a>
+                        <?php if ($media->displayTitle()): ?>
+                            <div class="media-caption"><?php echo $this->escapeHtml($media->displayTitle()); ?></div>
                         <?php endif; ?>
-                        <?php endif; ?>
+                    </div>
+                <?php endforeach; ?>
+                <button class="carousel-nav prev" id="carousel-prev">&#10094;</button>
+                <button class="carousel-nav next" id="carousel-next">&#10095;</button>
+                <div class="carousel-indicators">
+                    <?php foreach ($mediaList as $i => $media): ?>
+                        <span class="carousel-dot<?php echo $i === 0 ? ' active' : ''; ?>" data-index="<?php echo $i; ?>"></span>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        <?php else: ?>
+            <div class="no-media-message">
+                <em>No images available for this artifact.</em>
+            </div>
+        <?php endif; ?>
+    <?php endif; ?>
                     </div>
                     
                     <div class="artifact-context">
@@ -430,28 +444,79 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
     margin-bottom: 20px;
 }
 
-.media-gallery {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 15px;
-}
-
-.media-item {
-    width: 200px;
-    height: 200px;
+.media-carousel {
+    position: relative;
+    max-width: 420px;
+    margin: 0 auto 20px auto;
+    background: #fafafa;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.07);
     overflow: hidden;
-    border: 1px solid #ddd;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #f9f9f9;
-    border-radius: 8px;
+    text-align: center;
 }
 
-.media-item img {
-    max-width: 100%;
-    max-height: 100%;
+.media-carousel .carousel-slide {
+    display: none;
+    padding: 10px 0 0 0;
+}
+
+.media-carousel .carousel-slide img {
+    width: 100%;
+    max-height: 320px;
     object-fit: contain;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.media-carousel .media-caption {
+    font-size: 14px;
+    color: #555;
+    padding: 10px 10px 16px;
+    background: #f5f5f5;
+    border-radius: 0 0 8px 8px;
+}
+
+.carousel-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255,255,255,0.8);
+    border: none;
+    font-size: 2rem;
+    color: #333;
+    padding: 6px 14px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 2;
+    transition: background 0.2s;
+}
+
+.carousel-nav:hover {
+    background: #e0e0e0;
+}
+
+.carousel-nav.prev { left: 10px; }
+.carousel-nav.next { right: 10px; }
+.carousel-indicators {
+    text-align: center;
+    margin: 10px 0 12px 0;
+}
+.carousel-indicators .carousel-dot {
+    display: inline-block;
+    width: 11px;
+    height: 11px;
+    margin: 0 4px;
+    background: #bbb;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.carousel-indicators .carousel-dot.active {
+    background: #2196F3;
+}
+@media (max-width: 600px) {
+    .media-carousel { max-width: 98vw; }
+    .media-carousel .carousel-slide img { max-height: 180px; }
 }
 
 .artifact-context {
@@ -802,3 +867,87 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
     }
 }
 </style>
+
+<!-- Lightbox Script -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const links = document.querySelectorAll('.lightbox-link');
+    links.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const imgSrc = this.href;
+            const title = this.getAttribute('data-title') || '';
+            let lightbox = document.getElementById('lightbox-modal');
+            if (!lightbox) {
+                lightbox = document.createElement('div');
+                lightbox.id = 'lightbox-modal';
+                lightbox.innerHTML = `
+                    <div class="lightbox-overlay"></div>
+                    <div class="lightbox-content">
+                        <img src="" alt="" id="lightbox-img">
+                        <div class="lightbox-caption" id="lightbox-caption"></div>
+                        <button class="lightbox-close">&times;</button>
+                    </div>
+                `;
+                document.body.appendChild(lightbox);
+                lightbox.querySelector('.lightbox-overlay').onclick = closeLightbox;
+                lightbox.querySelector('.lightbox-close').onclick = closeLightbox;
+            }
+            lightbox.style.display = 'flex';
+            document.getElementById('lightbox-img').src = imgSrc;
+            document.getElementById('lightbox-caption').textContent = title;
+            function closeLightbox() {
+                lightbox.style.display = 'none';
+            }
+        });
+    });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let slideIndex = 0;
+    const slides = document.querySelectorAll('#media-carousel .carousel-slide');
+    const dots = document.querySelectorAll('#media-carousel .carousel-dot');
+    const prev = document.getElementById('carousel-prev');
+    const next = document.getElementById('carousel-next');
+    let startX = null;
+
+    function showSlide(n) {
+        if (!slides.length) return;
+        slideIndex = (n + slides.length) % slides.length;
+        slides.forEach((slide, i) => {
+            slide.style.display = i === slideIndex ? 'block' : 'none';
+        });
+        dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === slideIndex);
+        });
+    }
+
+    if (prev && next) {
+        prev.onclick = () => showSlide(slideIndex - 1);
+        next.onclick = () => showSlide(slideIndex + 1);
+    }
+    dots.forEach(dot => {
+        dot.onclick = () => showSlide(Number(dot.dataset.index));
+    });
+
+    // Swipe support
+    const carousel = document.getElementById('media-carousel');
+    if (carousel) {
+        carousel.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 1) startX = e.touches[0].clientX;
+        });
+        carousel.addEventListener('touchend', function(e) {
+            if (startX === null) return;
+            let endX = e.changedTouches[0].clientX;
+            if (endX - startX > 40) showSlide(slideIndex - 1);
+            else if (startX - endX > 40) showSlide(slideIndex + 1);
+            startX = null;
+        });
+    }
+
+    // Show the first slide initially
+    showSlide(0);
+});
+</script>
