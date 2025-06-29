@@ -604,6 +604,8 @@ class IndexController extends AbstractActionController
                             }
                         }
                     }
+
+                    
                     
                     if (!empty($propertyValues)) {
                         $properties[] = [
@@ -617,6 +619,7 @@ class IndexController extends AbstractActionController
                     continue;
                 }
             }
+            
             
             usort($properties, function($a, $b) {
                 if ($a['label'] === 'Title') return -1;

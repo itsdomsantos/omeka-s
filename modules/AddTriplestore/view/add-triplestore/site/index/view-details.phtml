@@ -168,7 +168,7 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
                                     <td>
                                         <?php foreach ($property['values'] as $value): ?>
                                             <div class="value">
-                                                <?php echo $value->type() === 'uri' ? '<a href="' . $this->escapeHtml($value->uri()) . '">' . $this->escapeHtml($value->value()) . '</a>' : $this->escapeHtml($value->value()); ?>
+                                                <?php echo $this->escapeHtml($value->value()); ?>
                                             </div>
                                         <?php endforeach; ?>
                                     </td>
