@@ -1052,6 +1052,10 @@ class IndexController extends AbstractActionController
 
     // ================== SEARCH ACTIONS ==================
 
+    /**
+     * This method handles the search functionality for items and item sets.
+     * @return ViewModel
+     */
     public function searchAction()
     {
         // Check if user is logged in
