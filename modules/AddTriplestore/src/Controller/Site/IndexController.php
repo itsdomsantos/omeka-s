@@ -137,8 +137,7 @@ class IndexController extends AbstractActionController
                     }
                     
                 } catch (\Exception $e) {
-                    error_log('Error creating user: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/user-creation.log');
-                    error_log('Stack trace: ' . $e->getTraceAsString(), 3, OMEKA_PATH . '/logs/user-creation.log');
+
                     $this->messenger()->addError('Error creating account: ' . $e->getMessage());
                     return $view;
                 }
@@ -184,7 +183,6 @@ class IndexController extends AbstractActionController
             'site' => $this->currentSite()
         ]);
         $view->setTemplate('add-triplestore/site/index/login');
-        error_log('Rendering login form', 3, OMEKA_PATH . '/logs/login-debug.log');
         
         if ($this->getRequest()->isPost()) {
 
@@ -199,9 +197,7 @@ class IndexController extends AbstractActionController
             }
             
             $form->setData($data);
-            error_log('Form data received: ' . print_r($data, true), 3, OMEKA_PATH . '/logs/login-debug.log');
-            
-            error_log('Form validation started', 3, OMEKA_PATH . '/logs/login-debug.log');
+           
             if (!$form->isValid()) {
                 $errors = $form->getMessages();
             }
@@ -514,7 +510,7 @@ class IndexController extends AbstractActionController
                         }
                     }
                 }
-                // If no results, search all items and filter
+                // If no results search all items and filter
                 if (empty($relatedItems)) {
                     
                     $allItemsResponse = $this->api()->search('items', ['per_page' => 100]);
@@ -534,7 +530,6 @@ class IndexController extends AbstractActionController
                 $resource = $this->api()->read('items', $id)->getContent();
                
                 foreach ($resource->media() as $m) {
-                    error_log('Media found: ' . $m->id() . ' - ' . $m->mediaType(), 3, OMEKA_PATH . '/logs/view-details.log');
                     if (strpos($m->mediaType(), 'image/') === 0) {
                         $media[] = $m;
                     }
@@ -611,12 +606,7 @@ class IndexController extends AbstractActionController
             return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
         }
 
-        // log the view details action
-        error_log('ViewDetailsAction: resourceType=' . $resourceType . ', resourceId=' . ($resource ? $resource->id() : 'null') . ', propertiesCount=' . count($properties), 3, OMEKA_PATH . '/logs/view-details.log');
-
-        // log details about the media
-        error_log('ViewDetailsAction: mediaCount=' . count($media) . ', relatedItemsCount=' . count($relatedItems), 3, OMEKA_PATH . '/logs/view-details.log');
-
+       
         return new ViewModel([
             'resource' => $resource,
             'resourceType' => $resourceType,
@@ -651,7 +641,6 @@ class IndexController extends AbstractActionController
         $uploadedFiles = null;
         if (isset($_FILES['file']['54'])) {
             $uploadedFiles = $_FILES['file']['54'];
-            error_log('Found uploaded files: ' . print_r($uploadedFiles, true), 3, OMEKA_PATH . '/logs/collecting-form.log');
         }
         // transform the form data to Arrowhead data format
         $arrowheadData = $this->transformCollectingFormToArrowheadData($formData);
@@ -835,10 +824,8 @@ class IndexController extends AbstractActionController
                     }
                 } catch (\Exception $e) {
                     if (strpos($e->getMessage(), 'permission') !== false) {
-                        error_log('Permission error during excavation creation: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/permission-error.log');
                         $this->messenger()->addError('You do not have permission to create excavations. Please contact an administrator.');
                     } else {
-                        error_log('Error creating excavation item set: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/excavation-collecting-form.log');
                         $this->messenger()->addError('Failed to create excavation: ' . $e->getMessage());
                     }
                     if (!$this->canUserCreateResource('ItemSet')) {
@@ -1566,7 +1553,6 @@ class IndexController extends AbstractActionController
     
             
         } catch (\Exception $e) {
-            error_log('Failed to add user to site: ' . $e->getMessage(), 3, OMEKA_PATH . '/logs/site-user-error.log');
         }
     }
 
@@ -1771,9 +1757,7 @@ private function canUserCreateResource($resourceType)
     // Check if the user has permission to create this resource type
     $canCreate = $acl->userIsAllowed("Omeka\Entity\\$resourceType", 'create');
     
-    error_log("Permission check for user {$user->getEmail()} to create $resourceType: " . ($canCreate ? 'ALLOWED' : 'DENIED'), 
-              3, OMEKA_PATH . '/logs/permission-check.log');
-              
+
     return $canCreate;
 }
 
@@ -4601,7 +4585,6 @@ private function validateData($data, $graphUri)
             }
 
             $rawBody = $response->getBody();
-            error_log("Raw GraphDB Response: " . $rawBody); 
             $results = json_decode($rawBody, true);
 
             if (json_last_error() !== JSON_ERROR_NONE) {
@@ -9232,8 +9215,7 @@ private function sendToOmekaS($omekaData, $itemSetId = null) {
             if ($createdItem && isset($createdItem['o:id'])) { 
                 $itemId = $createdItem['o:id'];
                 $this->attachMediaToItem($createdItem['o:id']);
-                error_log('Omeka S Item Created Successfully: ID=' . $itemId . 
-                 ($identifier ? ", Identifier=$identifier" : ""));
+                
                                 
             } else {
                 
