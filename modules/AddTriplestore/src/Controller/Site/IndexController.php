@@ -10276,8 +10276,12 @@ private function querySparql($query)
 }
 
 
-
-// Generate the TTL for the arrowhead resource with original URIs
+/**
+ * This method generates the TTL for an arrowhead resource with original URIs.
+ * It uses the original excavation context URIs to construct the arrowhead URI.
+ * @param mixed $resource The resource for which to generate the TTL
+ * @return string The generated TTL string
+ */
 private function generateArrowheadTtlWithOriginalUris($resource)
 {
     $values = $resource->values();
@@ -10344,6 +10348,14 @@ private function generateArrowheadTtlWithOriginalUris($resource)
     return $ttl;
 }
 
+/**
+ * This method adds measurement references to the TTL string.
+ * It checks for various measurement values and constructs the appropriate URIs.
+ * @param array $values The values from the resource
+ * @param string $arrowheadUri The base URI for the arrowhead
+ * @param string $identifier The identifier of the resource
+ * @return string The TTL string with measurement references
+ */
 private function addMeasurementReferences($values, $arrowheadUri, $identifier)
 {
     $ttl = "";
@@ -10376,11 +10388,21 @@ private function addMeasurementReferences($values, $arrowheadUri, $identifier)
     return $ttl;
 }
 
+/**
+ * This method checks if the values contain morphology data.
+ * It looks for specific properties that indicate morphology information.
+ * @param array $values The values from the resource
+ * @return bool True if morphology data is present, false otherwise
+ */
 private function hasMorphologyData($values)
 {
     return isset($values['ah:point']) || isset($values['ah:body']) || isset($values['ah:base']);
 }
-
+/**
+ * This method processes the chipping data and generates the TTL string.
+ * @param mixed $values
+ * @return bool
+ */
 private function hasChippingData($values)
 {
     $chippingProperties = ['ah:chippingMode', 'ah:chippingAmplitude', 'ah:chippingDirection', 
@@ -10395,14 +10417,24 @@ private function hasChippingData($values)
     return false;
 }
 
-
+/**
+ * This method checks if the values contain coordinates data.
+ * @param mixed $values
+ * @return bool
+ */
 private function hasGpsData($values)
 {
     return isset($values['excavation:hasGPSCoordinates']);
 }
+/**
+ * This method extracts the excavation ID from the values.
+ * It looks for the excavation context reference and extracts the ID from the URI.
+ * @param mixed $values
+ * @param mixed $resource
+ * @return string|null The excavation ID or null if not found
+ */
 private function extractOriginalBaseUri($values, $resource)
 {
-    // Look for any excavation context reference to extract the base pattern
     $contextProperties = [
         'excavation:foundInLocation',
         'excavation:foundInSquare', 
@@ -10415,7 +10447,6 @@ private function extractOriginalBaseUri($values, $resource)
             foreach ($values[$property]['values'] as $value) {
                 if ($value->uri()) {
                     $uri = $value->uri();
-                    // Extract pattern: https://purl.org/megalod/2733/excavation/ALC-2023/...
                     if (preg_match('/^(https:\/\/purl\.org\/megalod\/\d+)\/excavation\/[^\/]+\//', $uri, $matches)) {
                         return $matches[1];
                     }
@@ -10424,17 +10455,22 @@ private function extractOriginalBaseUri($values, $resource)
         }
     }
     
-    // Fallback: extract from item set information
     $itemSets = $resource->itemSets();
     if (!empty($itemSets)) {
         $itemSetId = $itemSets[0]->id();
         return "http://localhost/megalod/$itemSetId";
     }
     
-    // Last resort fallback
     return null;
 }
 
+/**
+ * This method extracts the identifier from the resource.
+ * It looks for the dcterms:identifier property and returns its value.
+ * If not found, it generates a default identifier based on the resource ID.
+ * @param mixed $resource The resource from which to extract the identifier
+ * @return string The extracted or generated identifier
+ */
 private function extractIdentifierFromResource($resource)
 {
     $values = $resource->values();
@@ -10448,11 +10484,19 @@ private function extractIdentifierFromResource($resource)
     return 'item-' . $resource->id();
 }
 
+/**
+ * This method processes the core properties of an arrowhead resource
+ * and generates the TTL string using the original URIs.
+ * @param mixed $values
+ * @param mixed $arrowheadUri
+ * @param mixed $originalBaseUri
+ * @return string
+ */
 private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowheadUri, $originalBaseUri)
 {
     $ttl = "";
     
-    // Process description/annotation
+    // Process description
     if (isset($values['dcterms:description'])) {
         foreach ($values['dcterms:description']['values'] as $value) {
             $ttl .= "    dbo:Annotation \"" . $this->escapeTtlString($value->value()) . "\"^^xsd:literal ;\n";
@@ -10491,7 +10535,6 @@ private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowh
         }
     }
     
-    // Process variant with controlled vocabulary URI (preserve original)
     if (isset($values['ah:variant'])) {
         foreach ($values['ah:variant']['values'] as $value) {
             $variantValue = strtolower($value->value());
@@ -10499,21 +10542,18 @@ private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowh
         }
     }
     
-    // Process elongation index (preserve original KOS URI)
     if (isset($values['excavation:elongationIndex'])) {
         foreach ($values['excavation:elongationIndex']['values'] as $value) {
             $ttl .= "    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/" . $value->value() . "> ;\n";
         }
     }
     
-    // Process thickness index (preserve original KOS URI)
     if (isset($values['excavation:thicknessIndex'])) {
         foreach ($values['excavation:thicknessIndex']['values'] as $value) {
             $ttl .= "    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/" . $value->value() . "> ;\n";
         }
     }
     
-    // Process archaeological context references (preserve original URIs)
     $contextProperties = [
         'excavation:foundInLocation' => 'excav:foundInLocation',
         'excavation:foundInSquare' => 'excav:foundInSquare', 
@@ -10525,14 +10565,12 @@ private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowh
         if (isset($values[$omekaProperty])) {
             foreach ($values[$omekaProperty]['values'] as $value) {
                 if ($value->uri()) {
-                    // Use the original URI as stored
                     $ttl .= "    $ttlProperty <" . $value->uri() . "> ;\n";
                 }
             }
         }
     }
 
-    // Process district, parish and country references
     if (isset($values['district'])) {
         foreach ($values['district']['values'] as $value) {
             $districtName = $value->value();
@@ -10569,14 +10607,12 @@ private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowh
         }
     }
     
-    // Process date if available
     if (isset($values['dcterms:date'])) {
         foreach ($values['dcterms:date']['values'] as $value) {
             $ttl .= "    dct:date \"" . $value->value() . "\"^^xsd:literal ;\n";
         }
     }
     
-    // Process web resources
     if (isset($values['dcterms:hasFormat'])) {
         foreach ($values['dcterms:hasFormat']['values'] as $value) {
             if ($value->uri()) {
@@ -10585,7 +10621,6 @@ private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowh
         }
     }
 
-    // Add declarations for referenced entities if any
     if (!empty($entitiesToDeclare)) {
         $ttl .= "\n# Type declarations for referenced resources\n";
         
@@ -10605,6 +10640,13 @@ private function processArrowheadCorePropertiesWithOriginalUris($values, $arrowh
     return $ttl;
 }
 
+/**
+ * This method processes the measurements with original URIs.
+ * @param mixed $values
+ * @param mixed $arrowheadUri
+ * @param mixed $identifier
+ * @return string
+ */
 private function processMeasurementsWithOriginalUris($values, $arrowheadUri, $identifier)
 {
     $ttl = "";
@@ -10641,14 +10683,12 @@ private function processMeasurementsWithOriginalUris($values, $arrowheadUri, $id
                         $measurementObjects .= "    schema:value \"$numericValue\"^^xsd:decimal ;\n";
                         $measurementObjects .= "    schema:UnitCode <http://qudt.org/vocab/unit/$unit> .\n\n";
                     } elseif (strpos($property, 'ah:') === 0) {
-                        // Special handling for body length and base length
                         $propName = str_replace('ah:has', '', $property);
                         $measurementUri = "$arrowheadUri/$suffix/$identifier-$suffix";
                         $measurementObjects .= "<$measurementUri> a excav:TypometryValue ;\n";
                         $measurementObjects .= "    schema:value \"$numericValue\"^^xsd:decimal ;\n";
                         $measurementObjects .= "    schema:UnitCode <http://qudt.org/vocab/unit/$unit> .\n\n";
                     } else {
-                        // Regular typometry values like height, width, depth
                         $propName = str_replace('schema:', '', $property);
                         $measurementUri = "$arrowheadUri/typometry/$identifier-$propName";
                         $measurementObjects .= "<$measurementUri> a excav:TypometryValue ;\n";
@@ -10670,13 +10710,19 @@ private function processMeasurementsWithOriginalUris($values, $arrowheadUri, $id
 
 
 
-
+/**
+ * This method processes the morphology data and generates the TTL string.
+ * It uses original URIs for morphology properties.
+ * @param mixed $values
+ * @param mixed $arrowheadUri
+ * @param mixed $identifier
+ * @return string
+ */
 private function processMorphologyWithOriginalUris($values, $arrowheadUri, $identifier)
 {
     $ttl = "";
     $morphologyUri = "$arrowheadUri/morphology/$identifier-morphology";
     
-    // Check if we have morphology data
     $morphologyProperties = ['ah:point', 'ah:body', 'ah:base', 'Point Definition (Sharp/Fractured)', 
                           'Body Symmetry (Symmetrical/Non-symmetrical)', 'Base Type'];
     
@@ -10694,7 +10740,6 @@ private function processMorphologyWithOriginalUris($values, $arrowheadUri, $iden
         
         $morphologyStatements = [];
         
-        // Process point - try different property names
         if (isset($values['ah:point'])) {
             foreach ($values['ah:point']['values'] as $value) {
                 $boolValue = (strtolower($value->value()) === 'true' || strtolower($value->value()) === 'sharp') ? 'true' : 'false';
@@ -10707,7 +10752,6 @@ private function processMorphologyWithOriginalUris($values, $arrowheadUri, $iden
             }
         }
         
-        // Process body - try different property names
         if (isset($values['ah:body'])) {
             foreach ($values['ah:body']['values'] as $value) {
                 $boolValue = (strtolower($value->value()) === 'true' || strtolower($value->value()) === 'symmetrical') ? 'true' : 'false';
@@ -10720,38 +10764,45 @@ private function processMorphologyWithOriginalUris($values, $arrowheadUri, $iden
             }
         }
         
-        // Process base - try different property names
         if (isset($values['ah:base'])) {
             foreach ($values['ah:base']['values'] as $value) {
                 $baseValue = strtolower($value->value());
-                $baseValue = preg_replace('/\s+/', '-', $baseValue); // Replace spaces with hyphens
+                $baseValue = preg_replace('/\s+/', '-', $baseValue); 
                 $morphologyStatements[] = "    ah:base <https://purl.org/megalod/kos/ah-base/$baseValue>";
             }
         } else if (isset($values['Base Type'])) {
             foreach ($values['Base Type']['values'] as $value) {
                 $baseValue = strtolower($value->value());
-                $baseValue = preg_replace('/\s+/', '-', $baseValue); // Replace spaces with hyphens
+                $baseValue = preg_replace('/\s+/', '-', $baseValue); 
                 $morphologyStatements[] = "    ah:base <https://purl.org/megalod/kos/ah-base/$baseValue>";
             }
         }
         
-        // Add the morphology statements to the TTL
         if (!empty($morphologyStatements)) {
             $ttl .= implode(" ;\n", $morphologyStatements) . " .\n\n";
         } else {
-            $ttl .= "    .\n\n"; // Just close the statement if no properties found
+            $ttl .= "    .\n\n"; 
         }
     }
     
     return $ttl;
 }
 
+/**
+ * This method processes the chipping data and generates the TTL string.
+ * It uses original URIs for chipping properties.
+ * It checks for the presence of chipping data and constructs the appropriate URIs.
+ * If chipping data is present, it generates a chipping object with the relevant properties.
+ * @param mixed $values
+ * @param mixed $arrowheadUri
+ * @param mixed $identifier
+ * @return string
+ */
 private function processChippingWithOriginalUris($values, $arrowheadUri, $identifier)
 {
     $ttl = "";
     $chippingUri = "$arrowheadUri/chipping/$identifier-chipping";
     
-    // Check if we have chipping data
     $chippingProperties = ['ah:chippingMode', 'ah:chippingAmplitude', 'ah:chippingDirection', 
                           'ah:chippingOrientation', 'ah:chippingDelineation', 'ah:chippingLocationSide',
                           'ah:chippingLocationTransversal', 'ah:chippingShape'];
@@ -10766,11 +10817,9 @@ private function processChippingWithOriginalUris($values, $arrowheadUri, $identi
     
     if ($hasChippingData) {
         
-        // Add chipping object
         $ttl .= "\n# =========== CHIPPING ===========\n\n";
         $ttl .= "<$chippingUri> a ah:Chipping ;\n";
         
-        // Process each chipping property with original KOS URIs
         if (isset($values['ah:chippingMode'])) {
             foreach ($values['ah:chippingMode']['values'] as $value) {
                 $modeValue = strtolower($value->value());
@@ -10833,12 +10882,28 @@ private function processChippingWithOriginalUris($values, $arrowheadUri, $identi
     return $ttl;
 }
 
+/**
+ * This method checks if the values contain coordinates data.
+ * It looks for specific properties that indicate coordinates information.
+ * @param mixed $values
+ * @return bool True if coordinates data is present, false otherwise
+ */
 private function hasCoordinatesData($values)
 {
     return isset($values['Coordinates']) || isset($values['excavation:hasCoordinatesInSquare']);
 }
 
 
+/**
+ * This method processes the coordinates data and generates the TTL string.
+ * It uses original URIs for coordinates properties.
+ * It checks for the presence of coordinates data and constructs the appropriate URIs.
+ * If coordinates data is present, it generates a coordinates object with the relevant properties.
+ * @param mixed $values
+ * @param mixed $arrowheadUri
+ * @param mixed $identifier
+ * @return string
+ */
 private function processCoordinatesWithOriginalUris($values, $arrowheadUri, $identifier)
 {
     $ttl = "";
@@ -10867,7 +10932,7 @@ private function processCoordinatesWithOriginalUris($values, $arrowheadUri, $ide
                         }
                     }
                     $ttl = rtrim($ttl, ";\n") . " .\n\n";
-                    // Always declare all axes (X, Y, Z)
+                    // declare axis (X, Y, Z)
                     foreach ($axes as $axis) {
                         $typometryUri = "$arrowheadUri/typometry/$identifier-$axis";
                         $ttl .= "<$typometryUri> a excav:TypometryValue ;\n";
@@ -10886,6 +10951,16 @@ private function processCoordinatesWithOriginalUris($values, $arrowheadUri, $ide
     return $ttl;
 }
 
+/**
+ * This method processes the GPS coordinates data and generates the TTL string.
+ * It uses original URIs for GPS properties.
+ * It checks for the presence of GPS coordinates data and constructs the appropriate URIs.
+ * If GPS coordinates data is present, it generates a GPS object with the relevant properties.
+ * @param mixed $values
+ * @param mixed $originalBaseUri
+ * @param mixed $identifier
+ * @return string
+ */
 private function processGPSWithOriginalUris($values, $originalBaseUri, $identifier)
 {
     $ttl = "";
@@ -10894,12 +10969,11 @@ private function processGPSWithOriginalUris($values, $originalBaseUri, $identifi
         foreach ($values['excavation:hasGPSCoordinates']['values'] as $value) {
             $gpsString = $value->value();
             
-            // Parse GPS string "Lat: 41.2081, Long: -8.6150"
+            // Parse GPS string "lat: _, Long:_"
             if (preg_match('/Lat:\s*([0-9.-]+),\s*Long:\s*([0-9.-]+)/', $gpsString, $matches)) {
                 $lat = $matches[1];
                 $long = $matches[2];
                 
-                // Extract excavation ID from one of the context references
                 $excavationId = $this->extractExcavationId($values);
                 $gpsUri = "$originalBaseUri/excavation/$excavationId/gps/$identifier-gps";
                                 
@@ -10914,9 +10988,14 @@ private function processGPSWithOriginalUris($values, $originalBaseUri, $identifi
     return $ttl;
 }
 
+/**
+ * This method extracts the excavation ID from the values.
+ * It looks for the excavation context reference and extracts the ID from the URI.
+ * @param mixed $values The values from the resource
+ * @return string The excavation ID or 'unknown' if not found
+ */
 private function extractExcavationId($values)
 {
-    // Extract excavation ID from any context reference URI
     $contextProperties = [
         'excavation:foundInLocation',
         'excavation:foundInSquare', 
@@ -10929,7 +11008,6 @@ private function extractExcavationId($values)
             foreach ($values[$property]['values'] as $value) {
                 if ($value->uri()) {
                     $uri = $value->uri();
-                    // Extract pattern: .../excavation/ALC-2023/...
                     if (preg_match('/\/excavation\/([^\/]+)\//', $uri, $matches)) {
                         return $matches[1];
                     }
@@ -10947,7 +11025,10 @@ private function extractExcavationId($values)
 
 
 /**
- * Escape special characters in TTL strings
+ * This method escapes special characters in a string for use in TTL format.
+ * It replaces quotes, backslashes, and control characters with their escaped versions.
+ * @param string $string The string to escape
+ * @return string The escaped string
  */
 private function escapeTtlString($string)
 {
