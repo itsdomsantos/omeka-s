@@ -1,7 +1,7 @@
 <?php
 $identity = $this->identity();
 if (!$identity) {
-    // Redirect to login or show error
+
     echo '<div class="error-message">';
     echo '<h3>Access Denied</h3>';
     echo '<p>You must be logged in to add arrowheads.</p>';
@@ -10,7 +10,7 @@ if (!$identity) {
     return;
 }
 
-// Rest of your existing template code...
+
 $this->collectingPrepareForm();
 $success = $this->params()->fromQuery('success', false);
 
@@ -20,7 +20,7 @@ $itemSetId = $this->params()->fromQuery('item_set_id');
 ?>
 
 <style>
-/* Enhanced styling to match excavation form */
+
 .enhanced-arrowhead-form {
     max-width: 1000px;
     margin: 0 auto;
@@ -28,7 +28,7 @@ $itemSetId = $this->params()->fromQuery('item_set_id');
     color: black;
 }
 
-/* Align with Omeka-S standard styling */
+
 .archaeological-context-section {
     background-color: #fafafa;
     padding: 20px;
@@ -153,7 +153,7 @@ button[type="submit"]:hover {
     color: #3c763d;
 }
 
-/* Form elements styling */
+
 .form-elements {
     background: white;
     border-radius: 8px;
@@ -162,14 +162,14 @@ button[type="submit"]:hover {
     margin-bottom: 20px;
 }
 
-/* Add better styling for form errors */
+
 .form-error {
     color: #a94442;
     font-size: 14px;
     margin-top: .25rem;
 }
 
-/* Required field indicator styles */
+
 .required-indicator {
     color: #e53935;
     font-weight: bold;
@@ -188,7 +188,7 @@ button[type="submit"]:hover {
     font-style: italic;
 }
 
-/* Responsive adjustments */
+
 @media screen and (min-width: 640px) {
     .button-group {
         justify-content: center;

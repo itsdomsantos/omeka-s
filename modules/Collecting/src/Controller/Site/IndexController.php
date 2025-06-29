@@ -28,6 +28,10 @@ class IndexController extends AbstractActionController
     }
 
 
+/**
+ * This action displays the form for uploading arrowheads.
+ * @return ViewModel
+ */
 public function uploadArrowheadFormAction()
 {
     $formId = 4;
@@ -124,7 +128,10 @@ public function uploadArrowheadFormAction()
 }
     
 /**
- * Helper to check if an item has a specific property
+ * This method checks if the provided values contain a specific property label.
+ * @param mixed $values
+ * @param mixed $propertyLabel
+ * @return bool
  */
 private function hasProperty($values, $propertyLabel)
 {
@@ -153,7 +160,9 @@ private function hasProperty($values, $propertyLabel)
 }
 
 /**
- * Helper to get a property value
+ * This method retrieves the value of a specific property from the provided values.
+ * @param mixed $values
+ * @param mixed $propertyLabel
  */
 private function getPropertyValue($values, $propertyLabel)
 {
@@ -183,6 +192,10 @@ private function getPropertyValue($values, $propertyLabel)
 
 
 
+/**
+ * This method displays the form for uploading excavation data.
+ * @return ViewModel
+ */
 public function uploadExcavationFormAction()
 {
     $formId = 3; // Excavation form ID
@@ -208,7 +221,10 @@ public function uploadExcavationFormAction()
 
 
 
-
+    /**
+     * This method handles the form submission for Collecting items.
+     * @return ViewModel|\Laminas\Http\Response
+     */
     public function submitAction()
 {
     if (!$this->getRequest()->isPost()) {
@@ -298,6 +314,10 @@ public function uploadExcavationFormAction()
     return $view;
 }
 
+    /**
+     * This method displays the success page after a successful submission.
+     * @return ViewModel
+     */
     public function successAction()
     {
         $cForm = $this->api()
@@ -308,6 +328,10 @@ public function uploadExcavationFormAction()
         return $view;
     }
 
+    /**
+     * This method displays the terms of service for Collecting.
+     * @return \Laminas\Stdlib\ResponseInterface
+     */
     public function tosAction()
     {
         $response = $this->getResponse();
@@ -316,6 +340,10 @@ public function uploadExcavationFormAction()
         return $response;
     }
 
+    /**
+     * This method displays the item page for a Collecting item.
+     * @return ViewModel|\Laminas\Http\Response
+     */
     public function itemShowAction()
     {
         if ($this->siteSettings()->get('collecting_hide_collected_data')) {

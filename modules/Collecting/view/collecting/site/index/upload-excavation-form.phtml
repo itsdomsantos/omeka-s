@@ -1,5 +1,5 @@
 <?php
-// Check if user is logged in
+
 $identity = $this->identity();
 if (!$identity) {
     echo '<div class="error-message">';
@@ -10,7 +10,7 @@ if (!$identity) {
     return;
 }
 
-// Rest of your existing template code...
+
 $this->collectingPrepareForm();
 $this->headScript()->appendFile($this->assetUrl('js/excavation-form.js', 'AddTriplestore'));
 
@@ -24,12 +24,12 @@ $form->setAttribute('enctype', 'multipart/form-data');
 $result = $this->escapeHtml($this->params()->fromQuery('result', ''));
 $itemSetId = $this->params()->fromQuery('item_set_id');
 
-// Fetch existing archaeologists for selection
+
 $existingArchaeologists = $existingArchaeologists ?? [];
 ?>
 
 <style>
-/* Enhanced styles for the complex form */
+
 .enhanced-excavation-form {
     max-width: 1200px;
     margin: 0 auto;
@@ -201,7 +201,7 @@ $existingArchaeologists = $existingArchaeologists ?? [];
     margin-bottom: 15px;
 }
 
-/* Modal styles */
+
 .entity-modal {
     display: none;
     position: fixed;
@@ -321,7 +321,6 @@ $existingArchaeologists = $existingArchaeologists ?? [];
 
         <input type="hidden" name="upload_type" value="<?php echo $this->escapeHtml($formType); ?>">
 
-        <!-- Basic Excavation Information (from Collecting form) -->
         <div class="form-section">
             <h3>📋 Basic Excavation Information</h3>
             <div class="form-elements">
@@ -337,7 +336,6 @@ $existingArchaeologists = $existingArchaeologists ?? [];
             </div>
         </div>
 
-        <!-- Enhanced Archaeologist Selection -->
         <div class="form-section">
             <h3>👤 Archaeologist Information</h3>
             <div class="archaeologist-selection">
@@ -363,7 +361,6 @@ $existingArchaeologists = $existingArchaeologists ?? [];
             </div>
         </div>
 
-        <!-- Enhanced Entity Management -->
         <div class="form-section">
             <h3>🏛️ Archaeological Entities Management</h3>
             <div class="entity-management-tabs">
@@ -454,7 +451,6 @@ $existingArchaeologists = $existingArchaeologists ?? [];
             </div>
         </div>
 
-        <!-- Hidden inputs to store entity data -->
         <input type="hidden" id="entities_data" name="entities_data" value="">
 
         <div class="form-actions button-group">
@@ -467,7 +463,6 @@ $existingArchaeologists = $existingArchaeologists ?? [];
     <?php endif; ?>
 </div>
 
-<!-- Entity Modal -->
 <div id="entity-modal" class="entity-modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -477,7 +472,6 @@ $existingArchaeologists = $existingArchaeologists ?? [];
         <div class="modal-body">
             <form id="entity-form">
                 <div id="modal-fields">
-                    <!-- Fields populated dynamically -->
                 </div>
             </form>
         </div>
@@ -489,7 +483,7 @@ $existingArchaeologists = $existingArchaeologists ?? [];
 </div>
 
 <script>
-// Entity management JavaScript
+
 let entities = {
     contexts: [],
     svus: [],
@@ -500,12 +494,12 @@ let entities = {
 let currentEntityType = '';
 let currentEntityIndex = -1;
 
-// Tab management
+
 document.querySelectorAll('.tab-nav-item').forEach(tab => {
     tab.addEventListener('click', function() {
         const targetTab = this.dataset.tab;
         
-        // Update tab navigation
+
         document.querySelectorAll('.tab-nav-item').forEach(t => t.classList.remove('active'));
         document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
         
@@ -514,7 +508,7 @@ document.querySelectorAll('.tab-nav-item').forEach(tab => {
     });
 });
 
-// Archaeologist selection management
+
 document.getElementById('existing_archaeologist').addEventListener('change', function() {
     const newFields = document.getElementById('new-archaeologist-fields');
     const nameField = document.getElementById('new_archaeologist_name');
@@ -522,25 +516,25 @@ document.getElementById('existing_archaeologist').addEventListener('change', fun
     const emailField = document.getElementById('new_archaeologist_email');
     
     if (this.value) {
-        // Existing archaeologist selected
+
         const option = this.options[this.selectedIndex];
         nameField.value = option.dataset.name || '';
         orcidField.value = option.dataset.orcid || '';
         emailField.value = option.dataset.email || '';
         
-        // Make fields readonly
+
         nameField.readOnly = true;
         orcidField.readOnly = true;
         emailField.readOnly = true;
         
         newFields.style.opacity = '0.7';
     } else {
-        // New archaeologist
+
         nameField.value = '';
         orcidField.value = '';
         emailField.value = '';
         
-        // Make fields editable
+
         nameField.readOnly = false;
         orcidField.readOnly = false;
         emailField.readOnly = false;
@@ -549,7 +543,7 @@ document.getElementById('existing_archaeologist').addEventListener('change', fun
     }
 });
 
-// Entity modal management
+
 function openEntityModal(entityType, index = -1) {
     currentEntityType = entityType;
     currentEntityIndex = index;
@@ -568,7 +562,7 @@ function openEntityModal(entityType, index = -1) {
     title.textContent = (index >= 0 ? 'Edit ' : 'Add ') + entityLabels[entityType];
     fields.innerHTML = getEntityFields(entityType);
     
-    // Populate fields if editing
+
     if (index >= 0) {
         const entity = entities[entityType + 's'][index];
         populateModalFields(entity);
@@ -667,7 +661,7 @@ function saveEntity() {
     const formData = new FormData(form);
     const entity = {};
     
-    // Convert FormData to object
+
     for (const [key, value] of formData.entries()) {
         const field = form.querySelector(`[name="${key}"]`);
         if (field && field.type === 'checkbox') {
@@ -677,7 +671,7 @@ function saveEntity() {
         }
     }
     
-    // Validate required fields
+
     const requiredFields = form.querySelectorAll('[required]');
     for (const field of requiredFields) {
         if (!entity[field.name] || entity[field.name].trim() === '') {
@@ -687,7 +681,7 @@ function saveEntity() {
         }
     }
     
-    // Add or update entity
+
     const entityArray = entities[currentEntityType + 's'];
     if (currentEntityIndex >= 0) {
         entityArray[currentEntityIndex] = entity;
@@ -695,7 +689,7 @@ function saveEntity() {
         entityArray.push(entity);
     }
     
-    // Update displays
+
     updateEntityDisplay(currentEntityType);
     updateEntityCounts();
     updateRelationships();
@@ -818,12 +812,12 @@ function addRelationship() {
     const contextIdx = parseInt(contextSelect.value);
     const svuIdx = parseInt(svuSelect.value);
     
-    // Initialize relationships array if it doesn't exist
+
     if (!entities.relationships) {
         entities.relationships = [];
     }
     
-    // Check if relationship already exists
+
     const exists = entities.relationships.some(rel => 
         rel.context === contextIdx && rel.svu === svuIdx
     );
@@ -833,17 +827,17 @@ function addRelationship() {
         return;
     }
     
-    // Add relationship
+
     entities.relationships.push({
         context: contextIdx,
         svu: svuIdx
     });
     
-    // Reset selects
+
     contextSelect.value = '';
     svuSelect.value = '';
     
-    // Update display
+
     updateRelationships();
     updateHiddenField();
 }
@@ -879,36 +873,36 @@ function removeRelationship(index) {
 }
 
 function updateHiddenField() {
-    // Store all entity data in hidden field for form submission
+
     document.getElementById('entities_data').value = JSON.stringify(entities);
 }
 
-// Initialize counts on page load
+
 document.addEventListener('DOMContentLoaded', function() {
     updateEntityCounts();
     
-    // Set default date for encounter events
+
     const today = new Date().toISOString().split('T')[0];
     
-    // Initialize relationships array
+
     if (!entities.relationships) {
         entities.relationships = [];
     }
 });
 
-// Form submission handler
+
 document.querySelector('form').addEventListener('submit', function(e) {
-    // Update hidden field before submission
+
     updateHiddenField();
     
-    // Validate that we have at least one context
+
     if (entities.contexts.length === 0) {
         e.preventDefault();
         alert('Please add at least one archaeological context before submitting.');
         return false;
     }
     
-    // Validate archaeologist information
+
     const existingArch = document.getElementById('existing_archaeologist').value;
     const newArchName = document.getElementById('new_archaeologist_name').value;
     
@@ -919,7 +913,7 @@ document.querySelector('form').addEventListener('submit', function(e) {
     }
 });
 
-// Utility function to generate sequential IDs
+
 function generateNextId(entityType) {
     const entityArray = entities[entityType + 's'];
     const prefix = {
@@ -930,7 +924,7 @@ function generateNextId(entityType) {
     }[entityType];
     
     if (entityType === 'square') {
-        // For squares, generate A1, A2, B1, B2, etc.
+
         const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         const existing = entityArray.map(s => s.square_id).filter(Boolean);
         
@@ -957,7 +951,7 @@ function generateNextId(entityType) {
     }
 }
 
-// Auto-fill ID when modal opens
+
 function openEntityModal(entityType, index = -1) {
     currentEntityType = entityType;
     currentEntityIndex = index;
@@ -976,14 +970,14 @@ function openEntityModal(entityType, index = -1) {
     title.textContent = (index >= 0 ? 'Edit ' : 'Add ') + entityLabels[entityType];
     fields.innerHTML = getEntityFields(entityType);
     
-    // Auto-fill ID for new entities
+
     if (index === -1) {
         const idField = document.getElementById(entityType + '_id');
         if (idField) {
             idField.value = generateNextId(entityType);
         }
         
-        // Set default date for encounter events
+
         if (entityType === 'encounter') {
             const dateField = document.getElementById('encounter_date');
             if (dateField) {
@@ -991,7 +985,7 @@ function openEntityModal(entityType, index = -1) {
             }
         }
     } else {
-        // Populate fields if editing
+
         const entity = entities[entityType + 's'][index];
         populateModalFields(entity);
     }
@@ -999,14 +993,14 @@ function openEntityModal(entityType, index = -1) {
     modal.style.display = 'block';
 }
 
-// Close modal when clicking outside
+
 document.getElementById('entity-modal').addEventListener('click', function(e) {
     if (e.target === this) {
         closeEntityModal();
     }
 });
 
-// Keyboard shortcuts
+
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') {
         closeEntityModal();
