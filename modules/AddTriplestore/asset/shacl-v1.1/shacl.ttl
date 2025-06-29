@@ -283,21 +283,21 @@
     sh:property [
         sh:path excav:foundInSVU ;
         sh:name "Item found in a StratigraphicVolumeUnit" ;
-        sh:class excav:StratigraphicVolumeUnit ;
+        sh:nodeKind sh:IRI ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path excav:foundInContext ;
         sh:name "Item found in a Context" ;
-        sh:class excav:Context ;
+        sh:nodeKind sh:IRI ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path excav:foundInExcavation ;
         sh:name "Item found in a Excavation" ;
-        sh:class excav:Excavation ;
+        sh:nodeKind sh:IRI ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] .
@@ -430,7 +430,7 @@
     sh:property [
         sh:path excav:foundInSquare ;
         sh:name "The Item was found in the Square" ;
-        sh:class excav:Square ;
+        sh:nodeKind sh:IRI ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] .
@@ -458,7 +458,7 @@
     sh:property [
         sh:path schema:depth ;
         sh:name "Depth" ;
-        sh:class excav:TypometryValue ;
+        sh:nodeKind sh:IRI ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] .
