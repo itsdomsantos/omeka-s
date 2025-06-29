@@ -488,9 +488,32 @@ class IndexController extends AbstractActionController
         
         try {
             if ($resourceType === 'item_set') {
-                $resource = $this->api()->read('item_sets', $id)->getContent();
+                // Try to get the main excavation item inside the item set
+                $excavationItems = $this->api()->search('items', [
+                    'item_set_id' => $id,
+                    'sort_by' => 'created',
+                    'sort_order' => 'asc',
+                    'limit' => 10
+                ])->getContent();
+
+                $resource = null;
+                foreach ($excavationItems as $item) {
+                    $resourceClass = $item->resourceClass();
+                    if ($resourceClass && (
+                        stripos($resourceClass->label(), 'excavation') !== false ||
+                        stripos($item->displayTitle(), 'excavation') !== false
+                    )) {
+                        $resource = $item;
+                        break;
+                    }
+                }
+                if (!$resource && !empty($excavationItems)) {
+                    $resource = $excavationItems[0];
+                }
+                if (!$resource) {
+                    $resource = $this->api()->read('item_sets', $id)->getContent();
+                }
                 
-                // get by itemset id
                 $searchParams1 = [
                     'item_set_id' => $id,
                     'sort_by' => 'created',
@@ -510,7 +533,6 @@ class IndexController extends AbstractActionController
                         }
                     }
                 }
-                // If no results search all items and filter
                 if (empty($relatedItems)) {
                     
                     $allItemsResponse = $this->api()->search('items', ['per_page' => 100]);
@@ -536,7 +558,6 @@ class IndexController extends AbstractActionController
                 }
             }
             
-            // Get values using omeka S metod
             $values = $resource->values();
             
             foreach ($values as $term => $propertyData) {
@@ -598,6 +619,8 @@ class IndexController extends AbstractActionController
             }
             
             usort($properties, function($a, $b) {
+                if ($a['label'] === 'Title') return -1;
+                if ($b['label'] === 'Title') return 1;
                 return strcmp($a['label'], $b['label']);
             });
             

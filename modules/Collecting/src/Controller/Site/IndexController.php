@@ -34,7 +34,7 @@ class IndexController extends AbstractActionController
  */
 public function uploadArrowheadFormAction()
 {
-    $formId = 4;
+    $formId = 4; // id of the arrowhead form
     $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
     $form = $cForm->getForm();
     
@@ -187,7 +187,7 @@ private function getPropertyValue($values, $propertyLabel)
  */
 public function uploadExcavationFormAction()
 {
-    $formId = 3;
+    $formId = 3; // id of the excavation form
     $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
     $form = $cForm->getForm();
 
