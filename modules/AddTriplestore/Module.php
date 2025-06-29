@@ -11,6 +11,8 @@ use Omeka\Module\AbstractModule;
 
 class Module extends AbstractModule
 {
+    private $processedDeletions = [];
+
     /**
      * Get module configuration
      *
@@ -22,21 +24,10 @@ class Module extends AbstractModule
     }
 
 /**
- * Bootstrap method for the AddTriplestore module.
- *
- * This method is called during the application bootstrap process.
- * It performs the following actions:
- * - Calls the parent onBootstrap method.
- * - Retrieves the ACL (Access Control List) service.
- * - Checks if the 'guest' role exists; if not, creates it as a child of 'researcher'
- *   and assigns it the label 'Site Visitor'.
- * - Grants all roles access to specific actions in the AddTriplestore site controller.
- * - Grants the 'guest' role permissions to create, update, delete, and read items,
- *   item sets, and media entities, as well as their corresponding API adapters.
- * - Allows the 'guest' role to perform create, update, delete, and read actions
- *   through the Omeka API controller.
- *
- * @param MvcEvent $event The MVC event triggered during bootstrap.
+ * THIS method is called when the module is bootstrapped.
+ * It is used to set up the ACL for the guest user role and permissions.
+ * @param \Laminas\Mvc\MvcEvent $event
+ * @return void
  */
 public function onBootstrap(MvcEvent $event)
 {
@@ -44,20 +35,21 @@ public function onBootstrap(MvcEvent $event)
     
     $acl = $this->getServiceLocator()->get('Omeka\Acl');
 
-    // create non administrative role if it does not exist yet
+
+
     if (!$acl->hasRole('guest')) {
         $acl->addRole('guest', 'researcher');
         $acl->addRoleLabel('guest', 'Site Visitor');
     }
     
-    // Site actions guest can access
+
     $acl->allow(
         null,
         ['AddTriplestore\Controller\Site\Index'],
         ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout', 'dashboard', 'myData', 'processFileUpload', 'uploadTtlData', 'downloadTemplate']
     );
     
-    // Grant permissions to create, update, and delete items, item sets, and media
+
     $acl->allow('guest', [
         'Omeka\Entity\Item',
         'Omeka\Entity\ItemSet', 
@@ -67,7 +59,7 @@ public function onBootstrap(MvcEvent $event)
         'Omeka\Api\Adapter\MediaAdapter'
     ], ['create', 'update', 'delete', 'read']); 
     
-    // Allow to read through the API
+
     $acl->allow('guest', [
         'Omeka\Controller\Api',
     ], ['create', 'update', 'delete', 'read']); 
@@ -76,7 +68,13 @@ public function onBootstrap(MvcEvent $event)
 
      
 
-
+/**
+ * This method allows guest users to create item sets.
+ * It checks if the user is authenticated and has the 'guest' role.
+ * If so, it sets the owner of the item set to the guest user.
+ * @param \Laminas\Mvc\MvcEvent $event
+ * @return void
+ */
 public function allowGuestUserCreateItems($event)
 {
     $services = $this->getServiceLocator();
@@ -85,7 +83,7 @@ public function allowGuestUserCreateItems($event)
     if ($auth->hasIdentity()) {
         $user = $auth->getIdentity();
         if ($user->getRole() === 'guest') {
-            // Override the owner_id in the request to be the current user
+
             $request = $event->getParam('request');
             $data = $request->getContent();
             $data['o:owner'] = ['o:id' => $user->getId()];
@@ -94,7 +92,13 @@ public function allowGuestUserCreateItems($event)
     }
 }
 
-
+/**
+ * This method allows guest users to create item sets.
+ * It checks if the user is authenticated and has the 'guest' role.
+ * If so, it sets the owner of the item set to the guest user.
+ * @param \Laminas\Mvc\MvcEvent $event
+ * @return void
+ */
 public function allowGuestUserCreateItemSets($event)
 {
     $services = $this->getServiceLocator();
@@ -103,7 +107,7 @@ public function allowGuestUserCreateItemSets($event)
     if ($auth->hasIdentity()) {
         $user = $auth->getIdentity();
         if ($user->getRole() === 'guest') {
-            // Override the owner_id in the request to be the current user
+
             $request = $event->getParam('request');
             $data = $request->getContent();
             $data['o:owner'] = ['o:id' => $user->getId()];
@@ -113,7 +117,12 @@ public function allowGuestUserCreateItemSets($event)
 }
 
 
-
+/**
+ * This method redirects guest users away from admin routes.
+ * It checks if the current route is an admin route or a user profile route.
+ * @param \Laminas\Mvc\MvcEvent $event
+ * @return \Laminas\Stdlib\ResponseInterface
+ */
 public function redirectGuestsFromAdmin(MvcEvent $event)
 {
     $match = $event->getRouteMatch();
@@ -123,30 +132,30 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
 
     $routeName = $match->getMatchedRouteName();
     
-    // Specifically check for admin/id route (user profile route)
+
     $isAdminRoute = strpos($routeName, 'admin') === 0;
     $isUserProfileRoute = $routeName === 'admin/id';
     
-    // Check if this is an admin route OR a user page route
+
     if ($isAdminRoute || $isUserProfileRoute) {
         $auth = $event->getApplication()->getServiceManager()->get('Omeka\AuthenticationService');
         $user = $auth->getIdentity();
         
-        // If user is logged in and has 'guest' role
+
         if ($user && $user->getRole() === 'guest') {
-            // Get current site
+
             $api = $event->getApplication()->getServiceManager()->get('Omeka\ApiManager');
             $sites = $api->search('sites', ['limit' => 1])->getContent();
             $site = isset($sites[0]) ? $sites[0] : null;
             
-            // Log redirect attempt
+
             error_log('Redirecting guest user away from admin route: ' . $routeName, 3, OMEKA_PATH . '/logs/guest-redirect.log');
             
-            // Get site slug to redirect to
+
             $session = new \Laminas\Session\Container('site_user');
             $siteSlug = $session->allowedSite ?: ($site ? $site->slug() : 'default');
             
-            // Redirect to custom dashboard
+
             $url = $event->getRouter()->assemble(
                 ['site-slug' => $siteSlug],
                 ['name' => 'site/add-triplestore/dashboard']
@@ -159,10 +168,15 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
         }
     }
 }
-
+    /**
+     * This method attaches event listeners to the shared event manager.
+     * It listens for item deletion events and tracks item-item set relationships.
+     * @param \Laminas\EventManager\SharedEventManagerInterface $sharedEventManager
+     * @return void
+     */
     public function attachListeners(SharedEventManagerInterface $sharedEventManager)
     {
-        // Event listeners for item deletion
+
         $sharedEventManager->attach(
             'Omeka\Api\Adapter\ItemAdapter',
             'api.delete.pre',
@@ -192,7 +206,7 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
         [$this, 'redirectGuestsFromAdmin']
     );
     
-    // For newer Laminas-based Omeka-S versions, just as a precaution, just in case, use:
+
     $sharedEventManager->attach(
         'Laminas\Mvc\Application',
         'route',
@@ -203,7 +217,10 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
 
 
     /**
-     * Capture item data BEFORE deletion
+     * This method captures item data BEFORE deletion.
+     * It logs the item ID, item sets, and identifier.
+     * @param mixed $event
+     * @return void
      */
     public function handleItemPreDeletion($event)
     {
@@ -213,17 +230,17 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
         error_log("Item PRE-deletion detected: ID=$itemId", 3, OMEKA_PATH . '/logs/finalDelete.log');
         
         try {
-            // Get the API manager
+
             $api = $this->getServiceLocator()->get('Omeka\ApiManager');
             
-            // Read the item data
+
             $item = $api->read('items', $itemId)->getContent();
             
-            // Get the settings manager
+
             $settings = $this->getServiceLocator()->get('Omeka\Settings');
             $itemDeletionInfo = $settings->get('addtriplestore_item_deletion_info', []);
             
-            // Get item set info
+
             $itemSets = $item->itemSets();
             $itemSetIds = [];
             
@@ -233,7 +250,7 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
                 error_log("Item $itemId belongs to item set $itemSetId ({$itemSet->title()})", 3, OMEKA_PATH . '/logs/finalDelete.log');
             }
             
-            // Get identifier
+
             $identifier = null;
             $identifierValue = $item->value('dcterms:identifier', ['default' => null]);
             if ($identifierValue) {
@@ -241,14 +258,14 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
                 error_log("Item identifier: $identifier", 3, OMEKA_PATH . '/logs/finalDelete.log');
             }
             
-            // Store the deletion info using the item ID as key
+
             $itemDeletionInfo[$itemId] = [
                 'itemSetIds' => $itemSetIds,
                 'identifier' => $identifier,
-                'timestamp' => time() // Add timestamp for potential cleanup
+                'timestamp' => time()
             ];
             
-            // Save the updated deletion info
+
             $settings->set('addtriplestore_item_deletion_info', $itemDeletionInfo);
             error_log("Stored pre-deletion info in module settings for item $itemId", 3, OMEKA_PATH . '/logs/finalDelete.log');
             
@@ -258,11 +275,15 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
     }
 
     /**
-     * Cache item deletion information for use in the post-delete handler
+     * This method caches item deletion information for use in the post-delete handler.
+     * It stores the item ID, item sets, and identifier in a temporary file.
+     * @param mixed $itemId
+     * @param mixed $info
+     * @return void
      */
     private function cacheItemDeletionInfo($itemId, $info)
     {
-        // Use temporary file storage for simplicity
+
         $cacheDir = OMEKA_PATH . '/files/temp';
         if (!is_dir($cacheDir)) {
             mkdir($cacheDir, 0755, true);
@@ -274,11 +295,13 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
     }
 
     /**
-     * Get cached item deletion information
+     * This method retrieves cached item deletion information for use in the post-delete handler.
+     * @param mixed $itemId
+     * @return array|null
      */
     private function getCachedItemDeletionInfo($itemId)
     {
-        // Fix the path to match exactly how it's stored
+
         $cacheDir = OMEKA_PATH . '/files/temp';
         $cacheFile = $cacheDir . "/item_deletion_$itemId.json";
         
@@ -289,7 +312,7 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
             $info = json_decode($content, true);
             error_log("Retrieved cached deletion info for item $itemId: " . print_r($info, true), 3, OMEKA_PATH . '/logs/finalDelete.log');
             
-            // Clean up the cache file
+
             unlink($cacheFile);
             
             return $info;
@@ -299,13 +322,13 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
         return null;
     }
 
-    /**
-     * Handle item deletion post-event
-     */
-    private $processedDeletions = [];
+
 
     /**
-     * Handle item deletion post-event
+     * This method handles item deletion events.
+     * It retrieves the item ID from the request,
+     * @param mixed $event
+     * @return void
      */
     public function handleItemDeletion($event)
     {
@@ -324,7 +347,7 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
             return;
         }
         
-        // Get session storage to prevent duplicate processing
+
         $session = new \Laminas\Session\Container('AddTriplestore');
         
         if (isset($session->processedDeletions) && in_array($itemId, $session->processedDeletions)) {
@@ -338,14 +361,14 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
         
         $session->processedDeletions[] = $itemId;
         
-        // Get the settings manager
+
         $settings = $this->getServiceLocator()->get('Omeka\Settings');
         
-        // Strategy 1: Get pre-deletion info (most reliable)
+
         $itemDeletionInfo = $settings->get('addtriplestore_item_deletion_info', []);
         
         $identifier = null;
-        $graphId = "0"; // Default graph
+        $graphId = "0";
         
         if (isset($itemDeletionInfo[$itemId])) {
             $info = $itemDeletionInfo[$itemId];
@@ -353,22 +376,22 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
             $itemSetIds = $info['itemSetIds'] ?? [];
             
             if (!empty($itemSetIds)) {
-                $graphId = $itemSetIds[0]; // Use the first item set as the graph ID
+                $graphId = $itemSetIds[0];
                 error_log("✓ Using pre-deletion item set ID as graph ID: $graphId", 3, OMEKA_PATH . '/logs/finalDelete.log');
             }
             
-            // Clean up the pre-deletion info
+
             unset($itemDeletionInfo[$itemId]);
             $settings->set('addtriplestore_item_deletion_info', $itemDeletionInfo);
         } else {
-            // Strategy 2: Use stored item-itemset mapping
+
             $itemItemSetMap = $settings->get('addtriplestore_item_itemset_map', []);
             
             if (isset($itemItemSetMap[$itemId])) {
                 $graphId = $itemItemSetMap[$itemId];
                 error_log("✓ Using mapped item set ID as graph ID: $graphId", 3, OMEKA_PATH . '/logs/finalDelete.log');
                 
-                // Remove this item from the mapping
+
                 unset($itemItemSetMap[$itemId]);
                 $settings->set('addtriplestore_item_itemset_map', $itemItemSetMap);
             } else {
@@ -376,24 +399,28 @@ public function redirectGuestsFromAdmin(MvcEvent $event)
             }
         }
         
-        // If we still don't have an identifier, try to generate a reasonable one
+
         if (!$identifier) {
-            // Generate a fallback identifier based on the item ID
+
             $identifier = "ITEM-$itemId";
             error_log("⚠ Generated fallback identifier: $identifier", 3, OMEKA_PATH . '/logs/finalDelete.log');
         }
         
         error_log("Final deletion parameters: identifier='$identifier', itemId=$itemId, graphId='$graphId'", 3, OMEKA_PATH . '/logs/finalDelete.log');
         
-        // Delete from GraphDB
+
         $this->deleteFromGraphDB($identifier, $itemId, $graphId);
         
-        // Cleanup old processed deletions
+
         $this->cleanupProcessedDeletions($session);
     }
 
     /**
-     * Debug method to see what's actually in the graph
+     * This method debugs the contents of a specific graph in GraphDB.
+     * It retrieves triples related to a given identifier and logs them.
+     * @param mixed $graphUri
+     * @param mixed $identifier
+     * @return void
      */
     private function debugGraphContents($graphUri, $identifier) {
         error_log("=== DEBUGGING GRAPH CONTENTS ===", 3, OMEKA_PATH . '/logs/finalDelete.log');
@@ -451,12 +478,13 @@ LIMIT 50";
     }
 
     /**
-     * Clean up old processed deletions from the session
-     * to avoid session bloat over time
+     * This method cleans up old processed deletions from the session.
+     * @param mixed $session
+     * @return void
      */
     private function cleanupProcessedDeletions($session)
     {
-        // Keep only the most recent 100 processed deletions
+
         if (isset($session->processedDeletions) && count($session->processedDeletions) > 100) {
             $session->processedDeletions = array_slice($session->processedDeletions, -100);
         }
@@ -464,7 +492,8 @@ LIMIT 50";
 
 
     /**
-     * Clean up old deletion info (call this periodically or from the main module class)
+     * This method cleans up old deletion info from the settings.
+     * @return void
      */
     private function cleanupOldDeletionInfo() 
     {
@@ -476,7 +505,7 @@ LIMIT 50";
         }
         
         $currentTime = time();
-        $oneDayAgo = $currentTime - (24 * 60 * 60); // 24 hours in seconds
+        $oneDayAgo = $currentTime - (24 * 60 * 60); 
         
         $modified = false;
         foreach ($itemDeletionInfo as $itemId => $info) {
@@ -499,6 +528,13 @@ LIMIT 50";
     }
         
 
+    /**
+     * This method deletes triples from GraphDB based on the identifier and item ID.
+     * @param mixed $identifier
+     * @param mixed $itemId
+     * @param mixed $graphId
+     * @return void
+     */
     private function deleteFromGraphDB($identifier, $itemId, $graphId)
     {
         $graphdbEndpoint = "http://localhost:7200/repositories/megalod/statements";
@@ -509,10 +545,10 @@ LIMIT 50";
         error_log("Deleting from GraphDB: identifier='$identifier', itemId=$itemId, graphUri='$graphUri'", 3, OMEKA_PATH . '/logs/finalDelete.log');
         
         try {
-            // First, debug what's actually in the graph
+
             $this->debugGraphContents($graphUri, $identifier);
             
-            // Count triples before deletion
+
             $countQuery = $this->buildCountQuery($graphUri, $identifier, $graphId);
             $countResponse = $this->executeSparqlQuery($baseDataGraphUri, $countQuery);
             
@@ -528,14 +564,14 @@ LIMIT 50";
             if ($tripleCount == 0) {
                 error_log("⚠ WARNING: No triples found to delete for identifier '$identifier' in graph '$graphUri'", 3, OMEKA_PATH . '/logs/finalDelete.log');
                 
-                // Try different graph URIs as fallback
+
                 $fallbackGraphs = [
-                    $baseDataGraphUri . "0/",  // Default graph
-                    $baseDataGraphUri . $itemId . "/",  // Item ID as graph
+                    $baseDataGraphUri . "0/",  
+                    $baseDataGraphUri . $itemId . "/",  
                 ];
                 
                 foreach ($fallbackGraphs as $fallbackGraph) {
-                    if ($fallbackGraph === $graphUri) continue; // Skip if same as original
+                    if ($fallbackGraph === $graphUri) continue; 
                     
                     error_log("Trying fallback graph: $fallbackGraph", 3, OMEKA_PATH . '/logs/finalDelete.log');
                     $this->debugGraphContents($fallbackGraph, $identifier);
@@ -557,7 +593,7 @@ LIMIT 50";
                 }
             }
             
-            // Proceed with deletion if we found triples
+
             if ($tripleCount > 0) {
                 error_log("Proceeding with deletion of $tripleCount triples from $graphUri", 3, OMEKA_PATH . '/logs/finalDelete.log');
                 
@@ -566,7 +602,7 @@ LIMIT 50";
                 if ($result->isSuccess()) {
                     error_log("✓ SUCCESS: Deleted $tripleCount triples for identifier '$identifier'", 3, OMEKA_PATH . '/logs/finalDelete.log');
                     
-                    // Verify deletion worked
+
                     $verifyCountResponse = $this->executeSparqlQuery("http://localhost:7200/repositories/megalod", $countQuery);
                     $verifyCountData = json_decode($verifyCountResponse->getBody(), true);
                     if ($verifyCountData && isset($verifyCountData['results']['bindings']) && 
@@ -587,9 +623,13 @@ LIMIT 50";
         }
     }
 
-    /**
-     * Build a query to count triples associated with a particular identifier
-     */
+/**
+ * This method builds a SPARQL COUNT query to count triples related to an identifier in a specific graph.
+ * @param mixed $graphUri
+ * @param mixed $identifier
+ * @param mixed $graphId
+ * @return string
+ */
 private function buildCountQuery($graphUri, $identifier, $graphId) {
     $itemUri = "https://purl.org/megalod/" . $graphId . "/item/" . $identifier;
     
@@ -622,7 +662,10 @@ WHERE {
 }
 
     /**
-     * Execute a SPARQL SELECT query against GraphDB
+     * This method executes a SPARQL query against the GraphDB endpoint.
+     * @param mixed $endpoint
+     * @param mixed $query
+     * @return \Laminas\Http\Response
      */
     private function executeSparqlQuery($endpoint, $query) {
         $client = new Client();
@@ -642,13 +685,20 @@ WHERE {
             throw $e;
         }
     }
-
+/*This method deletes a resource from GraphDB using comprehensive patterns.
+ * It handles various cases where the item URI can be subject, predicate, or object.
+ * @param mixed $endpoint
+ * @param mixed $graphUri
+ * @param mixed $identifier
+ * @param mixed $graphId
+ * @return \Laminas\Http\Response
+ */
 private function deleteResourceByIdentifier($endpoint, $graphUri, $identifier, $graphId)
 {
     error_log("=== ENHANCED DELETE WITH COMPREHENSIVE PATTERNS ===", 3, OMEKA_PATH . '/logs/finalDelete.log');
     error_log("Deleting identifier '$identifier' from graph $graphUri", 3, OMEKA_PATH . '/logs/finalDelete.log');
     
-    // Build the actual URI pattern used in your GraphDB
+
     $itemUri = "https://purl.org/megalod/" . $graphId . "/item/" . $identifier;
     
     $query = "
@@ -722,11 +772,11 @@ WHERE {
      */
     private function deleteResourceByOmekaId($endpoint, $graphUri, $itemId)
     {
-        // First, log what we're trying to do
+
         error_log("Attempting to delete resource related to Omeka item ID $itemId from graph $graphUri", 3, OMEKA_PATH . '/logs/finalDelete.log');
         
-        // Build a SPARQL query to delete resources that might be related to this Omeka item
-        // This is a fallback when we don't have the original identifier
+
+
         $query = "
             PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
             
@@ -776,7 +826,7 @@ WHERE {
         try {
             $response = $client->send();
             
-            // Log both success and failure
+
             $statusCode = $response->getStatusCode();
             if ($response->isSuccess()) {
                 error_log("GraphDB query executed successfully: Status $statusCode", 3, OMEKA_PATH . '/logs/finalDelete.log');
@@ -822,7 +872,7 @@ WHERE {
             return;
         }
         
-        // Store mapping in module settings
+
         $settings = $this->getServiceLocator()->get('Omeka\Settings');
         $itemItemSetMap = $settings->get('addtriplestore_item_itemset_map', []);
         
@@ -830,7 +880,7 @@ WHERE {
             $itemSetId = $itemSet->id();
             $itemItemSetMap[$itemId] = $itemSetId;
             error_log("Tracking item $itemId in item set $itemSetId ({$itemSet->title()})", 3, OMEKA_PATH . '/logs/finalDelete.log');
-            break; // Only store the first item set for simplicity
+            break; 
         }
         
         $settings->set('addtriplestore_item_itemset_map', $itemItemSetMap);

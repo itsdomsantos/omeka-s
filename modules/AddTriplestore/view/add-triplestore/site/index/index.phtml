@@ -14,7 +14,6 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
     </div>
 
     <?php if (!$isLoggedIn): ?>
-        <!-- Show login prompt for non-logged users -->
         <div class="login-required-section">
             <div class="alert alert-info">
                 <h3>🔒 Login Required</h3>
@@ -27,7 +26,6 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
             </div>
         </div>
         
-        <!-- Public search section -->
         <div class="public-actions">
             <div class="action-card">
                 <div class="card-icon">🔍</div>
@@ -49,7 +47,6 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
             </div>
             
             <?php if (isset($excavationItemSetId) && $excavationItemSetId): ?>
-                <!-- Initial excavation upload successful - show arrowhead upload option -->
                 <div id="arrowhead-upload-section">
                     <p>Excavation uploaded successfully! Would you like to upload arrowheads to this excavation?</p>
                     <div class="button-group">
@@ -76,7 +73,6 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
                     </div>
                 </div>
             <?php elseif ($this->params()->fromPost('continuous_upload') || $this->params()->fromQuery('continuous_upload')): ?>
-                <!-- This is a continuous upload - arrowhead was just uploaded, ask for another -->
                 <?php 
                 $itemSetId = $this->params()->fromPost('item_set_id') ?: $this->params()->fromQuery('item_set_id');
                 ?>
@@ -108,9 +104,7 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
                 </div>
             <?php endif; ?>
             
-            <!-- JavaScript for all upload scenarios -->
             <script>
-                // Show the upload form when the appropriate button is clicked
                 document.addEventListener('DOMContentLoaded', function() {
                     var uploadArrowheadBtn = document.getElementById('upload-arrowhead-btn');
                     var uploadAnotherBtn = document.getElementById('upload-another-btn');
@@ -137,7 +131,6 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
                 });
             </script>
         <?php else: ?>
-            <!-- Initial upload options - show when no upload has been done yet -->
             <div class="main-actions">
                 <div class="action-card">
                     <div class="card-icon">⛏️</div>
@@ -181,7 +174,6 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
                     </div>
                     <div class="form-actions">
                         <input type="submit" value="Upload" name="submit" class="btn-primary">
-                        <!-- Add the download template button here -->
                         <a href="<?php echo $this->url('site/add-triplestore/download-template', ['site-slug' => $site->slug()], ['query' => ['template' => 'arrowhead', 'format' => 'ttl']]); ?>" class="btn-secondary" style="margin-left:10px;">Download Arrowhead TTL</a>
                         <a href="<?php echo $this->url('site/add-triplestore/download-template', ['site-slug' => $site->slug()], ['query' => ['template' => 'arrowhead', 'format' => 'xml']]); ?>" class="btn-secondary" style="margin-left:10px;">Download Arrowhead XML</a>
                         <a href="<?php echo $this->url('site/add-triplestore/download-template', ['site-slug' => $site->slug()], ['query' => ['template' => 'excavation', 'format' => 'ttl']]); ?>" class="btn-secondary" style="margin-left:10px;">Download Excavation TTL</a>
@@ -204,10 +196,8 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
                     document.getElementById('upload-options').style.display = 'block';
                     document.getElementById('upload_type').value = option;
                     
-                    // Store the selected type in a data attribute for later use
                     document.getElementById('upload-options').setAttribute('data-type', option);
                     
-                    // Hide main actions
                     document.querySelector('.main-actions').style.display = 'none';
                 }
 
@@ -217,7 +207,6 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
                         document.getElementById('upload-form').style.display = 'block';
                         document.getElementById('remote-form').style.display = 'none';
                     } else if (method === 'form') {
-                        // Get the selected type and directly redirect to the appropriate form
                         const selectedType = document.getElementById('upload-options').getAttribute('data-type');
                         if (selectedType === 'excavation') {
                             redirectToForm('excavation', 2);
@@ -493,7 +482,6 @@ $isLoggedIn = isset($isLoggedIn) ? $isLoggedIn : false;
     }
 }
 
-/* Add this to your existing style section */
 .user-menu {
     background: #f8f9fa;
     border: 1px solid #e9ecef;

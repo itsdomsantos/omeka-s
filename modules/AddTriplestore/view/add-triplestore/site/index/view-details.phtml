@@ -46,7 +46,6 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
             </table>
         </div>
         
-        <!-- Console Debug Script -->
         <script>
             console.log('=== EXCAVATION PAGE DEBUG ===');
             console.log('Resource Type:', <?php echo json_encode($resourceType); ?>);
@@ -138,7 +137,6 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
                             <?php endif; ?>
                             
                             <?php 
-                            // Look for specific context properties
                             $contextProperties = [
                                 'dcterms:spatial' => 'Location',
                                 'dcterms:temporal' => 'Time Period',
@@ -241,27 +239,22 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
             <h2>Items in this Excavation</h2>
             
             <?php 
-            // Filter the related items to only show arrowheads
             $arrowheadItems = [];
             if (!empty($relatedItems)) {
                 foreach ($relatedItems as $item) {
-                    // Check if this item is an arrowhead (you may need to adjust this condition based on your data model)
                     $isArrowhead = false;
                     
-                    // Method 1: Check by resource class if you have a class for arrowheads
                     $resourceClass = $item->resourceClass();
                     if ($resourceClass && $resourceClass->term() === 'ah:Arrowhead') {
                         $isArrowhead = true;
                     }
                     
-                    // Method 2: Check by resource template if you use templates to distinguish arrowheads
                     $resourceTemplate = $item->resourceTemplate();
                     if ($resourceTemplate && 
                         (strpos(strtolower($resourceTemplate->label()), 'arrowhead') !== false)) {
                         $isArrowhead = true;
                     }
                     
-                    // Method 3: Check by title or specific property that identifies arrowheads
                     $title = strtolower($item->displayTitle());
                     if (strpos($title, 'arrowhead') !== false || 
                         strpos($title, 'arrow head') !== false ||
@@ -868,7 +861,6 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
 }
 </style>
 
-<!-- Lightbox Script -->
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const links = document.querySelectorAll('.lightbox-link');
@@ -932,7 +924,6 @@ document.addEventListener('DOMContentLoaded', function() {
         dot.onclick = () => showSlide(Number(dot.dataset.index));
     });
 
-    // Swipe support
     const carousel = document.getElementById('media-carousel');
     if (carousel) {
         carousel.addEventListener('touchstart', function(e) {
@@ -947,7 +938,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Show the first slide initially
     showSlide(0);
 });
 </script>

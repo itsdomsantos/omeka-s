@@ -1,12 +1,12 @@
 <?php
 $this->headTitle('Search Archaeological Data');
 $this->headLink()->appendStylesheet($this->assetUrl('css/addTriplestore.css', 'AddTriplestore'));
-// Add Leaflet CSS
+
 $this->headLink()->appendStylesheet('https://unpkg.com/leaflet@1.9.4/dist/leaflet.css');
-// Add Leaflet JS
+
 $this->headScript()->appendFile('https://unpkg.com/leaflet@1.9.4/dist/leaflet.js');
 
-// Get filter values from request
+
 $selectedShape = $this->params()->fromQuery('shape', '');
 $selectedVariant = $this->params()->fromQuery('variant', '');
 $selectedMaterial = $this->params()->fromQuery('material', '');
@@ -20,7 +20,7 @@ $selectedChippingDelineation = $this->params()->fromQuery('chippingDelineation',
 $selectedChippingShape = $this->params()->fromQuery('chippingShape', '');
 $selectedChippingAmplitude = $this->params()->fromQuery('chippingAmplitude', '');
 
-// Get numeric range filters
+
 $minHeight = $this->params()->fromQuery('minHeight', '');
 $maxHeight = $this->params()->fromQuery('maxHeight', '');
 $minWidth = $this->params()->fromQuery('minWidth', '');
@@ -30,14 +30,14 @@ $maxThickness = $this->params()->fromQuery('maxThickness', '');
 $minWeight = $this->params()->fromQuery('minWeight', '');
 $maxWeight = $this->params()->fromQuery('maxWeight', '');
 
-// Get excavation filter values
+
 $filterArchaeologist = isset($filterArchaeologist) ? $filterArchaeologist : '';
 $filterOrcid = isset($filterOrcid) ? $filterOrcid : '';
 $filterCountry = isset($filterCountry) ? $filterCountry : '';
 $filterDistrict = $this->params()->fromQuery('district', '');
 $filterParish = $this->params()->fromQuery('parish', '');
 
-// Ensure archaeologistOptions is defined
+
 $archaeologistOptions = isset($archaeologistOptions) ? $archaeologistOptions : [];
 $countryOptions = isset($countryOptions) ? $countryOptions : [];
 $districtOptions = isset($districtOptions) ? $districtOptions : [];
@@ -148,15 +148,13 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
             </div>
         </div>
         
-        <!-- Arrowhead Filter Section -->
-<div class="filter-section <?php echo ($searchType === 'items' || $searchType === 'all' || empty($searchType)) ? '' : 'hidden'; ?>" style="<?php echo empty($searchQuery) ? 'display: none;' : ''; ?>">
+
+        <div class="filter-section <?php echo ($searchType === 'items' || $searchType === 'all' || empty($searchType)) ? '' : 'hidden'; ?>" style="<?php echo empty($searchQuery) ? 'display: none;' : ''; ?>">
             <h3>Filter Arrowheads</h3>
             
-            <!-- Toggle button for advanced filters -->
             <button type="button" id="toggleAdvancedFilters" class="toggle-filters-btn">Show Advanced Filters</button>
             
             <div class="filter-controls">
-                <!-- Basic Filters Row -->
                 <div class="filter-row">
                     <div class="filter-group">
                         <label for="shape">Shape:</label>
@@ -199,7 +197,6 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
                     </div>
                 </div>
                 
-                <!-- Advanced Filters (initially hidden) -->
                 <div class="advanced-filters" style="display: none;">
                     <h4>Morphology</h4>
                     <div class="filter-row">
@@ -368,10 +365,8 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
                                     <div class="description"><?php echo $this->escapeHtml(substr($itemSet->displayDescription(), 0, 120)); ?>...</div>
                                 <?php endif; ?>
                                 
-                                <!-- Location Information -->
                                 <div class="location-info">
                                     <?php
-                                    // Extract location data from item set values
                                     $values = $itemSet->values();
                                     $locationParts = [];
                                     $gpsCoords = null;
@@ -396,9 +391,6 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
                                             }
                                         }
                                     }                                                      
-                                    // Debug: Log what we found
-                                    error_log('Location parts found: ' . print_r($locationParts, true), 3, '/tmp/omeka_map_debug.log');
-                                    error_log("Final coordinates: lat=$lat, lng=$lng", 3, '/tmp/omeka_map_debug.log');
                                     
                                     // Store coordinates for map if we have them
                                     if ($lat && $lng): 
@@ -407,11 +399,9 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
                                                 $itemCount = $itemSet->itemCount();
 
                                         } catch (\Exception $e) {
-                                            error_log("Error getting item count: " . $e->getMessage(), 3, '/tmp/omeka_map_debug.log');
                                             $itemCount = 0;
                                         }
                                         
-                                        error_log("Adding excavation to map: ID=" . $itemSet->id() . ", Lat=$lat, Lng=$lng, Items=$itemCount", 3, '/tmp/omeka_map_debug.log');
                                         ?>
                                         <script>
                                             if (typeof excavationData === 'undefined') {
@@ -441,14 +431,12 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
                                     <?php else:
                                         error_log("No coordinates found for excavation: " . $itemSet->displayTitle() . " (ID: " . $itemSet->id() . ")", 3, '/tmp/omeka_map_debug.log');
                                         
-                                        // FALLBACK: Try to geocode based on location text if no direct coordinates
                                         if (!empty($locationParts)) {
                                             $locationString = implode(', ', array_filter($locationParts));
                                             error_log("Could try geocoding: $locationString", 3, '/tmp/omeka_map_debug.log');
                                             ?>
                                             <script>
                                                 console.log('No coordinates for excavation but found location parts:', <?php echo json_encode($locationParts); ?>);
-                                                // Could add geocoding service call here if needed
                                             </script>
                                             <?php
                                         }
@@ -456,7 +444,6 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
                                     ?>
                                 </div>
                                 
-                                <!-- Item count display -->
                                 <div class="item-count">
                                     <span class="count-icon">🏹</span>
                                     <span class="count-text"><?php 
@@ -470,10 +457,8 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
                                     ?></span>
                                 </div>
                                 
-                                <!-- Additional metadata -->
                                 <div class="excavation-metadata">
                                     <?php
-                                    // Show some key metadata
                                     foreach ($values as $term => $propertyValues) {
                                         if (!empty($propertyValues) && isset($propertyValues[0]) && $propertyValues[0]->property()) {
                                             $propertyLabel = $propertyValues[0]->property()->label();
@@ -690,7 +675,6 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
     overflow: hidden;
 }
 
-/* Enhanced result cards */
 .result-section {
     margin-bottom: 40px;
 }
@@ -926,7 +910,6 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
 }
 
-/* Animation for filters when they appear */
 .filter-section {
     transition: all 0.4s ease-in-out;
     max-height: 2000px;
@@ -941,7 +924,6 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
     opacity: 0;
 }
 
-/* Responsive Design */
 @media (max-width: 768px) {
     .search-container {
         flex-direction: column;
@@ -973,7 +955,6 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
     }
 }
 
-/* Custom marker styles */
 .custom-marker {
     background: #4CAF50;
     color: white;
@@ -1001,10 +982,7 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
 }
 
 
-/* search filter styles */
-/* Add these styles to the existing <style> section in search.phtml */
 
-/* Filter Section */
 .filter-section {
     background-color: #f9f9f9;
     border-radius: 12px;
@@ -1015,7 +993,6 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
 }
 
 
-/* Excavation filters - update to match arrowhead filter styles */
 .excavation-filters {
     background-color: #f9f9f9;
     border-radius: 12px;
@@ -1023,10 +1000,8 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
     margin-top: 15px;
     box-shadow: 0 1px 15px rgba(0,0,0,0.05);
     transition: all 0.3s ease;
-    /* Add a subtle left border to distinguish excavation filters */
 }
 
-/* Ensure ORCID input matches select styling */
 .orcid-input {
     width: 100%;
     padding: 8px 12px;
@@ -1037,12 +1012,10 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
     background-color: white;
 }
 
-/* Toggle excavation filters based on search type */
 .excavation-filters.hidden {
     display: none;
 }
 
-/* end of .excavation-filters */
 
 
 .filter-section.hidden {
@@ -1117,7 +1090,6 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
     background-color: #e9ecef;
 }
 
-/* Make filters responsive */
 @media (max-width: 768px) {
     .filter-group {
         flex: 1 0 100%;
@@ -1131,9 +1103,6 @@ $parishOptions = isset($parishOptions) ? $parishOptions : [];
     }
 }
 
-/* Add these additional CSS rules to the existing <style> section */
-
-/* Enhanced filter section */
 .filter-section h4 {
     margin: 20px 0 10px 0;
     font-size: 16px;
@@ -1210,7 +1179,6 @@ let markers = [];
 let selectedMarker = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Debug: Log excavation data if it exists
     if (typeof excavationData !== 'undefined') {
         console.log('Excavation data found:', excavationData);
     } else {
@@ -1219,7 +1187,6 @@ document.addEventListener('DOMContentLoaded', function() {
     
     initializeMap();
     
-    // Toggle map visibility
     document.getElementById('toggleMap').addEventListener('click', function() {
         const mapDiv = document.getElementById('excavationMap');
         const toggleBtn = document.getElementById('toggleMap');
@@ -1236,7 +1203,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    // Center map
     document.getElementById('centerMap').addEventListener('click', function() {
         if (markers.length > 0) {
             const group = new L.featureGroup(markers);
@@ -1245,36 +1211,28 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 function initializeMap() {
-    // Initialize the map centered on Portugal
     map = L.map('excavationMap').setView([39.5, -8.0], 7);
     
-    // Add OpenStreetMap tiles
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors'
     }).addTo(map);
     
-    // Load excavation data if available
     if (typeof excavationData !== 'undefined' && excavationData.length > 0) {
         addExcavationMarkers();
     } else {
-        // Load all excavations via AJAX if no search results
         loadAllExcavations();
     }
 }
 
-// Add this JavaScript to the bottom of the file in a <script> tag
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Check if we arrived from Quick Links (has search query)
     const urlParams = new URLSearchParams(window.location.search);
     const hasSearchQuery = urlParams.has('query');
     
-    // Show/hide filters based on whether we have a search query
     const excavationFilters = document.querySelector('.excavation-filters');
     const arrowheadFilters = document.querySelector('.filter-section:not(.excavation-filters)');
     
     if (hasSearchQuery) {
-        // Show appropriate filters based on search type
         const searchType = urlParams.get('type') || 'all';
         
         if (searchType === 'item_sets' || searchType === 'all') {
@@ -1289,17 +1247,14 @@ document.addEventListener('DOMContentLoaded', function() {
             arrowheadFilters.style.display = 'none';
         }
     } else {
-        // Hide all filters if no search query
         if (excavationFilters) excavationFilters.style.display = 'none';
         if (arrowheadFilters) arrowheadFilters.style.display = 'none';
     }
     
-    // Update the radio button change handlers
     const searchTypeRadios = document.querySelectorAll('input[name="type"]');
     
     searchTypeRadios.forEach(radio => {
         radio.addEventListener('change', function() {
-            // Only show filters if we have a search query
             if (!hasSearchQuery) return;
             
             if (this.value === 'item_sets' || this.value === 'all') {
@@ -1320,18 +1275,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Track clicks on Quick Links
     const quickLinks = document.querySelectorAll('.quick-links a');
     quickLinks.forEach(link => {
         link.addEventListener('click', function() {
-            // We'll store that this was a Quick Link click
             localStorage.setItem('fromQuickLink', 'true');
         });
     });
 });
 
 document.addEventListener('DOMContentLoaded', function() {
-    // Handle toggle for advanced filters
     const toggleButton = document.getElementById('toggleAdvancedFilters');
     const advancedFilters = document.querySelector('.advanced-filters');
     
@@ -1343,7 +1295,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Handle filter visibility based on search type
     const filterSection = document.querySelector('.filter-section');
     const searchTypeRadios = document.querySelectorAll('input[name="type"]');
     
@@ -1358,7 +1309,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     
-    // Check if any advanced filters are active, if so, show advanced section
     const advancedFilterInputs = document.querySelectorAll(
         '#base, #thickness, #condition, #chippingMode, #chippingDirection, ' +
         '#chippingDelineation, #chippingShape, #chippingAmplitude, ' +
@@ -1379,7 +1329,6 @@ document.addEventListener('DOMContentLoaded', function() {
         toggleButton.textContent = 'Hide Advanced Filters';
     }
     
-    // Clear filters button
     document.getElementById('clearFilters').addEventListener('click', function() {
         const selects = filterSection.querySelectorAll('select');
         const inputs = filterSection.querySelectorAll('input[type="number"]');
@@ -1395,11 +1344,9 @@ document.addEventListener('DOMContentLoaded', function() {
         // Get the current URL
         let currentUrl = new URL(window.location.href);
         
-        // Remove filter parameters but keep search query and type
         let searchQuery = currentUrl.searchParams.get('query');
         let searchType = currentUrl.searchParams.get('type');
         
-        // Create new URL with only search query and type
         let newUrl = new URL(currentUrl.pathname, currentUrl.origin);
         
         if (searchQuery) {
@@ -1410,14 +1357,12 @@ document.addEventListener('DOMContentLoaded', function() {
             newUrl.searchParams.set('type', searchType);
         }
         
-        // Navigate to the new URL
         window.location.href = newUrl.toString();
     });
 });
 
 
 function focusOnExcavation(excavationId) {
-    // Find the marker with this excavation ID
     let targetMarker = null;
     for (let i = 0; i < markers.length; i++) {
         if (markers[i].excavationId == excavationId) {
@@ -1427,26 +1372,21 @@ function focusOnExcavation(excavationId) {
     }
     
     if (targetMarker) {
-        // Reset previous selected marker if any
         if (selectedMarker) {
             const icon = selectedMarker.getIcon();
             icon.options.className = icon.options.className.replace(' selected', '');
             selectedMarker.setIcon(icon);
         }
         
-        // Highlight this marker
         const icon = targetMarker.getIcon();
         icon.options.className += ' selected';
         targetMarker.setIcon(icon);
         
-        // Store as selected
         selectedMarker = targetMarker;
         
-        // Open popup and zoom to marker
         map.setView(targetMarker.getLatLng(), 13);
         targetMarker.openPopup();
         
-        // Ensure map is visible
         const mapDiv = document.getElementById('excavationMap');
         if (mapDiv.classList.contains('hidden')) {
             mapDiv.classList.remove('hidden');
@@ -1457,20 +1397,16 @@ function focusOnExcavation(excavationId) {
             }, 300);
         }
         
-        // Scroll to map
         mapDiv.scrollIntoView({ behavior: 'smooth' });
     } else {
         console.log(`No marker found for excavation ID: ${excavationId}`);
     }
 }
 
-// Handle filter visibility based on search type
 document.addEventListener('DOMContentLoaded', function() {
-    // Get filter section and search type radios
     const filterSection = document.querySelector('.filter-section');
     const searchTypeRadios = document.querySelectorAll('input[name="type"]');
     
-    // Listen for changes on search type radios
     searchTypeRadios.forEach(radio => {
         radio.addEventListener('change', function() {
             if (this.value === 'items' || this.value === 'all') {
@@ -1481,21 +1417,17 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Clear filters button functionality
     document.getElementById('clearFilters').addEventListener('click', function() {
         const selects = filterSection.querySelectorAll('select');
         selects.forEach(select => {
             select.value = '';
         });
         
-        // Get the current URL
         let currentUrl = new URL(window.location.href);
         
-        // Remove filter parameters but keep search query and type
         let searchQuery = currentUrl.searchParams.get('query');
         let searchType = currentUrl.searchParams.get('type');
         
-        // Create new URL with only search query and type
         let newUrl = new URL(currentUrl.pathname, currentUrl.origin);
         
         if (searchQuery) {
@@ -1506,14 +1438,11 @@ document.addEventListener('DOMContentLoaded', function() {
             newUrl.searchParams.set('type', searchType);
         }
         
-        // Navigate to the new URL
         window.location.href = newUrl.toString();
     });
 });
-// UPDATED addExcavationMarkers function with improved popups
 function addExcavationMarkers() {
     excavationData.forEach(function(excavation) {
-        // Create location string with hierarchy
         let locationHtml = '';
         if (excavation.site) {
             locationHtml += `<strong>${excavation.site}</strong><br>`;
@@ -1524,7 +1453,6 @@ function addExcavationMarkers() {
             locationHtml += excavation.location;
         }
         
-        // Create marker with custom icon based on item count
         let markerIcon;
         if (excavation.itemCount > 20) {
             markerIcon = L.divIcon({
@@ -1574,20 +1502,17 @@ function addExcavationMarkers() {
                 </div>
             `);
         
-        // Store reference for later use
         marker.excavationId = excavation.id;
         markers.push(marker);
         
         console.log(`Added marker for ${excavation.title} at ${excavation.lat}, ${excavation.lng}`);
     });
     
-    // Fit map to show all markers
     if (markers.length > 0) {
         const group = new L.featureGroup(markers);
         map.fitBounds(group.getBounds().pad(0.1));
     } else {
         console.log('No markers to display');
-        // Center on Portugal if no markers
         map.setView([39.5, -8.0], 7);
     }
 }
@@ -1596,14 +1521,12 @@ function addExcavationMarkers() {
 function loadAllExcavations() {
     console.log('Loading all excavations via API...');
     
-    // First fetch all item sets that represent excavations
     fetch('/api/item_sets?pretty_print=1&sort_by=id&sort_order=desc')
         .then(response => response.json())
         .then(itemSets => {
             console.log(`Found ${itemSets.length} item sets`);
             window.excavationData = [];
             
-            // Process each item set sequentially with Promise chain
             return itemSets.reduce((chain, itemSet) => {
                 return chain.then(() => processItemSet(itemSet));
             }, Promise.resolve());
@@ -1617,30 +1540,25 @@ function loadAllExcavations() {
         });
 }
 
-// Process each item set to find its excavation item or extract GPS directly
 function processItemSet(itemSet) {
     const itemSetId = itemSet['o:id'];
     const itemSetTitle = itemSet['dcterms:title']?.[0]?.['@value'] || `Item Set ${itemSetId}`;
     console.log(`Processing Item Set: ${itemSetTitle} (ID: ${itemSetId})`);
     
-    // First check if the item set itself has GPS coordinates directly in its properties
     let lat = extractCoordinateFromItemSet(itemSet, 'lat');
     let lng = extractCoordinateFromItemSet(itemSet, 'lng');
     
-    // If GPS found directly in item set, use it
     if (lat !== null && lng !== null) {
         console.log(`Found GPS directly in item set ${itemSetId}: ${lat}, ${lng}`);
         addToExcavationData(itemSetId, itemSetTitle, lat, lng, 0);
         return Promise.resolve();
     }
     
-    // If no GPS in item set, look through its items
     return fetch(`/api/items?item_set_id=${itemSetId}&pretty_print=1`)
         .then(response => response.json())
         .then(items => {
             console.log(`Item Set ${itemSetId} contains ${items.length} items`);
             
-            // First try to find an item with title starting with "Excavation"
             const excavationItem = items.find(item => {
                 const title = item['dcterms:title']?.[0]?.['@value'] || '';
                 return title.startsWith('Excavation ');
@@ -1649,7 +1567,6 @@ function processItemSet(itemSet) {
             if (excavationItem) {
                 console.log(`Found excavation item: ${excavationItem['dcterms:title']?.[0]?.['@value']}`);
                 
-                // Extract coordinates from the excavation item
                 lat = extractCoordinateFromItem(excavationItem, 'lat');
                 lng = extractCoordinateFromItem(excavationItem, 'lng');
                 
@@ -1659,7 +1576,6 @@ function processItemSet(itemSet) {
                 }
             }
             
-            // If no coordinates found in excavation item, try any item with GPS values
             for (const item of items) {
                 lat = extractCoordinateFromItem(item, 'lat');
                 lng = extractCoordinateFromItem(item, 'lng');
@@ -1674,18 +1590,14 @@ function processItemSet(itemSet) {
         });
 }
 
-// Helper function to extract coordinate from an item
 function extractCoordinateFromItem(item, type) {
-    // Debug
     console.log(`Extracting ${type} from item:`, item['dcterms:title']?.[0]?.['@value']);
     
-    // Known property URIs that might contain coordinates
     const coordProperties = {
         lat: ['GPS Latitude', 'geo:lat', 'Latitude', 'Location - has GPS Coordinates', 'GPS Coordinates'],
         lng: ['GPS Longitude', 'geo:long', 'Longitude', 'Location - has GPS Coordinates', 'GPS Coordinates']
     };
     
-    // Try direct properties first
     for (const propName of coordProperties[type]) {
         if (item[propName]) {
             console.log(`Found property ${propName} in item`);
@@ -1695,7 +1607,6 @@ function extractCoordinateFromItem(item, type) {
                     const valueStr = value['@value'];
                     console.log(`Checking value: "${valueStr}"`);
                     
-                    // Pattern for "Latitude: 41.0578, Longitude: -7.2233"
                     if (valueStr.includes("Latitude") && valueStr.includes("Longitude")) {
                         console.log(`Found combined lat/lng string: ${valueStr}`);
                         
@@ -1716,7 +1627,6 @@ function extractCoordinateFromItem(item, type) {
                         }
                     }
                     
-                    // Direct match for single coordinate
                     if ((type === 'lat' && /latitude/i.test(propName)) || 
                         (type === 'lng' && /longitude/i.test(propName))) {
                         const coord = extractNumberFromString(valueStr);
@@ -1730,7 +1640,6 @@ function extractCoordinateFromItem(item, type) {
         }
     }
     
-    // Try searching through all properties (last resort)
     console.log(`Searching all properties for ${type}...`);
     for (const propName in item) {
         if (item[propName] && Array.isArray(item[propName])) {
@@ -1763,7 +1672,6 @@ function extractCoordinateFromItem(item, type) {
     return null;
 }
 
-// Also update the extractCoordinateFromItemSet function for consistency
 function extractCoordinateFromItemSet(itemSet, type) {
     console.log(`Extracting ${type} from item set ID: ${itemSet['o:id']}`);
     
@@ -1772,7 +1680,6 @@ function extractCoordinateFromItemSet(itemSet, type) {
         lng: ['GPS Longitude', 'geo:long', 'Longitude', 'Location - has GPS Coordinates', 'GPS Coordinates']
     };
     
-    // Try direct properties first
     for (const propName of coordProperties[type]) {
         if (itemSet[propName]) {
             console.log(`Found property ${propName} in item set ${itemSet['o:id']}`);
@@ -1782,7 +1689,6 @@ function extractCoordinateFromItemSet(itemSet, type) {
                     const valueStr = value['@value'];
                     console.log(`Checking value: "${valueStr}"`);
                     
-                    // Pattern for "Latitude: 41.0578, Longitude: -7.2233"
                     if (valueStr.includes("Latitude") && valueStr.includes("Longitude")) {
                         console.log(`Found combined lat/lng string: ${valueStr}`);
                         
@@ -1803,7 +1709,6 @@ function extractCoordinateFromItemSet(itemSet, type) {
                         }
                     }
                     
-                    // Direct match for single coordinate
                     if ((type === 'lat' && /latitude/i.test(propName)) || 
                         (type === 'lng' && /longitude/i.test(propName))) {
                         const coord = extractNumberFromString(valueStr);
@@ -1817,7 +1722,6 @@ function extractCoordinateFromItemSet(itemSet, type) {
         }
     }
     
-    // Try searching through all properties (last resort)
     console.log(`Searching all properties of item set ${itemSet['o:id']} for ${type}...`);
     for (const propName in itemSet) {
         if (itemSet[propName] && Array.isArray(itemSet[propName])) {
@@ -1850,9 +1754,7 @@ function extractCoordinateFromItemSet(itemSet, type) {
     return null;
 }
 
-// Extract a number from a string (for parsing coordinates)
 function extractNumberFromString(str) {
-    // Match decimal numbers with optional negative sign
     const matches = str.match(/-?\d+\.\d+/);
     if (matches && matches.length > 0) {
         return parseFloat(matches[0]);
@@ -1860,7 +1762,6 @@ function extractNumberFromString(str) {
     return null;
 }
 
-// Add excavation data to our global list
 function addToExcavationData(id, title, lat, lng, itemCount) {
     window.excavationData.push({
         id: id,

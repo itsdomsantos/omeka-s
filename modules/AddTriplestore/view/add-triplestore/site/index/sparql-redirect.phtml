@@ -12,7 +12,6 @@
         </div>
     </div>
 
-    <!-- Auto-submit form to GraphDB with credentials -->
     <form id="autoLoginForm" method="get" action="<?php echo $this->escapeHtmlAttr($graphdbUrl); ?>" target="_blank" style="display: none;">
         <input type="hidden" name="username" value="<?php echo $this->escapeHtmlAttr($username); ?>">
         <input type="hidden" name="password" value="<?php echo $this->escapeHtmlAttr($password); ?>">
@@ -20,10 +19,8 @@
     </form>
 
     <script>
-        // Auto-submit the form after a short delay
         setTimeout(function() {
             document.getElementById('autoLoginForm').submit();
-            // Close this window/tab after submission
             setTimeout(function() {
                 window.close();
             }, 1000);

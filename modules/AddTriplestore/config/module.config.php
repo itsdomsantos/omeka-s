@@ -166,7 +166,7 @@ return [
     'asset_manager' => [
         'resolver_configs' => [
             'paths' => [
-                'AddTriplestore' => __DIR__ . '/../asset', // This is the crucial line for asset management
+                'AddTriplestore' => __DIR__ . '/../asset', 
             ],
         ],
     ],
@@ -176,21 +176,21 @@ return [
             'label' => 'Archaeological Data',
             'route' => 'site/add-triplestore',
             'params' => [
-                'site-slug' => '__SITE_SLUG__' // This will be replaced dynamically
+                'site-slug' => '__SITE_SLUG__' 
             ],
             'pages' => [
                 [
                     'label' => 'Search',
                     'route' => 'site/add-triplestore/search',
                     'params' => [
-                        'site-slug' => '__SITE_SLUG__' // This will be replaced dynamically
+                        'site-slug' => '__SITE_SLUG__' 
                     ],
                 ],
                 [
                     'label' => 'Add Excavation',
                     'route' => 'site/add-triplestore/upload',
                     'params' => [
-                        'site-slug' => '__SITE_SLUG__', // This will be replaced dynamically
+                        'site-slug' => '__SITE_SLUG__', 
                         'query' => [
                             'upload_type' => 'excavation'
                         ]

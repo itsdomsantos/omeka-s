@@ -10,7 +10,6 @@
         </div>
     </div>
     
-    <!-- Embed GraphDB interface in iframe -->
     <div class="graphdb-container">
         <iframe 
             src="<?php echo $this->escapeHtmlAttr($graphdbUrl ?? 'http://localhost:7200/repositories/megalod/sparql'); ?>" 
@@ -127,7 +126,6 @@
     font-size: 13px;
 }
 
-/* Responsive design */
 @media (max-width: 768px) {
     .sparql-wrapper {
         padding: 10px;
