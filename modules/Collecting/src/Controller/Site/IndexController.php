@@ -38,12 +38,10 @@ public function uploadArrowheadFormAction()
     $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
     $form = $cForm->getForm();
     
-    // Get the item set ID from query parameters
     $itemSetId = $this->params()->fromQuery('item_set_id');
     $uploadType = $this->params()->fromQuery('upload_type', 'arrowhead');
     $returnUrl = $this->params()->fromQuery('return_url');
     
-    // Fetch squares, contexts, and SVUs from this item set
     $squares = [];
     $contexts = [];
     $svus = [];
@@ -57,7 +55,6 @@ public function uploadArrowheadFormAction()
             $title = $item->displayTitle();
             $values = $item->values();
             
-            // FIXED: First check if this is an encounter event and skip it
             if (strpos($title, 'Encounter Event') !== false || 
                 strpos($title, 'Archaeological Encounter') !== false ||
                 $this->hasProperty($values, 'Encounter Date') ||
@@ -65,7 +62,6 @@ public function uploadArrowheadFormAction()
                 continue; // Skip encounter events
             }
             
-            // Check if this is a Square
             if ((strpos($title, 'Square') !== false && strpos($title, 'Encounter') === false) ||
                 $this->hasProperty($values, 'Square ID')) {
                 $squares[] = [
@@ -75,7 +71,6 @@ public function uploadArrowheadFormAction()
                 ];
             }
             
-            // Check if this is a Context
             if ((strpos($title, 'Context') !== false && strpos($title, 'Encounter') === false) ||
                 $this->hasProperty($values, 'Context ID')) {
                 $contexts[] = [
@@ -85,7 +80,6 @@ public function uploadArrowheadFormAction()
                 ];
             }
             
-            // FIXED: More specific check for Stratigraphic Volume Units
             if (((strpos($title, 'Stratigraphic Unit') !== false || 
                   strpos($title, 'Stratigraphic Volume Unit') !== false ||
                   (strpos($title, 'SVU') !== false && strpos($title, 'Encounter') === false)) &&
@@ -100,7 +94,6 @@ public function uploadArrowheadFormAction()
         }
     }
     
-    // If returnUrl is provided, override the form action
     if ($returnUrl) {
         $form->setAttribute('action', $this->url()->fromRoute('site/add-triplestore/process-collecting', [
             'site-slug' => $this->currentSite()->slug(),
@@ -140,7 +133,6 @@ private function hasProperty($values, $propertyLabel)
     }
     
     foreach ($values as $propertyValues) {
-        // Make sure we have at least one value
         if (!isset($propertyValues[0])) {
             continue;
         }
@@ -151,7 +143,6 @@ private function hasProperty($values, $propertyLabel)
             continue;
         }
         
-        // Check if this is the property we're looking for
         if ($property->label() === $propertyLabel) {
             return true;
         }
@@ -171,7 +162,6 @@ private function getPropertyValue($values, $propertyLabel)
     }
     
     foreach ($values as $propertyValues) {
-        // Make sure we have at least one value
         if (!isset($propertyValues[0])) {
             continue;
         }
@@ -182,7 +172,6 @@ private function getPropertyValue($values, $propertyLabel)
             continue;
         }
         
-        // Check if this is the property we're looking for
         if ($property->label() === $propertyLabel) {
             return $propertyValues[0]->value();
         }
@@ -198,11 +187,10 @@ private function getPropertyValue($values, $propertyLabel)
  */
 public function uploadExcavationFormAction()
 {
-    $formId = 3; // Excavation form ID
+    $formId = 3;
     $cForm = $this->api()->read('collecting_forms', $formId)->getContent();
     $form = $cForm->getForm();
 
-    // Fetch existing archaeologists for the dropdown
     $existingArchaeologists = [];
     
     $result = $this->params()->fromQuery('result');
@@ -240,26 +228,16 @@ public function uploadExcavationFormAction()
     if ($form->isValid()) {
         [$itemData, $cItemData] = $this->getPromptData($cForm);
 
-        // Temporarily give the user permission to create the Omeka and
-        // Collecting items. This gives all roles all privileges to all
-        // resources, which _should_ be safe since we're only passing
-        // mediated data.
+        
         $this->acl->allow();
-        // Allow the can-assign-items privilege so the IndexController can
-        // assign the current o:site to the item. This is needed becuase,
-        // for some reason, the ACL does not ignore can-assign-items, even
-        // with the above allow().
+       
         $this->acl->allow(null, 'Omeka\Entity\Site', 'can-assign-items');
 
-        // Create the Omeka item.
         $itemData['o:is_public'] = false;
         $itemData['o:item_set'] = [
             'o:id' => $cForm->itemSet() ? $cForm->itemSet()->id() : null,
         ];
-        // Nothing needs to be done for the default site assignment. The
-        // item adapter will automatically assign the proper sites.
         if (!$cForm->defaultSiteAssign()) {
-            // Otherwise, assign the current site only.
             $itemData['o:site'] = [
                 'o:id' => $this->currentSite()->id(),
             ];
@@ -275,9 +253,6 @@ public function uploadExcavationFormAction()
             $cItemData['o-module-collecting:form'] = ['o:id' => $cForm->id()];
 
             if ('user' === $cForm->anonType()) {
-                // If the form has the "user" anonymity type, the item's
-                // defualt anonymous flag is "false" becuase the related
-                // prompt ("User Public") is naturally public.
                 $cItemData['o-module-collecting:anon']
                     = $this->params()->fromPost(sprintf('anon_%s', $cForm->id()), false);
             }
@@ -287,13 +262,10 @@ public function uploadExcavationFormAction()
             if ($response) {
                 $cItem = $response->getContent();
 
-                // Send a submission email if the user opts-in and provides
-                // an email address.
                 $sendEmail = $this->params()->fromPost(sprintf('email_send_%s', $cForm->id()), false);
                 if ($sendEmail && $cItem->userEmail()) {
                     $this->sendSubmissionEmail($cForm, $cItem);
                 }
-                // Send a notification email if configured to do so.
                 $sendEmailNotify = $this->siteSettings()->get('collecting_email_notify');
                 if ($sendEmailNotify) {
                     $this->sendNotificationEmail($cForm, $cItem);
@@ -303,7 +275,6 @@ public function uploadExcavationFormAction()
             }
         }
 
-        // Out of an abundance of caution, revert back to default permissions.
         $this->acl->removeAllow();
     } else {
         $this->messenger()->addErrors($form->getMessages());
@@ -347,7 +318,6 @@ public function uploadExcavationFormAction()
     public function itemShowAction()
     {
         if ($this->siteSettings()->get('collecting_hide_collected_data')) {
-            // Don't render the page if configured to hide it.
             return $this->redirect()->toRoute('site', [], true);
         }
         $site = $this->currentSite();
@@ -368,7 +338,6 @@ public function uploadExcavationFormAction()
      */
     protected function getPromptData(CollectingFormRepresentation $cForm)
     {
-        // Derive the prompt IDs from the form names.
         $postedPrompts = [];
         foreach ($this->params()->fromPost() as $key => $value) {
             if (preg_match('/^prompt_(\d+)$/', $key, $matches)) {
@@ -380,8 +349,6 @@ public function uploadExcavationFormAction()
         $cItemData = [];
         $inputData = [];
 
-        // Note that we're iterating the known prompts, not the ones submitted
-        // with the form. This way we accept only valid prompts.
         foreach ($cForm->prompts() as $prompt) {
             if (!isset($postedPrompts[$prompt->id()])) {
                 // This prompt was not found in the POSTed data.
@@ -439,13 +406,9 @@ public function uploadExcavationFormAction()
                                 '@value' => $postedPrompts[$prompt->id()],
                             ];
                     }
-                    // Note that there's no break here. We need to save all
-                    // property types as inputs so the relationship between the
-                    // prompt and the user input isn't lost.
                 case 'input':
                 case 'user_private':
                 case 'user_public':
-                    // Do not save empty inputs.
                     if ('' !== trim($postedPrompts[$prompt->id()])) {
                         $inputData[] = [
                             'o-module-collecting:prompt' => $prompt->id(),
@@ -464,7 +427,6 @@ public function uploadExcavationFormAction()
                         ->itemData($itemData, $postedPrompts[$prompt->id()], $prompt);
                     break;
                 default:
-                    // Invalid prompt type. Do nothing.
                     break;
             }
         }
