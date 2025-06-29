@@ -10210,10 +10210,6 @@ private function organizeAndFormatItemTtl($rawTtlData, $identifier, $itemSetId)
         }
     }
 
-
-    //declare the square value and unit for x, y, z coordinate like 
-
-
     
     
     return $organizedTtl;
