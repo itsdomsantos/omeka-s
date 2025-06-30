@@ -817,7 +817,8 @@ class IndexController extends AbstractActionController
             
             if (!empty($excavationData)) {
 
-                $excavationIdentifier = $excavationData['excavation_id'] ?? 'EXC-' . uniqid();
+                $excavationIdentifier = $excavationData['excavation_id'] ?? null;
+                
                 
                 // ttlData processing
                 $ttlData = $this->processExcavationFormData($excavationData, $excavationIdentifier);
@@ -880,7 +881,20 @@ class IndexController extends AbstractActionController
         else if (isset($_FILES['file']) && !empty($_FILES['file']['tmp_name'])) {
             
             $result = $this->processFileUpload($this->getRequest(), $uploadType, $itemSetId);
-            
+            // If error, redirect back to upload page with error message
+            if (strpos($result, 'Error') !== false || strpos($result, 'Validation Error') !== false || strpos($result, 'Failed') !== false) {
+                $url = $this->url()->fromRoute('site/add-triplestore/upload', [
+                    'site-slug' => $this->currentSite()->slug(),
+                ], [
+                    'query' => [
+                        'upload_type' => $uploadType,
+                        'item_set_id' => $itemSetId,
+                        'mode' => $mode,
+                        'result' => $result
+                    ]
+                ]);
+                return $this->redirect()->toUrl($url);
+            }
             if ($uploadType == 'excavation') {
 
                 preg_match('/Excavation ([A-Za-z0-9-]+)/', $result, $matches);
@@ -2439,7 +2453,10 @@ private function processExcavationFormData($excavationData, $excavationIdentifie
     $ttl .= "# =========== MAIN EXCAVATION ===========\n\n";
     
     $ttl .= "<$excavationUri> a excav:Excavation ;\n";
-    $ttl .= "    dct:identifier \"$excavationIdentifier\"^^xsd:literal ;\n";
+
+    if($excavationIdentifier != null){
+            $ttl .= "    dct:identifier \"$excavationIdentifier\"^^xsd:literal ;\n";
+    }
     if ($locationUri) {
         $ttl .= "    dul:hasLocation <$locationUri> ;\n";
     }
@@ -3789,7 +3806,7 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
                 $excavationIdentifier = $extractedId;
    
             } else {
-   
+                
             }
         } catch (\Exception $e) {
                if ($itemSetId) {
@@ -3906,7 +3923,8 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
    
         }
 
-        
+        error_log($ttlData, 3, OMEKA_PATH . '/logs/ttl_upload.log');
+
         
         $graphDbResult = $this->sendToGraphDB($ttlData, $itemSetId);
    
@@ -4459,7 +4477,7 @@ private function sendToGraphDB($data, $excavationId)
 
     try {
         $validationResult = $this->validateData($data, $graphUri);   
-
+        error_log("Validation Result: " . print_r($validationResult, true), 3, OMEKA_PATH . '/logs/graphdb-validation.log');
         if (!empty($validationResult)) {
             $errorMessage = 'Data upload failed: SHACL validation errors: ' . implode('; ', $validationResult);
    
@@ -4514,6 +4532,7 @@ private function sendToGraphDB($data, $excavationId)
    
         return $errorMessage;
     }
+    
 }
 
 
