@@ -51316,3 +51316,4 @@ _:7975660053a04e57a418b233e75681ac2838964 <http://www.w3.org/ns/shacl#sourceShap
 _:674c95c4-d0c9-4cc9-b1f9-f13554333bfc-1 <http://www.w3.org/ns/shacl#path> <http://purl.org/dc/terms/identifier> .
 _:674c95c4-d0c9-4cc9-b1f9-f13554333bfc-1 <http://www.w3.org/ns/shacl#minCount> "1"^^<http://www.w3.org/2001/XMLSchema#integer> .
 
+2025-06-30T14:11:40+00:00 INFO (6): Response Status: 204 | Response Body:
