@@ -777,7 +777,6 @@ class IndexController extends AbstractActionController
 
                 // If this is a form submission, process the data
                 $ttlData = $this->processArrowheadFormData($formData, $itemSetId);
-                error_log("TTL Data: " . print_r($ttlData, true), 3, OMEKA_PATH . '/logs/convert.log');
 
                 $result = $this->uploadTtlData($ttlData, $itemSetId) ?? 'Unknown error occurred during upload';
                 
@@ -823,7 +822,6 @@ class IndexController extends AbstractActionController
                 
                 // ttlData processing
                 $ttlData = $this->processExcavationFormData($excavationData, $excavationIdentifier);
-                error_log("TTL Data: " . print_r($ttlData, true), 3, OMEKA_PATH . '/logs/convert.log');
                 $itemSetData = $this->createExcavationItemSetData($excavationIdentifier, $excavationData);
                 
                 try {
@@ -3039,7 +3037,6 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
      */
     private function processArrowheadFormData($formData, $itemSetId)
     {
-        error_log("Processing arrowhead form data for item set ID: $itemSetId", 3, OMEKA_PATH . '/logs/UI.log');
         
         $arrowheadId = !empty($formData['arrowhead_identifier']) 
             ? $formData['arrowhead_identifier'] 
@@ -3743,7 +3740,6 @@ private function processFileUpload($request, ?string $uploadType, ?int $itemSetI
             $rdfXmlData = $this->xmlParser($file);
             if (is_string($rdfXmlData) && strpos($rdfXmlData, 'Failed') === false) {
                 $ttlData = $this->xmlTtlConverter($rdfXmlData);
-                error_log("TTl Data: {$ttlData}", 3, OMEKA_PATH . '/logs/ttlxmldata.log');
    
             } else {
                 throw new \Exception('Failed to process XML file: ' . $rdfXmlData);
@@ -3924,8 +3920,6 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
    
    
         }
-
-        error_log($ttlData, 3, OMEKA_PATH . '/logs/ttl_upload.log');
 
         
         $graphDbResult = $this->sendToGraphDB($ttlData, $itemSetId);
@@ -4250,7 +4244,6 @@ public function xmlTtlConverter($rdfXmlData)
    
     
    
-    error_log($cleanTtl, 3, OMEKA_PATH . '/logs/ttl_conversion.log');
     return $cleanTtl;
 }
 
@@ -4480,7 +4473,6 @@ private function sendToGraphDB($data, $excavationId)
 
     try {
         $validationResult = $this->validateData($data, $graphUri);   
-        error_log("Validation Result: " . print_r($validationResult, true), 3, OMEKA_PATH . '/logs/graphdb-validation.log');
         if (!empty($validationResult)) {
             $errorMessage = 'Data upload failed: SHACL validation errors: ' . implode('; ', $validationResult);
    
