@@ -3817,21 +3817,6 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
                 }
         }
 
-        // Check for arrowhead patterns
-        $arrowheadPatterns = ['a ah:Arrowhead', 'ah:Arrowhead', 'a excav:Item', 'excav:Item'];
-        foreach ($arrowheadPatterns as $pattern) {
-            if (strpos($ttlData, $pattern) !== false) {
-                $hasArrowheads = true;
-                break;
-            }
-        }
-
-        // NEW: Handle mixed content (excavation + arrowheads)
-        if ($isExcavation && $hasArrowheads && !$itemSetId) {
-            // This is a mixed file with both excavation and arrowheads
-            return $this->processMixedExcavationAndArrowheads($ttlData, $excavationIdentifier);
-        }
-
 
         // Normalize URIs based on context
         if ($itemSetId) {
@@ -4007,124 +3992,6 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
     }
 }
 
-/**
- * Summary of processMixedExcavationAndArrowheads
- * @param mixed $ttlData
- * @param mixed $excavationIdentifier
- * @return mixed
- */
-private function processMixedExcavationAndArrowheads($ttlData, $excavationIdentifier)
-{
-    // First, create the excavation and item set
-    if ($this->excavationIdentifierExists($excavationIdentifier)) {
-        return 'Error: Excavation with identifier "' . $excavationIdentifier . '" already exists';
-    }
-    
-    $excavationMetadata = $this->extractExcavationMetadataFromTtl($ttlData);
-    
-    try {
-        // Create item set for the excavation
-        $itemSetTitle = "Excavation $excavationIdentifier";
-        $itemSetDescription = $excavationMetadata['location'] ? 
-            "Archaeological excavation at " . $excavationMetadata['location'] : 
-            "Archaeological excavation with identifier $excavationIdentifier";
-        
-        $response = $this->api()->create('item_sets', [
-            'dcterms:title' => [
-                ['type' => 'literal', 'property_id' => 1, '@value' => $itemSetTitle]
-            ],
-            'dcterms:description' => [
-                ['type' => 'literal', 'property_id' => 4, '@value' => $itemSetDescription]
-            ],
-            'dcterms:creator' => $excavationMetadata['archaeologist'] ? [
-                ['type' => 'literal', 'property_id' => 7665, '@value' => $excavationMetadata['archaeologist']]
-            ] : [],
-            'o:is_public' => true
-        ]);
-        
-        if ($response) {
-            $newItemSet = $response->getContent();
-            $itemSetId = $newItemSet->id();
-            
-            $this->currentProcessingItemSetId = $itemSetId;
-            $this->storeMappingBetweenItemSetAndExcavation($itemSetId, $excavationIdentifier);
-            
-            // Normalize URIs for the new item set
-            $normalizedTtlData = $this->normalizeUris($ttlData, $itemSetId);
-            
-            // Process arrowhead context validation
-            $arrowheadContexts = $this->extractAllArrowheadContextsFromTtl($normalizedTtlData);
-            foreach ($arrowheadContexts as $context) {
-                $validationResult = $this->validateContextRelationships($context, $itemSetId);
-                if (!$validationResult['valid']) {
-                    return 'Validation Error: ' . $validationResult['error'];
-                }
-            }
-            
-            // Upload to GraphDB
-            $graphDbResult = $this->sendToGraphDB($normalizedTtlData, $itemSetId);
-            
-            if (strpos($graphDbResult, 'successfully') !== false) {
-                // Process in Omeka S
-                $omekaData = $this->transformTtlToOmekaSData($normalizedTtlData, $itemSetId);
-                $omekaResponse = $this->sendToOmekaS($omekaData, $itemSetId);
-                
-                if (empty($omekaResponse['errors'])) {
-                    $createdItems = $omekaResponse['created_items'];
-                    $excavationItems = 0;
-                    $arrowheadItems = 0;
-                    
-                    // Count different types of items
-                    foreach ($createdItems as $item) {
-                        if (isset($item['dcterms:title'][0]['@value'])) {
-                            $title = $item['dcterms:title'][0]['@value'];
-                            if (strpos($title, 'Excavation') !== false) {
-                                $excavationItems++;
-                            } elseif (strpos($title, 'Arrowhead') !== false) {
-                                $arrowheadItems++;
-                            }
-                        }
-                    }
-                    
-                    return "Mixed content uploaded successfully! Created Item Set #{$itemSetId} for excavation '$excavationIdentifier' with $excavationItems excavation items and $arrowheadItems arrowhead items.";
-                } else {
-                    return 'Data uploaded to GraphDB, but Omeka S errors: ' . implode('; ', $omekaResponse['errors']);
-                }
-            } else {
-                return 'Failed to upload data to GraphDB: ' . $graphDbResult;
-            }
-        }
-    } catch (\Exception $e) {
-        return 'Error: Failed to create excavation item set - ' . $e->getMessage();
-    }
-}
-
-/**
- * This method extracts all arrowhead contexts from the TTL data.
- * @param mixed $ttlData
- * @return array[]
- */
-private function extractAllArrowheadContextsFromTtl($ttlData)
-{
-    $contexts = [];
-    
-    // Find all arrowhead declarations
-    preg_match_all('/<([^>]+)>\s+a\s+(ah:Arrowhead|excav:Item)/i', $ttlData, $matches);
-    
-    foreach ($matches[1] as $arrowheadUri) {
-        // Extract context for each arrowhead
-        $pattern = '/<' . preg_quote($arrowheadUri, '/') . '>.*?(?=<[^>]+>\s+a\s+|\Z)/s';
-        if (preg_match($pattern, $ttlData, $arrowheadBlock)) {
-            $context = $this->extractArrowheadContextFromTtl($arrowheadBlock[0]);
-            if (!empty($context['excavation']) || !empty($context['context']) || !empty($context['svu'])) {
-                $contexts[] = $context;
-            }
-        }
-    }
-    
-    return $contexts;
-}
-
 
 /**
  * This method extracts the excavation data from the ttl file
@@ -4277,14 +4144,12 @@ private function validateUploadType(string $ttlData, ?string $uploadType): void
     }
     
     
-    if ($uploadType === 'excavation') {
-        if (!$isExcavation) {
-            if ($isArrowhead) {
-                return; // Allow arrowheads in excavation files
-            }
-            throw new \Exception('Invalid data type for excavation upload.');
+    if ($uploadType === 'excavation' && !$isExcavation) {
+        if ($isArrowhead) {
+   
+            return; 
         }
-        return;
+        throw new \Exception('Invalid data type for excavation upload.');
     } elseif ($uploadType === 'arrowhead' && !$isArrowhead) {
         throw new \Exception('Invalid data type for Arrowhead upload.');
     }
