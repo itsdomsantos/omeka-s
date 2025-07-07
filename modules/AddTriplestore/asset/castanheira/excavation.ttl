@@ -1,0 +1,80 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
+@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+# EXCAVATION
+<https://www.purl.org/excavation/CSTVNT> a excav:Excavation ;
+    dct:identifier "CSTVNT"^^xsd:literal; # Acronym
+    dul:hasLocation <https://www.purl.org/location/LOC1> ; # Has Location
+    excav:hasSquare <https://www.purl.org/square/SQ1> ; # Has Square
+    excav:hasPersonInCharge <https://www.purl.org/person/arch1> ; # Has person in charge
+    excav:hasContext <https://www.purl.org/context/CTX1> ; # Has context
+    excav:hasSU <https://www.purl.org/SU/SU80> . # Has SU
+
+# fazer fazer
+# LOCATION
+<https://www.purl.org/location/LOC1> a excav:Location ;
+    dbo:district <http://dbpedia.org/resource/YourDistrict> ; # Has District
+    dbo:parish <http://dbpedia.org/resource/YourParish> ; # Has Parish
+    dbo:informationName "Nome do Local"^^xsd:literal; # Name of the Location
+    dbo:country <http://dbpedia.org/resource/Portugal> ; # Country
+    excav:hasGPSCoordinates <https://www.purl.org/gps/GPS1> . # Location GPS Coordinates
+
+# # fazer fazer
+# GPS COORDINATES
+<https://www.purl.org/gps/GPS1> a excav:GPSCoordinates ;
+    geo:lat "41.1579"^^xsd:decimal ; # Latitude
+    geo:long "-8.6291"^^xsd:decimal . # Longitude
+
+# SQUARE
+<https://www.purl.org/square/SQ1> a excav:Square ;
+    dct:identifier "106.45"^^xsd:literal; # ID
+    geo:long "106"^^xsd:decimal ; # North-South quota
+    geo:lat "45"^^xsd:decimal . # East-West quota
+
+# ARCHAEOLOGIST
+<https://www.purl.org/person/arch1> a excav:Archaeologist ;
+    foaf:account <https://orcid.org/0000-0001-2345-6789> ; # ORCID
+    foaf:name "João Muralha"^^xsd:literal; # Name
+    foaf:mbox <mailto:email@exemplo.org> . # Email
+
+# CONTEXT
+# <https://www.purl.org/context/CTX1> a excav:Context ;
+  #  dct:identifier "CTX001"^^xsd:literal; # ID
+   # excav:hasSVU <https://www.purl.org/svu/SVU1> . # Has Stratigraphic Unit
+
+# STRATIGRAPHIC UNIT
+<https://www.purl.org/SU/SU80> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "80"^^xsd:literal; # ID
+    dct:description "XXXXX"^^xsd:literal; # Description
+    excav:hasTimeLine <https://www.purl.org/timeline/TL1> . # Has TimeLine
+
+# TIMELINE
+<https://www.purl.org/timeline/TL1> a excav:TimeLine ;
+    time:hasBeginning <https://www.purl.org/instant/LOWER1> ; # Lower Bound
+    time:hasEnd <https://www.purl.org/instant/UPPER1> . # Upper Bound
+
+# INSTANTS (years)
+<https://www.purl.org/instant/LOWER1> a excav:Instant ;
+    excav:bcad <http://purl.org/megalod/kos/MegaLOD-BCAD#BC> ; # Before or After Christ
+    time:inXSDgYear "2500"^^xsd:gYear . # Year
+
+<https://www.purl.org/instant/UPPER1> a excav:Instant ;
+    excav:bcad <http://purl.org/megalod/kos/MegaLOD-BCAD#BC> ;
+    time:inXSDgYear "3000"^^xsd:gYear ;
+    excav:foundInExcavation <https://www.purl.org/excavation/CSTVNT> . # Item found in Excavation
