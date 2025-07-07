@@ -1,0 +1,395 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
+@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+# ========================================================================================
+# MIXED EXCAVATION AND ITEMS DATA - MONTE DA PENHA ARCHAEOLOGICAL SITE
+# ========================================================================================
+
+# =========== MAIN EXCAVATION ===========
+
+<https://purl.org/megalod/excavation/monte-da-penha-2023> a excav:Excavation ;
+    dct:identifier "MDP-2023"^^xsd:literal ;
+    dul:hasLocation <https://purl.org/megalod/location/monte-da-penha> ;
+    excav:hasPersonInCharge <https://purl.org/megalod/archaeologist/joao-silva> ;
+    excav:hasSquare <https://purl.org/megalod/square/C1>, 
+                    <https://purl.org/megalod/square/C2>,
+                    <https://purl.org/megalod/square/D1> ;
+    excav:hasContext <https://purl.org/megalod/context/CTX-101>,
+                     <https://purl.org/megalod/context/CTX-102>,
+                     <https://purl.org/megalod/context/CTX-103> .
+
+# =========== LOCATION ===========
+
+<https://purl.org/megalod/location/monte-da-penha> a excav:Location ;
+    dbo:informationName "Monte da Penha Archaeological Site"^^xsd:literal ;
+    dbo:district <http://dbpedia.org/resource/Braga> ;
+    dbo:parish <http://dbpedia.org/resource/Guimaraes> ;
+    dbo:Country <http://dbpedia.org/resource/Portugal> ;
+    excav:hasGPSCoordinates <https://purl.org/megalod/gps/monte-da-penha> .
+
+# Type declarations for referenced resources
+<http://dbpedia.org/resource/Braga> a dbo:District .
+<http://dbpedia.org/resource/Guimaraes> a dbo:Parish .
+<http://dbpedia.org/resource/Portugal> a dbo:Country .
+
+<https://purl.org/megalod/gps/monte-da-penha> a excav:GPSCoordinates ;
+    geo:lat "41.4412"^^xsd:decimal ;
+    geo:long "-8.2918"^^xsd:decimal .
+
+# =========== ARCHAEOLOGIST ===========
+
+<https://purl.org/megalod/archaeologist/joao-silva> a excav:Archaeologist ;
+    foaf:name "Dr. João Silva"^^xsd:literal ;
+    foaf:account <https://orcid.org/0000-0003-9876-5432> ;
+    foaf:mbox <mailto:joao.silva@archaeology.pt> .
+
+# =========== EXCAVATION SQUARES ===========
+
+<https://purl.org/megalod/square/C1> a excav:Square ;
+    dct:identifier "C1"^^xsd:literal ;
+    geo:lat "200.75"^^xsd:decimal ;
+    geo:long "150.50"^^xsd:decimal .
+
+<https://purl.org/megalod/square/C2> a excav:Square ;
+    dct:identifier "C2"^^xsd:literal ;
+    geo:lat "201.75"^^xsd:decimal ;
+    geo:long "151.50"^^xsd:decimal .
+
+<https://purl.org/megalod/square/D1> a excav:Square ;
+    dct:identifier "D1"^^xsd:literal ;
+    geo:lat "202.25"^^xsd:decimal ;
+    geo:long "152.75"^^xsd:decimal .
+
+# =========== CONTEXTS ===========
+
+<https://purl.org/megalod/context/CTX-101> a excav:Context ;
+    dct:identifier "CTX-101"^^xsd:literal ;
+    dct:description "Upper occupation layer with scattered lithic tools"^^xsd:literal ;
+    excav:hasSVU <https://purl.org/megalod/svu/Layer-01> .
+
+<https://purl.org/megalod/context/CTX-102> a excav:Context ;
+    dct:identifier "CTX-102"^^xsd:literal ;
+    dct:description "Main occupation layer with dense artifact concentration"^^xsd:literal ;
+    excav:hasSVU <https://purl.org/megalod/svu/Layer-02>,
+                 <https://purl.org/megalod/svu/Layer-03> .
+
+<https://purl.org/megalod/context/CTX-103> a excav:Context ;
+    dct:identifier "CTX-103"^^xsd:literal ;
+    dct:description "Lower layer with hearth remains and tools"^^xsd:literal ;
+    excav:hasSVU <https://purl.org/megalod/svu/Layer-04> .
+
+# =========== STRATIGRAPHIC VOLUME UNITS ===========
+
+<https://purl.org/megalod/svu/Layer-01> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "Layer-01"^^xsd:literal ;
+    dct:description "Recent occupation layer with mixed artifacts"^^xsd:literal ;
+    excav:hasTimeline <https://purl.org/megalod/timeline/recent-bronze> .
+
+<https://purl.org/megalod/svu/Layer-02> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "Layer-02"^^xsd:literal ;
+    dct:description "Middle Bronze Age layer with tool production evidence"^^xsd:literal ;
+    excav:hasTimeline <https://purl.org/megalod/timeline/middle-bronze> .
+
+<https://purl.org/megalod/svu/Layer-03> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "Layer-03"^^xsd:literal ;
+    dct:description "Middle Bronze Age continuation with hunting tools"^^xsd:literal ;
+    excav:hasTimeline <https://purl.org/megalod/timeline/middle-bronze> .
+
+<https://purl.org/megalod/svu/Layer-04> a excav:StratigraphicVolumeUnit ;
+    dct:identifier "Layer-04"^^xsd:literal ;
+    dct:description "Early Bronze Age workshop with debitage"^^xsd:literal ;
+    excav:hasTimeline <https://purl.org/megalod/timeline/early-bronze-mdp> .
+
+# =========== TIMELINES ===========
+
+<https://purl.org/megalod/timeline/recent-bronze> a excav:TimeLine ;
+    time:hasBeginning <https://purl.org/megalod/instant/1300bc> ;
+    time:hasEnd <https://purl.org/megalod/instant/1100bc> .
+
+<https://purl.org/megalod/timeline/middle-bronze> a excav:TimeLine ;
+    time:hasBeginning <https://purl.org/megalod/instant/1500bc> ;
+    time:hasEnd <https://purl.org/megalod/instant/1300bc> .
+
+<https://purl.org/megalod/timeline/early-bronze-mdp> a excav:TimeLine ;
+    time:hasBeginning <https://purl.org/megalod/instant/1700bc> ;
+    time:hasEnd <https://purl.org/megalod/instant/1500bc> .
+
+# =========== TIME INSTANTS ===========
+
+<https://purl.org/megalod/instant/1700bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-1700"^^xsd:gYear .
+
+<https://purl.org/megalod/instant/1500bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-1500"^^xsd:gYear .
+
+<https://purl.org/megalod/instant/1300bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-1300"^^xsd:gYear .
+
+<https://purl.org/megalod/instant/1100bc> a excav:Instant ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
+    time:inXSDgYear "-1100"^^xsd:gYear .
+
+# ========================================================================================
+# ARCHAEOLOGICAL ITEMS FOUND AT MONTE DA PENHA
+# ========================================================================================
+
+# =========== ARROWHEAD 1 ===========
+
+<https://purl.org/megalod/item/arrowhead-mdp-001> a excav:Item, ah:Arrowhead ;
+    dct:identifier "AH-MDP-001"^^xsd:literal ;
+    dbo:Annotation "Complete triangular arrowhead with excellent preservation"^^xsd:literal ;
+    crm:E3_Condition_State true ;
+    crm:E55_Type true ;
+    crm:E57_Material <http://vocab.getty.edu/page/aat/300011022> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Medium> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin> ;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
+    ah:variant <https://purl.org/megalod/kos/ah-variant/flat> ;
+    excav:foundInContext <https://purl.org/megalod/context/CTX-101> ;
+    excav:foundInSVU <https://purl.org/megalod/svu/Layer-01> ;
+    excav:foundInSquare <https://purl.org/megalod/square/C1> ;
+    excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/AH-MDP-001-coords> ;
+    schema:height <https://purl.org/megalod/typometry/AH-MDP-001-height> ;
+    schema:width <https://purl.org/megalod/typometry/AH-MDP-001-width> ;
+    schema:depth <https://purl.org/megalod/typometry/AH-MDP-001-depth> ;
+    schema:weight <https://purl.org/megalod/weight/AH-MDP-001-weight> ;
+    ah:hasMorphology <https://purl.org/megalod/Morphology/AH-MDP-001-morphology> ;
+    ah:hasChipping <https://purl.org/megalod/Chipping/AH-MDP-001-chipping> ;
+    dct:date "2023-07-15"^^xsd:literal ;
+    edm:Webresource <https://example.com/images/arrowhead-mdp-001.jpg> .
+
+# =========== ARROWHEAD 2 ===========
+
+<https://purl.org/megalod/item/arrowhead-mdp-002> a excav:Item, ah:Arrowhead ;
+    dct:identifier "AH-MDP-002"^^xsd:literal ;
+    dbo:Annotation "Stemmed arrowhead fragment, missing base portion"^^xsd:literal ;
+    crm:E3_Condition_State false ;
+    crm:E55_Type true ;
+    crm:E57_Material <http://vocab.getty.edu/page/aat/300011022> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Medium> ;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/stemmed> ;
+    ah:variant <https://purl.org/megalod/kos/ah-variant/raised> ;
+    excav:foundInContext <https://purl.org/megalod/context/CTX-102> ;
+    excav:foundInSVU <https://purl.org/megalod/svu/Layer-02> ;
+    excav:foundInSquare <https://purl.org/megalod/square/C2> ;
+    excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/AH-MDP-002-coords> ;
+    schema:height <https://purl.org/megalod/typometry/AH-MDP-002-height> ;
+    schema:width <https://purl.org/megalod/typometry/AH-MDP-002-width> ;
+    schema:depth <https://purl.org/megalod/typometry/AH-MDP-002-depth> ;
+    schema:weight <https://purl.org/megalod/weight/AH-MDP-002-weight> ;
+    ah:hasBodyLength <https://purl.org/megalod/BodyLength/AH-MDP-002-bodylength> ;
+    ah:hasBaseLength <https://purl.org/megalod/BaseLength/AH-MDP-002-baselength> ;
+    ah:hasMorphology <https://purl.org/megalod/Morphology/AH-MDP-002-morphology> ;
+    ah:hasChipping <https://purl.org/megalod/Chipping/AH-MDP-002-chipping> ;
+    dct:date "2023-07-18"^^xsd:literal .
+
+# =========== ARROWHEAD 3 ===========
+
+<https://purl.org/megalod/item/arrowhead-mdp-003> a excav:Item, ah:Arrowhead ;
+    dct:identifier "AH-MDP-003"^^xsd:literal ;
+    dbo:Annotation "Small triangle arrowhead with bifacial working"^^xsd:literal ;
+    crm:E3_Condition_State true ;
+    crm:E55_Type true ;
+    crm:E57_Material <http://vocab.getty.edu/page/aat/300011022> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Short> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thick> ;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
+    ah:variant <https://purl.org/megalod/kos/ah-variant/thick> ;
+    excav:foundInContext <https://purl.org/megalod/context/CTX-103> ;
+    excav:foundInSVU <https://purl.org/megalod/svu/Layer-04> ;
+    excav:foundInSquare <https://purl.org/megalod/square/D1> ;
+    excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/AH-MDP-003-coords> ;
+    schema:height <https://purl.org/megalod/typometry/AH-MDP-003-height> ;
+    schema:width <https://purl.org/megalod/typometry/AH-MDP-003-width> ;
+    schema:depth <https://purl.org/megalod/typometry/AH-MDP-003-depth> ;
+    schema:weight <https://purl.org/megalod/weight/AH-MDP-003-weight> ;
+    ah:hasMorphology <https://purl.org/megalod/Morphology/AH-MDP-003-morphology> ;
+    ah:hasChipping <https://purl.org/megalod/Chipping/AH-MDP-003-chipping> ;
+    dct:date "2023-07-22"^^xsd:literal .
+
+# =========== COORDINATES IN SQUARES ===========
+
+<https://purl.org/megalod/coordinates/AH-MDP-001-coords> a excav:Coordinates ;
+    geo:long <https://purl.org/megalod/typometry/AH-MDP-001-x> ;
+    geo:lat <https://purl.org/megalod/typometry/AH-MDP-001-y> ;
+    schema:depth <https://purl.org/megalod/typometry/AH-MDP-001-z> .
+
+<https://purl.org/megalod/coordinates/AH-MDP-002-coords> a excav:Coordinates ;
+    geo:long <https://purl.org/megalod/typometry/AH-MDP-002-x> ;
+    geo:lat <https://purl.org/megalod/typometry/AH-MDP-002-y> ;
+    schema:depth <https://purl.org/megalod/typometry/AH-MDP-002-z> .
+
+<https://purl.org/megalod/coordinates/AH-MDP-003-coords> a excav:Coordinates ;
+    geo:long <https://purl.org/megalod/typometry/AH-MDP-003-x> ;
+    geo:lat <https://purl.org/megalod/typometry/AH-MDP-003-y> ;
+    schema:depth <https://purl.org/megalod/typometry/AH-MDP-003-z> .
+
+# =========== TYPOMETRY VALUES ===========
+
+# Arrowhead 1 measurements
+<https://purl.org/megalod/typometry/AH-MDP-001-height> a excav:TypometryValue ;
+    schema:value "3.2"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-001-width> a excav:TypometryValue ;
+    schema:value "2.1"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-001-depth> a excav:TypometryValue ;
+    schema:value "0.5"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-001-x> a excav:TypometryValue ;
+    schema:value "25.7"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-001-y> a excav:TypometryValue ;
+    schema:value "67.3"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-001-z> a excav:TypometryValue ;
+    schema:value "1.2"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+# Arrowhead 2 measurements
+<https://purl.org/megalod/typometry/AH-MDP-002-height> a excav:TypometryValue ;
+    schema:value "4.8"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-002-width> a excav:TypometryValue ;
+    schema:value "2.4"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-002-depth> a excav:TypometryValue ;
+    schema:value "0.8"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-002-x> a excav:TypometryValue ;
+    schema:value "42.1"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-002-y> a excav:TypometryValue ;
+    schema:value "89.5"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-002-z> a excav:TypometryValue ;
+    schema:value "2.1"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+# Arrowhead 3 measurements
+<https://purl.org/megalod/typometry/AH-MDP-003-height> a excav:TypometryValue ;
+    schema:value "2.9"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-003-width> a excav:TypometryValue ;
+    schema:value "2.7"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-003-depth> a excav:TypometryValue ;
+    schema:value "0.9"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-003-x> a excav:TypometryValue ;
+    schema:value "18.4"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-003-y> a excav:TypometryValue ;
+    schema:value "33.8"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/AH-MDP-003-z> a excav:TypometryValue ;
+    schema:value "3.7"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+# =========== BODY AND BASE LENGTHS ===========
+
+<https://purl.org/megalod/BodyLength/AH-MDP-002-bodylength> a excav:TypometryValue ;
+    schema:value "3.1"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/BaseLength/AH-MDP-002-baselength> a excav:TypometryValue ;
+    schema:value "1.7"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+# =========== WEIGHTS ===========
+
+<https://purl.org/megalod/weight/AH-MDP-001-weight> a excav:Weight ;
+    schema:value "8.3"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/GRM> .
+
+<https://purl.org/megalod/weight/AH-MDP-002-weight> a excav:Weight ;
+    schema:value "11.7"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/GRM> .
+
+<https://purl.org/megalod/weight/AH-MDP-003-weight> a excav:Weight ;
+    schema:value "9.2"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/GRM> .
+
+# =========== MORPHOLOGY ===========
+
+<https://purl.org/megalod/Morphology/AH-MDP-001-morphology> a ah:Morphology ;
+    ah:point true ;
+    ah:body true ;
+    ah:base <https://purl.org/megalod/kos/ah-base/straight> .
+
+<https://purl.org/megalod/Morphology/AH-MDP-002-morphology> a ah:Morphology ;
+    ah:point false ;
+    ah:body false ;
+    ah:base <https://purl.org/megalod/kos/ah-base/stemmed> .
+
+<https://purl.org/megalod/Morphology/AH-MDP-003-morphology> a ah:Morphology ;
+    ah:point true ;
+    ah:body true ;
+    ah:base <https://purl.org/megalod/kos/ah-base/concave> .
+
+# =========== CHIPPING ===========
+
+<https://purl.org/megalod/Chipping/AH-MDP-001-chipping> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/parallel> ;
+    ah:chippingAmplitude true ;
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/direct> ;
+    ah:chippingOrientation true ;
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/continuous> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/distal> ;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/median> ;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/straight> .
+
+<https://purl.org/megalod/Chipping/AH-MDP-002-chipping> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/parallel> ;
+    ah:chippingAmplitude false ;
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/bifacial> ;
+    ah:chippingOrientation false ;
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/composite> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/distal>, <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/distal> ;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex> .
+
+<https://purl.org/megalod/Chipping/AH-MDP-003-chipping> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/plane> ;
+    ah:chippingAmplitude true ;
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/reverse> ;
+    ah:chippingOrientation true ;
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/denticulated> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/median> ;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/sinuous> .
