@@ -23,7 +23,7 @@
     dul:hasLocation <https://www.purl.org/location/LOC1> ; # Has Location
     excav:hasSquare <https://www.purl.org/square/SQ1> ; # Has Square
     excav:hasPersonInCharge <https://www.purl.org/person/arch1> ; # Has person in charge
-    excav:hasContext <https://www.purl.org/context/CTX1> ; # Has context
+    # excav:hasContext <https://www.purl.org/context/CTX1> ; # Has context
     excav:hasSU <https://www.purl.org/SU/SU80> . # Has SU
 
 # fazer fazer
@@ -32,7 +32,7 @@
     dbo:district <http://dbpedia.org/resource/YourDistrict> ; # Has District
     dbo:parish <http://dbpedia.org/resource/YourParish> ; # Has Parish
     dbo:informationName "Nome do Local"^^xsd:literal; # Name of the Location
-    dbo:country <http://dbpedia.org/resource/Portugal> ; # Country
+    dbo:Country <http://dbpedia.org/resource/Portugal> ; # Country
     excav:hasGPSCoordinates <https://www.purl.org/gps/GPS1> . # Location GPS Coordinates
 
 # # fazer fazer
@@ -71,10 +71,10 @@
 
 # INSTANTS (years)
 <https://www.purl.org/instant/LOWER1> a excav:Instant ;
-    excav:bcad <http://purl.org/megalod/kos/MegaLOD-BCAD#BC> ; # Before or After Christ
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ; # Before or After Christ
     time:inXSDgYear "2500"^^xsd:gYear . # Year
 
 <https://www.purl.org/instant/UPPER1> a excav:Instant ;
-    excav:bcad <http://purl.org/megalod/kos/MegaLOD-BCAD#BC> ;
+    excav:bcad <https://purl.org/megalod/kos/MegaLOD-BCAD/BC> ;
     time:inXSDgYear "3000"^^xsd:gYear ;
     excav:foundInExcavation <https://www.purl.org/excavation/CSTVNT> . # Item found in Excavation

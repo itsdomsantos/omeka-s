@@ -74,14 +74,14 @@
     sh:property [
         sh:path dbo:district ;
         sh:name "Has District" ;
-        sh:class dbo:District ;
+        sh:nodeKind sh:IRI ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
     sh:property [
         sh:path dbo:parish ;
         sh:name "Has Parish" ;
-        sh:class dbo:Parish ;
+        sh:nodeKind sh:IRI ;
         sh:minCount 0 ;
         sh:maxCount 1 ;
     ] ;
