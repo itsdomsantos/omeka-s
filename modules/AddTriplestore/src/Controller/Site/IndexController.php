@@ -2378,6 +2378,7 @@ private function normalizeUris($ttlData, $itemSetId) {
     $modifiedTtl = str_replace('<<', '<', $modifiedTtl);
     $modifiedTtl = str_replace('>>', '>', $modifiedTtl);
        
+    error_log('normalized: ' . $modifiedTtl, 3, OMEKA_PATH . '/logs/normalizeeeee_uris.log');
     return $modifiedTtl;
 }
 
@@ -3921,7 +3922,8 @@ private function uploadTtlData(string $ttlData, ?int $itemSetId = null): string 
    
         }
 
-        
+        error_log('ttldata: ' . $ttlData, 3, OMEKA_PATH . '/logs/normalizeeeee_uris.log');
+
         $graphDbResult = $this->sendToGraphDB($ttlData, $itemSetId);
    
         
@@ -7169,7 +7171,7 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
     }
 
     $encounterDefinition = rtrim($encounterDefinition, " ;\n") . " .\n\n";
-    
+    /*
     $encounterDefinition .= "\n# =========== CONTEXT ENTITY DECLARATIONS ===========\n\n";
     
     $existingDeclarations = $this->checkExistingDeclarations($enhancedTtl, $itemSetId, $excavationIdentifier);
@@ -7203,6 +7205,8 @@ private function addEncounterEventToTtl($ttlData, $encounterEvent, $itemSetId) {
         $encounterDefinition .= "    dct:identifier \"{$arrowheadContext['square']}\"^^xsd:literal .\n\n";
     }
     
+    return $enhancedTtl . $encounterDefinition;*/
+
     return $enhancedTtl . $encounterDefinition;
 }
 /**

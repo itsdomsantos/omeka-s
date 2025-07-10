@@ -387,9 +387,9 @@
         sh:minCount 0 ;
         sh:maxCount 1 ;
         sh:in (
-            <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated>
-            <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Medium>
-            <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Short>
+            <https://purl.org/megalod/kos/MegaLOD-IndexElongation/elongated>
+            <https://purl.org/megalod/kos/MegaLOD-IndexElongation/medium>
+            <https://purl.org/megalod/kos/MegaLOD-IndexElongation/short>
         ) ;
     ] ;
     sh:property [
@@ -399,9 +399,9 @@
         sh:minCount 0 ;
         sh:maxCount 1 ;
         sh:in (
-            <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thin>
-            <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Medium>
-            <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Thick>
+            <https://purl.org/megalod/kos/MegaLOD-IndexThickness/thin>
+            <https://purl.org/megalod/kos/MegaLOD-IndexThickness/medium>
+            <https://purl.org/megalod/kos/MegaLOD-IndexThickness/thick>
         ) ;
     ] ;
     sh:property [

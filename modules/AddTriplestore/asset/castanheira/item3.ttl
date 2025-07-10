@@ -1,0 +1,97 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
+@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+
+# ========================================================================================
+# ITEM DATA - ITEM 3 (ARROWHEAD-003)
+# ========================================================================================
+
+# =========== ITEM 3 ===========
+
+<https://purl.org/megalod/item/arrowhead-003> a excav:Item, ah:Arrowhead ;
+    dct:identifier "ah-003"^^xsd:literal;
+
+    crm:E57_Material <http://vocab.getty.edu/page/aat/300011175> ; # Silex (Flint)
+    dbo:Annotation "Base côncava; lados rectos; retoque plano, sub-paralelo, profundo, bifacial, continuo, marginal de um lado e plano no outro;"^^xsd:literal;
+    
+    excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/ah-003-coordinates> ;
+    excav:foundInSVU <https://purl.org/megalod/svu/Camada3> ;
+    schema:height <https://purl.org/megalod/typometry/ah-003-height> ;
+    schema:width <https://purl.org/megalod/typometry/ah-003-width> ;
+    schema:depth <https://purl.org/megalod/typometry/ah-003-depth> ;
+
+    excav:foundInSquare <https://purl.org/megalod/square/SQ95-26> ;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/triangle> ;
+
+    ah:hasMorphology <https://purl.org/megalod/Morphology/ah-003-morphology> ;
+    ah:hasChipping <https://purl.org/megalod/Chipping/ah-003-chipping> ;
+
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/medium> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/medium> ;
+    
+    # ENCOUNTER DATE NON MANDATORY - If this information exists, an encounter event is automatically created
+    dct:date "2008"^^xsd:literal .
+
+# =========== COORDINATES ===========
+
+<https://purl.org/megalod/coordinates/ah-003-coordinates> a excav:Coordinates ;
+    geo:long <https://purl.org/megalod/typometry/ah-003-x> ;
+    geo:lat <https://purl.org/megalod/typometry/ah-003-y> ;
+    schema:depth <https://purl.org/megalod/typometry/ah-003-z> .
+
+# =========== TYPOMETRY VALUES ===========
+
+<https://purl.org/megalod/typometry/ah-003-height> a excav:TypometryValue ;
+    schema:value "3.2"^^xsd:decimal .
+
+<https://purl.org/megalod/typometry/ah-003-width> a excav:TypometryValue ;
+    schema:value "2.3"^^xsd:decimal .
+
+<https://purl.org/megalod/typometry/ah-003-depth> a excav:TypometryValue ;
+    schema:value "0.4"^^xsd:decimal .
+
+# =========== COORDINATES IN SQUARE ===========
+
+<https://purl.org/megalod/typometry/ah-003-x> a excav:TypometryValue ;
+    schema:value "0.06"^^xsd:decimal .
+
+<https://purl.org/megalod/typometry/ah-003-y> a excav:TypometryValue ;
+    schema:value "1.04"^^xsd:decimal .
+
+<https://purl.org/megalod/typometry/ah-003-z> a excav:TypometryValue ;
+    schema:value "727.85"^^xsd:decimal .
+
+
+# =========== MORPHOLOGY ===========
+
+<https://purl.org/megalod/Morphology/ah-003-morphology> a ah:Morphology ;
+    ah:point true ;
+    ah:body true ;
+    ah:base <https://purl.org/megalod/kos/ah-base/convex> .
+
+# =========== CHIPPING ===========
+
+<https://purl.org/megalod/Chipping/ah-003-chipping> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/plane> ;
+    ah:chippingAmplitude true ;
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/bifacial> ;
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/continuous> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/median> ;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/median> ;
+    ah:chippingOrientation false .
