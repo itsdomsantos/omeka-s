@@ -518,12 +518,13 @@ class IndexController extends AbstractActionController
                     'item_set_id' => $id,
                     'sort_by' => 'created',
                     'sort_order' => 'desc',
-                    'per_page' => 50
+                    'per_page' => 1000
                 ];
                 
                 
                 $response1 = $this->api()->search('items', $searchParams1);
                 $relatedItems = $response1->getContent();
+                error_log("Related items count: " . count($relatedItems), 3, OMEKA_PATH . '/logs/count-add-triplestore.log');
                 $totalResults1 = $response1->getTotalResults();
                 
                 foreach ($relatedItems as $item) {
@@ -535,8 +536,9 @@ class IndexController extends AbstractActionController
                 }
                 if (empty($relatedItems)) {
                     
-                    $allItemsResponse = $this->api()->search('items', ['per_page' => 100]);
+                    $allItemsResponse = $this->api()->search('items', ['per_page' => 1000]);
                     $allItems = $allItemsResponse->getContent();
+                    error_log("All items count: " . count($allItems), 3, OMEKA_PATH . '/logs/count-add-triplestore.log');
                                     
                     foreach ($allItems as $item) {
                         $itemSets = $item->itemSets();
@@ -632,7 +634,9 @@ class IndexController extends AbstractActionController
             return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
         }
 
-       
+        error_log("View details action called for resource type: $resourceType, ID: $id", 3, OMEKA_PATH . '/logs/count-add-triplestore.log');
+        error_log("Related items count: " . count($relatedItems), 3, OMEKA_PATH . '/logs/count-add-triplestore.log');
+
         return new ViewModel([
             'resource' => $resource,
             'resourceType' => $resourceType,
@@ -3109,12 +3113,12 @@ private function processArchaeologicalContextSelections($formData, $itemSetId, $
         }
         
         if (!empty($formData['elongation_index'])) {
-            $ttl .= "    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/" . $formData['elongation_index'] . ">;\n";
+            $ttl .= "    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/" . strtolower($formData['elongation_index']) . ">;\n";
         }
 
         // thickness index
         if (!empty($formData['thickness_index'])) {
-            $ttl .= "    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/" . $formData['thickness_index'] . ">;\n";
+            $ttl .= "    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/" . strtolower($formData['thickness_index']) . ">;\n";
         }
         
         // Add material
@@ -9467,13 +9471,18 @@ private function getArchaeologistOptions()
 private function getCountryOptions()
 {
     $query = "
-    PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
-PREFIX dbo: <http://dbpedia.org/ontology/>
+
+    PREFIX dbo: <http://dbpedia.org/ontology/>
+PREFIX excav: <https://purl.org/megalod/ms/excavation/>
 
 SELECT DISTINCT ?countryName
 WHERE {
-  ?country rdf:type dbo:Country .
-  BIND(REPLACE(STR(?country), 'http://dbpedia.org/resource/', '') AS ?countryName)}";
+  ?location a excav:Location ;
+            dbo:Country ?country .
+  BIND(REPLACE(STR(?country), 'http://dbpedia.org/resource/', '') AS ?countryName)
+}
+ORDER BY ?countryName
+    ";
     ;
     
     try {

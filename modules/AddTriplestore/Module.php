@@ -63,6 +63,13 @@ public function onBootstrap(MvcEvent $event)
     $acl->allow('guest', [
         'Omeka\Controller\Api',
     ], ['create', 'update', 'delete', 'read']); 
+
+    $acl->allow('guest', [
+        'Omeka\Entity\ResourceClass',
+        'Omeka\Entity\ResourceTemplate',
+        'Omeka\Api\Adapter\ResourceClassAdapter',
+        'Omeka\Api\Adapter\ResourceTemplateAdapter'
+    ], ['read']);
 }
 
 

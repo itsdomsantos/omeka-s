@@ -240,33 +240,19 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
             
             <?php 
             $arrowheadItems = [];
-            if (!empty($relatedItems)) {
-                foreach ($relatedItems as $item) {
-                    $isArrowhead = false;
-                    
-                    $resourceClass = $item->resourceClass();
-                    if ($resourceClass && $resourceClass->term() === 'ah:Arrowhead') {
-                        $isArrowhead = true;
-                    }
-                    
-                    $resourceTemplate = $item->resourceTemplate();
-                    if ($resourceTemplate && 
-                        (strpos(strtolower($resourceTemplate->label()), 'arrowhead') !== false)) {
-                        $isArrowhead = true;
-                    }
-                    
-                    $title = strtolower($item->displayTitle());
-                    if (strpos($title, 'arrowhead') !== false || 
-                        strpos($title, 'arrow head') !== false ||
-                        strpos($title, 'point') !== false) {
-                        $isArrowhead = true;
-                    }
-                    
-                    if ($isArrowhead) {
-                        $arrowheadItems[] = $item;
-                    }
-                }
-            }
+if (!empty($relatedItems)) {
+    foreach ($relatedItems as $item) {
+        $title = $item->displayTitle();
+        
+        // Check if title STARTS WITH "Arrowhead" or "Archaeological Item"
+        if (stripos($title, 'Arrowhead') === 0 || stripos($title, 'Archaeological Item') === 0) {
+            $arrowheadItems[] = $item;
+        }
+    }
+}
+
+
+
             
             $itemCount = count($arrowheadItems);
             ?>
