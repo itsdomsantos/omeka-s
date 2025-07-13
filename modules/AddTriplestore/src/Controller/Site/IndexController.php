@@ -1955,7 +1955,8 @@ private function generateContextTtl($contextUri, $context, $allEntities, $baseUr
             
             if ($contextFound && isset($allEntities['svus'][$relationship['svu']])) {
                 $svu = $allEntities['svus'][$relationship['svu']];
-                $svuUri = "$baseUri/svu/" . $this->sanitizeForUri($svu['svu_id']);
+                $svuSlug = $this->createUrlSlug($svu['svu_id']);
+                $svuUri = "$baseUri/svu/$svuSlug";
                 $ttl .= "    excav:hasSVU <$svuUri> ;\n";
             }
         }

@@ -44,10 +44,10 @@ public function onBootstrap(MvcEvent $event)
     
 
     $acl->allow(
-        null,
-        ['AddTriplestore\Controller\Site\Index'],
-        ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout', 'dashboard', 'myData', 'processFileUpload', 'uploadTtlData', 'downloadTemplate']
-    );
+    null,
+    ['AddTriplestore\Controller\Site\Index'],
+    ['index', 'search', 'viewDetails', 'processCollectingForm', 'downloadTtl', 'aboutUs', 'upload', 'login', 'signup', 'logout', 'dashboard', 'myData', 'processFileUpload', 'uploadTtlData', 'downloadTemplate', 'sparql']
+);
     
 
     $acl->allow('guest', [
