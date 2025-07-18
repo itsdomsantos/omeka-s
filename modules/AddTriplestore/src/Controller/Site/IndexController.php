@@ -7735,7 +7735,7 @@ private function getRealIdentifierFromOmekaItem($itemId) {
             
             '/Square\s+([A-Za-z0-9\-_]+)/',
             
-            '/Archaeological Item\s+([A-Za-z0-9\-_]+)/',
+            '/Arrowhead\s+([A-Za-z0-9\-_]+)/',
             
             '/\b(Layer-\d+)\b/',          
             '/\b(CTX-\d+)\b/',            
