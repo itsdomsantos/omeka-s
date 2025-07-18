@@ -463,7 +463,7 @@ class IndexController extends AbstractActionController
         return $view;
     }
 
-    /**
+/**
      * Show details for an item or item set.
      *
      * Gets the resource by id and type, and fetches related items for item sets.
@@ -473,60 +473,76 @@ class IndexController extends AbstractActionController
     public function viewDetailsAction()
     {
         $request = $this->getRequest();
-        $resourceType = $request->getQuery('type', 'item');
-        $id = $request->getQuery('id');
-        
-        // if no iD is provided, redirect to search page
-        if (!$id) {
+        $requestedResourceType = $request->getQuery('type', 'item'); // Rename to avoid confusion
+        $requestedId = (int) $request->getQuery('id'); // Ensure it's an integer
+        error_log("View details action called for resource type: $requestedResourceType, ID: $requestedId", 3, OMEKA_PATH . '/logs/countt-add-triplestore.log');
+
+        // if no ID is provided, redirect to search page
+        if (!$requestedId) {
             return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
         }
-        
-        $resource = null;
+
+        $resourceToDisplay = null; // This will be the actual object for the primary display
+        $itemSetIdForLink = null; // This will store the correct item_set_id for links
+
         $properties = [];
-        $relatedItems = []; 
+        $relatedItems = [];
         $media = [];
-        
+
         try {
-            if ($resourceType === 'item_set') {
-                // Try to get the main excavation item inside the item set
+            if ($requestedResourceType === 'item_set') {
+                // When type is 'item_set', the requested ID IS the item_set_id
+                $itemSetIdForLink = $requestedId;
+
+                // First, try to fetch the item set itself as the primary resource to display
+                $itemSetResource = $this->api()->read('item_sets', $requestedId)->getContent();
+
+                if (!$itemSetResource) {
+                    throw new \Exception("Item Set with ID {$requestedId} not found.");
+                }
+
+                $resourceToDisplay = $itemSetResource; // Default: display the item set itself
+
+                // Optionally: Find a specific 'excavation' item within the item set for primary display
+                // This part is for *displaying* a specific item, but $itemSetIdForLink remains the true item set ID.
                 $excavationItems = $this->api()->search('items', [
-                    'item_set_id' => $id,
+                    'item_set_id' => $requestedId, // Use the correct requestedId here
                     'sort_by' => 'created',
                     'sort_order' => 'asc',
                     'limit' => 10
                 ])->getContent();
 
-                $resource = null;
                 foreach ($excavationItems as $item) {
                     $resourceClass = $item->resourceClass();
                     if ($resourceClass && (
                         stripos($resourceClass->label(), 'excavation') !== false ||
                         stripos($item->displayTitle(), 'excavation') !== false
                     )) {
-                        $resource = $item;
+                        $resourceToDisplay = $item; // If found, display this item instead of the item set
                         break;
                     }
                 }
-                if (!$resource && !empty($excavationItems)) {
-                    $resource = $excavationItems[0];
+                if (!$resourceToDisplay->resourceName() === 'items' && !empty($excavationItems)) {
+                     // If resourceToDisplay is still the itemSet and there are items,
+                     // perhaps default to the first item for display purposes if no specific excavation item was found.
+                     // IMPORTANT: Ensure this doesn't overwrite $itemSetIdForLink
+                     $resourceToDisplay = $excavationItems[0];
                 }
-                if (!$resource) {
-                    $resource = $this->api()->read('item_sets', $id)->getContent();
-                }
-                
+
+
+                // Fetch all related items for this item set
                 $searchParams1 = [
-                    'item_set_id' => $id,
+                    'item_set_id' => $requestedId, // Use the correct requestedId for related items
                     'sort_by' => 'created',
                     'sort_order' => 'desc',
                     'per_page' => 1000
                 ];
-                
-                
+
                 $response1 = $this->api()->search('items', $searchParams1);
                 $relatedItems = $response1->getContent();
                 error_log("Related items count: " . count($relatedItems), 3, OMEKA_PATH . '/logs/count-add-triplestore.log');
-                $totalResults1 = $response1->getTotalResults();
-                
+                // $totalResults1 = $response1->getTotalResults(); // Not used, can remove
+
                 foreach ($relatedItems as $item) {
                     foreach ($item->media() as $m) {
                         if (strpos($m->mediaType(), 'image/') === 0) {
@@ -534,48 +550,66 @@ class IndexController extends AbstractActionController
                         }
                     }
                 }
+
+                // This block looks like a fallback if search('items', ['item_set_id' => $id]) fails.
+                // It's less efficient as it iterates through ALL items.
+                // It might indicate an underlying data model issue if the direct search fails.
+                // Consider if this is truly needed or if the item_set_id search should always work.
                 if (empty($relatedItems)) {
-                    
                     $allItemsResponse = $this->api()->search('items', ['per_page' => 1000]);
                     $allItems = $allItemsResponse->getContent();
                     error_log("All items count: " . count($allItems), 3, OMEKA_PATH . '/logs/count-add-triplestore.log');
-                                    
+
                     foreach ($allItems as $item) {
                         $itemSets = $item->itemSets();
                         foreach ($itemSets as $itemSet) {
-                            if ($itemSet->id() == $id) {
+                            if ($itemSet->id() == $requestedId) { // Check against the original requestedId
                                 $relatedItems[] = $item;
                             }
                         }
                     }
                 }
-                            
-            } else {
-                $resource = $this->api()->read('items', $id)->getContent();
-               
-                foreach ($resource->media() as $m) {
+
+            } else { // requestedResourceType is 'item' (Artifact)
+                $resourceToDisplay = $this->api()->read('items', $requestedId)->getContent();
+
+                if (!$resourceToDisplay) {
+                    throw new \Exception("Item with ID {$requestedId} not found.");
+                }
+
+                // If viewing an item, we still need its item_set_id if it belongs to one
+                // for any 'Add artifacts to this excavation' type links in the sidebar
+                // (though that section will likely be hidden for 'item' view)
+                $itemSets = $resourceToDisplay->itemSets();
+                if (!empty($itemSets)) {
+                    $itemSetIdForLink = $itemSets[0]->id(); // Take the first item set ID this item belongs to
+                }
+
+                foreach ($resourceToDisplay->media() as $m) {
                     if (strpos($m->mediaType(), 'image/') === 0) {
                         $media[] = $m;
                     }
                 }
             }
-            
-            $values = $resource->values();
-            
+
+            if (!$resourceToDisplay) {
+                throw new \Exception("Resource could not be loaded.");
+            }
+
+            $values = $resourceToDisplay->values(); // Get properties from the resource being displayed
+
             foreach ($values as $term => $propertyData) {
                 try {
                     if (empty($propertyData)) {
                         continue;
                     }
-                    
+
                     $propertyLabel = $this->getHumanReadableLabel($term);
                     $propertyValues = [];
-                    
-                    if (is_array($propertyData)) {
 
+                    if (is_array($propertyData)) {
                         if (isset($propertyData['values']) && is_array($propertyData['values'])) {
                             $propertyValues = $propertyData['values'];
-                            
                             if (isset($propertyData['property']) && is_object($propertyData['property'])) {
                                 if (method_exists($propertyData['property'], 'label')) {
                                     $propertyLabel = $propertyData['property']->label();
@@ -585,8 +619,6 @@ class IndexController extends AbstractActionController
                             foreach ($propertyData as $item) {
                                 if (is_object($item) && method_exists($item, 'value')) {
                                     $propertyValues[] = $item;
-
-
                                     if (empty($propertyValues) && method_exists($item, 'property')) {
                                         $prop = $item->property();
                                         if ($prop && method_exists($prop, 'label')) {
@@ -598,7 +630,6 @@ class IndexController extends AbstractActionController
                         }
                     } else if (is_object($propertyData) && method_exists($propertyData, 'value')) {
                         $propertyValues = [$propertyData];
-                        
                         if (method_exists($propertyData, 'property')) {
                             $prop = $propertyData->property();
                             if ($prop && method_exists($prop, 'label')) {
@@ -607,8 +638,6 @@ class IndexController extends AbstractActionController
                         }
                     }
 
-                    
-                    
                     if (!empty($propertyValues)) {
                         $properties[] = [
                             'term' => $term,
@@ -616,30 +645,31 @@ class IndexController extends AbstractActionController
                             'values' => $propertyValues
                         ];
                     }
-                    
+
                 } catch (\Exception $e) {
+                    // Log the exception if needed, but continue processing other properties
+                    error_log("Error processing property {$term}: " . $e->getMessage(), 3, OMEKA_PATH . '/logs/countt-add-triplestore.log');
                     continue;
                 }
             }
-            
-            
+
             usort($properties, function($a, $b) {
                 if ($a['label'] === 'Title') return -1;
                 if ($b['label'] === 'Title') return 1;
                 return strcmp($a['label'], $b['label']);
             });
-            
+
         } catch (\Exception $e) {
-            $this->messenger()->addError('The requested resource could not be found.');
+            $this->messenger()->addError('The requested resource could not be found: ' . $e->getMessage());
             return $this->redirect()->toRoute('site/add-triplestore/search', ['site-slug' => $this->currentSite()->slug()]);
         }
 
-        error_log("View details action called for resource type: $resourceType, ID: $id", 3, OMEKA_PATH . '/logs/count-add-triplestore.log');
-        error_log("Related items count: " . count($relatedItems), 3, OMEKA_PATH . '/logs/count-add-triplestore.log');
+        error_log("Final VIEW MODEL: resourceType: $requestedResourceType, requestedId: $requestedId, resourceToDisplay ID: " . ($resourceToDisplay ? $resourceToDisplay->id() : 'N/A') . ", itemSetIdForLink: " . ($itemSetIdForLink ?? 'N/A'), 3, OMEKA_PATH . '/logs/countt-add-triplestore.log');
 
         return new ViewModel([
-            'resource' => $resource,
-            'resourceType' => $resourceType,
+            'resource' => $resourceToDisplay, // Pass the resource intended for display (could be item set or item)
+            'resourceType' => $requestedResourceType, // The type requested by the URL
+            'itemSetIdForLink' => $itemSetIdForLink, // THIS IS THE KEY: The correct item set ID for "Add Artifacts" links
             'properties' => $properties,
             'relatedItems' => $relatedItems,
             'media' => $media,
@@ -663,6 +693,7 @@ class IndexController extends AbstractActionController
             return $redirect;
 
         $itemSetId = $this->params()->fromQuery('item_set_id');
+        error_log("Processing collecting form for item set ID: $itemSetId", 3, OMEKA_PATH . '/logs/count-add-triplestore.log');
         $uploadType = $this->params()->fromQuery('upload_type', 'arrowhead');
         
         // Get data from the collecting form
@@ -679,7 +710,8 @@ class IndexController extends AbstractActionController
         if (!empty($arrowheadData)) {
             $ttlData = $this->processArrowheadFormData($arrowheadData, $itemSetId);
 
-            $result = $this->uploadTtlDataWithMedia($ttlData, $itemSetId, $uploadedFiles);        
+            $result = $this->uploadTtlDataWithMedia($ttlData, $itemSetId, $uploadedFiles);   
+            
             
             // Redirect to excavation context with success message
             return $this->redirect()->toUrl($this->url()->fromRoute('site/add-triplestore/upload', [

@@ -191,12 +191,17 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
                     </li>
                     
                     <?php if ($resourceType === 'Excavation'): ?>
-                        <li>
-                            <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $resource->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="action-link">
-                                <span class="icon">➕</span> Add Artifacts to this Excavation
-                            </a>
-                        </li>
-                    <?php endif; ?>
+    <li>
+        <script>
+            console.log('Item Set ID (from itemSetIdForLink variable):', <?php echo json_encode($itemSetIdForLink); ?>);
+            console.log('Resource being displayed ID (usually an item within the set, if found):', <?php echo json_encode($resource->id()); ?>);
+        </script>
+
+        <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $itemSetIdForLink, 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="action-link">
+            <span class="icon">➕</span> Add Artifacts to this Excavation
+        </a>
+    </li>
+<?php endif; ?>
                     
                     <li>
                         <a href="<?php echo $this->url('site/add-triplestore/download-ttl', ['site-slug' => $site->slug()], ['query' => ['id' => $resource->id(), 'type' => ($resourceType === 'Excavation' ? 'item_set' : 'item')]]); ?>" class="action-link" target="_blank">
