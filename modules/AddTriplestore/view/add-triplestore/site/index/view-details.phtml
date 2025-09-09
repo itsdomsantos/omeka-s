@@ -82,7 +82,7 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
         <?php else: ?>
             <div class="no-related-items">
                 <p>No artifacts found in this excavation.</p>
-                <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $resource->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add Artifacts to this Excavation</a>
+                <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $itemSetIdForLink, 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add Artifacts to this Excavation</a>
             </div>
         <?php endif; ?>
                 </div>
@@ -191,20 +191,22 @@ $resourceType = ($resourceType === 'item_set') ? 'Excavation' : 'Artifact';
                     </li>
                     
                     <?php if ($resourceType === 'Excavation'): ?>
-    <li>
-        <script>
-            console.log('Item Set ID (from itemSetIdForLink variable):', <?php echo json_encode($itemSetIdForLink); ?>);
-            console.log('Resource being displayed ID (usually an item within the set, if found):', <?php echo json_encode($resource->id()); ?>);
-        </script>
-
-        <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $itemSetIdForLink, 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="action-link">
-            <span class="icon">➕</span> Add Artifacts to this Excavation
-        </a>
-    </li>
-<?php endif; ?>
+                        <li>
+                            <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $itemSetIdForLink, 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="action-link">
+                                <span class="icon">➕</span> Add Artifacts to this Excavation
+                            </a>
+                        </li>
+                    <?php endif; ?>
                     
                     <li>
-                        <a href="<?php echo $this->url('site/add-triplestore/download-ttl', ['site-slug' => $site->slug()], ['query' => ['id' => $resource->id(), 'type' => ($resourceType === 'Excavation' ? 'item_set' : 'item')]]); ?>" class="action-link" target="_blank">
+                        <a href="<?php
+                            $idParam = ($resourceType === 'Excavation' ? $itemSetIdForLink : $resource->id());
+                            $typeParam = ($resourceType === 'Excavation' ? 'item_set' : 'item');
+                            echo $this->url('site/add-triplestore/download-ttl',
+                                ['site-slug' => $site->slug()],
+                                ['query' => ['id' => $idParam, 'type' => $typeParam]]
+                            );
+                        ?>" class="action-link" target="_blank">
                             <span class="icon">📥</span> Download TTL Data
                         </a>
                     </li>
@@ -292,12 +294,12 @@ if (!empty($relatedItems)) {
                 </div>
                 
                 <div class="add-artifacts-action">
-                    <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $resource->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add New Arrowheads</a>
+                    <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $itemSetIdForLink, 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add New Arrowheads</a>
                 </div>
             <?php else: ?>
                 <div class="no-items">
                     <p>There are no arrowheads in this excavation yet.</p>
-                    <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $resource->id(), 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add Arrowheads</a>
+                    <a href="<?php echo $this->url('site/add-triplestore/upload', ['site-slug' => $site->slug()], ['query' => ['item_set_id' => $itemSetIdForLink, 'upload_type' => 'arrowhead', 'mode' => 'form']]); ?>" class="add-button">Add Arrowheads</a>
                 </div>
             <?php endif; ?>
         </div>

@@ -581,8 +581,10 @@ class IndexController extends AbstractActionController
                 // for any 'Add artifacts to this excavation' type links in the sidebar
                 // (though that section will likely be hidden for 'item' view)
                 $itemSets = $resourceToDisplay->itemSets();
-                if (!empty($itemSets)) {
-                    $itemSetIdForLink = $itemSets[0]->id(); // Take the first item set ID this item belongs to
+                if (!empty($itemSets) && isset($itemSets[0]) && is_object($itemSets[0])) {
+                $itemSetIdForLink = $itemSets[0]->id(); // Take the first item set ID this item belongs to
+                } else {
+                    $itemSetIdForLink = null; // Explicitly set to null if no item set is found
                 }
 
                 foreach ($resourceToDisplay->media() as $m) {
@@ -1101,7 +1103,7 @@ class IndexController extends AbstractActionController
 
     // ================== SEARCH ACTIONS ==================
 
-    /**
+/**
      * This method handles the search functionality for items and item sets.
      * @return ViewModel
      */
@@ -1275,7 +1277,11 @@ class IndexController extends AbstractActionController
                 
                 //  search query
                 if ($searchQuery) {
-                    $itemQuery['fulltext_search'] = $searchQuery;
+                    if ($searchQuery === 'arrowhead') {
+                        $itemQuery['fulltext_search'] = 'arrowhead* OR "archaeological item*"';
+                    } else {
+                        $itemQuery['fulltext_search'] = $searchQuery;
+                    }
                 }
                 
                 // Apply arrowhead filters
