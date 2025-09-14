@@ -1,0 +1,120 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix dbo: <http://dbpedia.org/ontology/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+@prefix crmsci: <http://cidoc-crm.org/extensions/crmsci/> .
+@prefix crmarchaeo: <http://www.cidoc-crm.org/extensions/crmarchaeo/> .
+@prefix edm: <http://www.europeana.eu/schemas/edm/> .
+@prefix geo: <http://www.w3.org/2003/01/geo/wgs84_pos#> .
+@prefix time: <http://www.w3.org/2006/time#> .
+@prefix schema: <http://schema.org/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix dul: <http://www.ontologydesignpatterns.org/ont/dul/DUL.owl#> .
+
+
+# ========================================================================================
+# ITEM DATA - ARTIFACTS FOUND AT PRESENTATION
+# ========================================================================================
+
+# =========== ITEMS ===========
+
+<https://purl.org/megalod/item/arrowhead-002> a excav:Item, ah:Arrowhead ;
+    dct:identifier "AH-002"^^xsd:literal;
+    edm:Webresource <https://example.com/images/arrowhead-002.jpg> ;
+    dbo:Annotation "Large, stemmed arrowhead with bifacial retouch"^^xsd:literal;
+    crm:E3_Condition_State true ;
+    crm:E57_Material <https://purl.org/megalod/material/flint> ;
+    excav:hasCoordinatesInSquare <https://purl.org/megalod/coordinates/ah-002> ;
+    excav:foundInContext <https://purl.org/megalod/example/context/CTX-001> ;
+    excav:foundInSVU <https://purl.org/megalod/example/svu/SVU-001-1> ;
+    schema:height <https://purl.org/megalod/typometry/ah-002-height> ;
+    schema:width <https://purl.org/megalod/typometry/ah-002-width> ;
+    schema:depth <https://purl.org/megalod/typometry/ah-002-depth> ;
+    schema:Weight <https://purl.org/megalod/weight/ah-002> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Medium> ;
+    excav:foundInLocation <https://purl.org/megalod/example/location/presentation-location> ;
+    excav:foundInSquare <https://purl.org/megalod/square/A2> ;
+    ah:shape <https://purl.org/megalod/kos/ah-shape/stemmed> ;
+    crm:E55_Type true ;
+    ah:variant <https://purl.org/megalod/kos/ah-variant/raised> ;
+    ah:hasMorphology <https://purl.org/megalod/Morphology/ah-002> ;
+    ah:hasBodyLength <https://purl.org/megalod/BodyLength/ah-002> ;
+    ah:hasBaseLength <https://purl.org/megalod/BaseLength/ah-002> ;
+    ah:hasChipping <https://purl.org/megalod/Chipping/ah-002> .
+
+# =========== COORDINATES ===========
+
+
+<https://purl.org/megalod/coordinates/ah-002> a excav:Coordinates ;
+    geo:longitude <https://purl.org/megalod/typometry/ah-002-x> ;
+    geo:latitude <https://purl.org/megalod/typometry/ah-002-y> ;
+    schema:depth <https://purl.org/megalod/typometry/ah-002-z> .
+
+# =========== TYPOMETRY VALUES ===========
+
+
+
+<https://purl.org/megalod/typometry/ah-002-height> a excav:TypometryValue ;
+    schema:value "5.1"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/ah-002-width> a excav:TypometryValue ;
+    schema:value "2.8"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/ah-002-depth> a excav:TypometryValue ;
+    schema:value "0.7"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+# =========== COORDINATES IN SQUARE ===========
+
+
+
+<https://purl.org/megalod/typometry/ah-002-x> a excav:TypometryValue ;
+    schema:value "15.3"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/ah-002-y> a excav:TypometryValue ;
+    schema:value "88.9"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/typometry/ah-002-z> a excav:TypometryValue ;
+    schema:value "0.9"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+# =========== WEIGHTS ===========
+
+<https://purl.org/megalod/weight/ah-001> a excav:Weight ;
+    schema:value "12.5"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/GRM> .  # grams
+
+
+# =========== MORPHOLOGY ===========
+
+
+
+<https://purl.org/megalod/Morphology/ah-002> a ah:Morphology ;
+    ah:point true ;
+    ah:body true ;
+    ah:base <https://purl.org/megalod/kos/ah-base/stemmed> .
+
+# =========== CHIPPING ===========
+
+
+<https://purl.org/megalod/Chipping/ah-002> a ah:Chipping ;
+    ah:chippingMode <https://purl.org/megalod/kos/ah-chippingMode/parallel> ;
+    ah:chippingAmplitude false ;
+    ah:chippingDirection <https://purl.org/megalod/kos/ah-chippingDirection/bifacial> ;
+    ah:chippingDelineation <https://purl.org/megalod/kos/ah-chippingDelineation/composite> ;
+    ah:chippingLocationSide <https://purl.org/megalod/kos/ah-chippingLocation/distal> , <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
+    ah:chippingLocationTransversal <https://purl.org/megalod/kos/ah-chippingLocation/distal> , <https://purl.org/megalod/kos/ah-chippingLocation/proximal> ;
+    ah:chippingOrientation false ;
+    ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex> .
+

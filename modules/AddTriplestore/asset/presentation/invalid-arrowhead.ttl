@@ -1,0 +1,29 @@
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@prefix dct: <http://purl.org/dc/terms/> .
+@prefix ah: <https://purl.org/megalod/ms/ah/> .
+@prefix excav: <https://purl.org/megalod/ms/excavation/> .
+@prefix crm: <http://www.cidoc-crm.org/cidoc-crm/> .
+
+# Invalid Arrowhead with multiple issues
+<https://purl.org/megalod/example/arrowhead/InvalidArrowhead> a ah:Arrowhead ;
+    # Missing excav:Item class declaration
+    dct:identifier "INVALID-AH-001"^^xsd:literal ;
+    # Invalid shape value - not from controlled vocabulary
+    ah:shape <https://example.org/invalid-shape> ;
+    # Invalid data type for E55_Type - should be boolean
+    crm:E55_Type "Elongated" ;
+    # Invalid morphology - missing required properties
+    ah:hasMorphology <https://purl.org/megalod/example/morphology/InvalidArrowhead> ;
+    # Missing chipping information
+    # Invalid elongation index - not from controlled vocabulary
+    excav:elongationIndex "very elongated" .
+
+# Invalid morphology with missing and invalid properties
+<https://purl.org/megalod/example/morphology/InvalidArrowhead> a ah:Morphology ;
+    # Missing point property
+    # Invalid type for body property - should be boolean
+    ah:body "yes" ;
+    # Invalid base value - not from controlled vocabulary
+    ah:base "rounded" .
