@@ -53378,3 +53378,4 @@ _:7975660053a04e57a418b233e75681ac3098525 <http://www.w3.org/ns/shacl#sourceShap
 _:05719cad-a164-4848-a858-0d660507ee15-77 <http://www.w3.org/ns/shacl#path> <https://purl.org/megalod/ms/ah/hasBaseLength> .
 _:05719cad-a164-4848-a858-0d660507ee15-77 <http://www.w3.org/ns/shacl#class> <https://purl.org/megalod/ms/excavation/TypometryValue> .
 
+2025-09-14T22:34:52+00:00 INFO (6): Response Status: 204 | Response Body:

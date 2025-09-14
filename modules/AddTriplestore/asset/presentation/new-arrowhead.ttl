@@ -37,8 +37,8 @@
     schema:width <https://purl.org/megalod/typometry/ah-002-width> ;
     schema:depth <https://purl.org/megalod/typometry/ah-002-depth> ;
     schema:Weight <https://purl.org/megalod/weight/ah-002> ;
-    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/Elongated> ;
-    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/Medium> ;
+    excav:elongationIndex <https://purl.org/megalod/kos/MegaLOD-IndexElongation/elongated> ;
+    excav:thicknessIndex <https://purl.org/megalod/kos/MegaLOD-IndexThickness/medium> ;
     excav:foundInLocation <https://purl.org/megalod/example/location/presentation-location> ;
     excav:foundInSquare <https://purl.org/megalod/square/A2> ;
     ah:shape <https://purl.org/megalod/kos/ah-shape/stemmed> ;
@@ -118,3 +118,13 @@
     ah:chippingOrientation false ;
     ah:chippingShape <https://purl.org/megalod/kos/ah-chippingShape/convex> .
 
+
+# length
+
+<https://purl.org/megalod/BodyLength/ah-002> a excav:TypometryValue ;
+    schema:value "4.2"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
+
+<https://purl.org/megalod/BaseLength/ah-002> a excav:TypometryValue ;
+    schema:value "1.8"^^xsd:decimal ;
+    schema:UnitCode <http://qudt.org/vocab/unit/CMT> .
